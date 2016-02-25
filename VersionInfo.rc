@@ -1,0 +1,29 @@
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+1 VERSIONINFO
+FILEVERSION 1,6,0,0
+PRODUCTVERSION 1,6,0,0
+FILEOS 0x4
+FILETYPE 0x1
+{
+BLOCK "StringFileInfo"
+{
+BLOCK "040904E4"
+{
+VALUE "CompanyName", "DavidB" "\0"
+VALUE "FileDescription", "Virtual Machine USB Boot" "\0"
+VALUE "FileVersion", "1.6.0.0" "\0"
+VALUE "InternalName", "Virtual Machine USB Boot.exe" "\0"
+VALUE "LegalCopyright", "DavidB" "\0"
+VALUE "LegalTrademarks", "Use it, modify it but don't sell it..." "\0"
+VALUE "OriginalFilename", "Virtual Machine USB Boot.exe" "\0"
+VALUE "ProductName", "Virtual Machine USB Boot" "\0"
+VALUE "ProductVersion", "1.6.0.0" "\0"
+VALUE "Comments", "Virtual Machine USB Boot" "\0"
+}
+}
+
+BLOCK "VarFileInfo"
+{
+VALUE "Translation", 0x0409 0x04E4
+}
+}

@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Interface>
+  <Language>
+    <Name>German</Name>
+    <Author>Achim Vossler and Blackcrack</Author>
+    <Version>1.2.0.0</Version>
+  </Language>
+  <Main>
+    <Buttons>
+      <Start>Starten</Start>
+      <Add>Hinzufügen</Add>
+      <Edit>Editieren</Edit>
+      <Delete>Löschen</Delete>
+      <Manager>Manager</Manager>
+      <Options>Einstellen</Options>
+      <Exit>Verlassen</Exit>
+    </Buttons>
+    <List>
+      <Header>
+        <VMName>VM Name</VMName>
+        <Drive>Laufwerk</Drive>
+        <FirstDrive>Erstes Laufwerk</FirstDrive>
+        <SecondDrive>Zweites Laufwerk</SecondDrive>
+      </Header>
+      <Menu>
+        <Add>Hinzufügen</Add>
+        <Edit>editieren</Edit>
+        <Clone>klonen</Clone>
+        <Delete>löschen</Delete>
+        <FileExplorer>Open %s in Explorer</FileExplorer>
+        <Eject>Eject</Eject>
+        <MoveUp>nach unten</MoveUp>
+        <MoveDown>nach oben</MoveDown>
+        <Refresh>neu laden</Refresh>
+      </Menu>
+    </List>
+    <Messages>
+      <InfoStart>Es dauert ein paar Sekunden zum ändern der \r\nVM-Konfiguration-Datei und ein paar Sekunden, um zu starten.\r\n\r\nAlso bitte Geduld, während ich mit der Durchführung dieser Operationen.\r\n\r\nKlicken Sie auf %s weiter...</InfoStart>
+      <NoInternet>Keine Internetverbindung erkannt!</NoInternet>
+      <NoHelp>Hilfe Seite nicht gefunden oder Fehler beim Öffnen Browser!</NoHelp>
+      <TryLock>Der Versuch, Volume '%s' auf "%s" zu sperren...</TryLock>
+      <CancelLock> Abbrechen (unsicher)</CancelLock>
+      <CantOpenToRead>"%s" konnte zum lesen nicht geöffnet werden !\r\n\r\nSystemmeldung: %s</CantOpenToRead>
+      <CantRead>Es konnte nicht gelesen werden auf "%s" !\r\n\r\nSystemmeldung: %s</CantRead>
+      <CantCreate>"%s" Konnte nicht erstellt werden!</CantCreate>
+      <CantCreateOrOpen>Could not create or open "%s" for writing !\r\n\r\nSystemmeldung: %s</CantCreateOrOpen>
+      <CantWrite>"%s" konnte nicht erstellt oder zum schreiben geöffnet werden !\r\n\r\nSystemmeldung: %s</CantWrite>
+      <SureDeleteEntry> Bist du sicher, dass du diesen Eintrag wirklich löschen willst...? </SureDeleteEntry>
+      <UnknownError>unbekannter Fehler, melden Sie dies bitte dem Autor\r\nmiteine vollständige Beschreibung, was du tust um diesen Fehler zu repoduzieren. </UnknownError>
+      <ErrorRetrievingPathID>Fehler beim Laden von VM-Pfad/ ID von den exe-Parameter,\r\nBitte überprüfen sie den Pfad/ID.</ErrorRetrievingPathID>
+      <ErrorRetrievingPath>Fehler beim Laden von VM Weg von VirtualBox.xml,\r\nBitte ersetzen Sie die Datei oder ermöglichen Sie das lesen der Datei.</ErrorRetrievingPath>
+      <CouldNotFindVM> konnte die VM in VirtualBox-Konfigurationsdateien zu finden,\r\nBitte eine gültige VM eingestellen.</CouldNotFindVM>
+      <VBManNoAdm1>In order for VBoxManage.exe to be able to properly comunicate with\r\nVirtualBox it needs a VirtualBox session started with "Run as administrator"!\r\n\r\nAre you sure you want to continue..?</VBManNoAdm1>
+      <VBManNoAdm2>In order for VBoxManage.exe to be able to properly comunicate with\r\nVirtualBox it needs a VirtualBox session started with "Run as administrator"\r\nor all normal VirtualBox sessions to be closed!\r\n\r\nAre you sure you want to continue..?</VBManNoAdm2>
+      <VBManDetected>VirtualBox-Manager wurde ermittelt. \r\nEs wird dringend empfohlen, den VM-Manager nicht in der gleichen Zeit verwenden !\r\n\r\nSoll ich ihn schließen...? (braucht ein paar Secunden für völliges schliessen)</VBManDetected>
+      <CouldNotCloseVBMan>VirtualBox Manager konnte nicht automatisch geschlossen werden !\r\n\r\nBitte schließen Sie es manuell und klicken Sie auf %s...  (braucht ein paar Secunden für völliges schliessen)</CouldNotCloseVBMan>
+      <ErrorVBManNotClosed> Fehler: VirtualBox-Manager nicht geschlossen !</ErrorVBManNotClosed>
+      <AnotherVBManSession>Eine weitere VirtualBox-Manager Instanz festgestellt. \r\nEs wird dringend empfohlen, nicht in der gleichen Zeit zu verwendet !\r\n\r\nSoll ich ihn schließen...? (braucht ein paar Secunden für völliges schliessen)</AnotherVBManSession>
+      <VBVMDetected> A VirtualBox VM Instanz wurde erkannt.\r\nEs wird dringend empfohlen, nicht in der gleichen Zeit zu verwendet !\r\n\r\nBitte schließen Sie es und klicken Sie auf %s... (braucht ein paar Secunden für völliges schliessen)</VBVMDetected>
+      <AnotherVBVMDetected>Another VirtualBox VM was detected.\r\nEs wird dringend empfohlen, nicht in der gleichen Zeit zu verwendet !\r\n\r\nBitte schließen Sie es und klicken Sie auf %s... (braucht ein paar Secunden für völliges schliessen)</AnotherVBVMDetected>
+      <ErrorVBVMNotClosed>Fehler: VirtualBox VM nicht geschlossen</ErrorVBVMNotClosed>
+      <ErrorVBVMAlready>Die VirtualBox VM ist bereits gestartet. Die Konfiguration kann nicht aktualisiert werden. \r\n\r\nBitte schließen Sie es und klicken Sie auf %s... (braucht ein paar Secunden für völliges schliessen)</ErrorVBVMAlready>
+      <WarningQEMUAlready>QEMU seems to be already loaded. It's advisable to be closed\r\nso it wouldn't interfere with the current QEMU session.\r\n\r\nAre you sure you want to continue?</WarningQEMUAlready>
+      <WaitingVBSVCToClose>Warten auf "VBoxSVC.exe" (ein VirtualBox-Komponente) zu schließen ... </WaitingVBSVCToClose>
+      <CancelHide>Ausblenden</CancelHide>
+      <OutOfTimeVBSVC>Zeit vergangen mit Warten auf "VBoxSVC.exe" (ein VirtualBox-Komponente) zu schließen ...! \r\n\r\nSoll ich gewaltsam schließen ...? </OutOfTimeVBSVC>
+      <VBSVCStillOpened>"VBoxSVC.exe" ist noch geöffnet!\r\n\r\n Beenden ...</VBSVCStillOpened>
+      <WaitingPrevSession>Warten auf den vorherige VM-Sitzung um ordnungsgemäß geschlossen zu werden ...</WaitingPrevSession>
+      <CancelSkip>Überspringe das !(unsicher)</CancelSkip>
+      <FirstDriveWUsb>Das erste Laufwerk (%s) scheint nicht auf dem System vorhanden zu sein,\r\nist es nicht verfügbar oder ist kein USB-Laufwerk!\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</FirstDriveWUsb>
+      <FirstDrive>Das erste Laufwerk (%s) scheint nicht\r\nauf dem System vorhanden oder ist nicht zugänglich!\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</FirstDrive>
+      <DriveWUsb>Das Laufwerk (%s) scheint nicht auf dem System zu existieren,\r\nist nicht zugreifbar oder kein USB-Laufwerk !\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</DriveWUsb>
+      <Drive>Das Laufwerk (%s) scheint nicht\r\nauf diesem System vorhanden oder nicht zugänglich ist!\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</Drive>
+      <SecDriveWUsb>Das zweite Laufwerk (%s) scheint nicht auf dem System zu existieren,\r\nist nicht zugreifbar oder kein USB-Laufwerk !\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</SecDriveWUsb>
+      <SecDrive>Das zweite Laufwerk (%s) scheint\r\nnicht auf dem System vorhanden oder nicht zugänglich ist!\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</SecDrive>
+      <CantAccessVolume>Kann nicht auf'%s' on "%s" zugreifen !\r\n\r\nSystemmeldung: %s\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</CantAccessVolume>
+      <UnableLockVolume>Kann nicht '%s' on "%s" abschließen !\r\n\r\nSystemmeldung: %s\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableLockVolume>
+      <UnableDismVolume>Kann nicht '%s' on "%s" entfernen !\r\n\r\nSystemmeldung: %s\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableDismVolume>
+      <UnableFindDevice>Kann nicht "%s" finden !\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableFindDevice>
+      <CannotAccessCDROM>Cannot access the "%s" !\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</CannotAccessCDROM>
+      <CannotAccessMedium>Kann nicht auf das Medium von "%s" zugreifen !\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</CannotAccessMedium>
+      <CDROMDoesntExist>"%s" existiert nicht auf dem System, ist es nicht vorhanden, oder es ist nicht benutzbar! \r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</CDROMDoesntExist>
+      <PleaseAllowAccess>error accesing "%s",\r\nplease allow access.\r\nSystemmeldung: %s</PleaseAllowAccess>
+      <SectionNotFound>Kapitel "%s" nicht in der vbox Datei gefunden! \r\n\r\nEs scheint Oracle das Dateiformat verändert oder es ist eine beschädigte Datei</SectionNotFound>
+      <SavedStateOpen> Es scheint, die VM ist in einem Save Mode Zustand also wird nichts verändert werden oder kann nichts geändert werden, nur gestartet ... \r\n\r\nNur das Du es weist, es ist keine gute Idee den status von einer VM auf einem echten Laufwerk zu speichern,\r\nweil es ist ein hohes Risiko die Daten/dateien zu verfälschen/corrupting auf diesem Laufwerk</SavedStateOpen>
+      <SavedStateClose> Es scheint, die VM ist in einem Save Mode Zustand also wird nichts verändert werden oder kann nichts geändert werden, nur geschlossen ... \r\n\r\nNur das Du es weist, es ist keine gute Idee den status von einer VM auf einem echten Laufwerk zu speichern,\r\nweil es ist ein hohes Risiko die Daten/dateien zu verfälschen/corrupting auf diesem Laufwerk</SavedStateClose>
+      <DividedSnapshots>Der Inhalt von "%s" wird in %d Momentaufnamen unterteilt.\r\nEs ist keine gute Idee, Snapshots mit echten Laufwerken. Aber wenn Sie wirklich wollen, um wenigstens dies zu tun:\r\nWenn Sie einen Schnappschuss oder verknüpften Klon diese VM erstellt sollten Sie manuell jede\r\nVMUBDrive***.vmdk laufwerk vom gelöst sein vor dem snapshot/Klonen Vorgang. </DividedSnapshots>
+      <RemoveDriveOp>entfernen des Laufwerk</RemoveDriveOp>
+      <DetachDriveOp>abnehmen des Laufwerk</DetachDriveOp>
+      <BrokenXML> Fehler beim Zugriff auf XML-Struktur von "%s",\r\nbitte Reparatur der Datei oder ersetzen Sie sie durch eine Sicherungskopie.</BrokenXML>
+      <ErrorWriteProtection>Fehler beim schreiben "%s",\r\nbitte entfernen Sie den Schreibschutz.\r\n\r\nSystemmeldung: %s</ErrorWriteProtection>
+      <ErrorSpaceVolume>Fehler beim schreiben "%s",\r\nbitte machen Sie Platz auf dem Laufwerk '%s' oder Überprüfen sie es auf Fehler.\r\n\r\nSystemmeldung: %s</ErrorSpaceVolume>
+      <ErrorWriteVolume>Fehler beim schreiben "%s",\r\nBitte entfernen Sie den schreibschutz von Laufwerk '%s' Oder überprüfen sie es auf Fehler.\r\nSystemmeldung: %s</ErrorWriteVolume>
+      <UnableFreeInfo>Unmöglich zu finden  einen unbenutzten vmdk Dateiname in\r\n"VMUBDrive000..VMUBDriveFFF" umgebung. Bitte abtrennen und löschen Sie die nicht benutzten. \r\nDu kannst das tun, indem Sie das VirtualBox-Manager, dann den Media Manager aufrufst\r\n\r\nund and löscht einen oder mehrere VMUBDrive***.vmdk.</UnableFreeInfo>
+      <FreePortAdvice>Unmöglich einen freien Port beim Festplattencontroller in der VirtualBox VM zu finden,\r\nbitte entferne einen und probiere es nochmal.\r\nDu kannst das machen in dem Du den VirtualBox Manager startest, editiere die VM Festplatten einstellungen\r\nund erhöhe die Anzahl an Ports des Speicher-Controller.</FreePortAdvice>
+      <FreePort>Unmöglich einen freien Port beim Festplattencontroller in der VirtualBox VM zu finden,\r\nbitte entferne einen und versuch es nochmal.</FreePort>
+      <AttachDriveOp>anschließen des Laufwerks</AttachDriveOp>
+      <FreePortAdviceIde>Unmöglich einen freien Port beim Festplattencontroller in der VirtualBox VM zu finden,\r\nbitte entferne einen und versuch es nochmal.\r\nDu kannst das tun, indem Sie das VirtualBox-Manager, dann den VM Datenträher Optionen aufrufst\r\nund löscht eine oder mehr VMFestplatten vom IDE controller.</FreePortAdviceIde>
+      <NoStorageAdvice>Unmöglich einen freien Port beim Festplattencontroller in der VirtualBox VM zu finden,\r\nbitte entferne einen und versuch es nochmal.\r\nDu kannst das tun, indem Sie das VirtualBox-Manager, dann den VM Datenträher Optionen aufrufst\r\nund fügst einen Festplatten Contoller hinzu.</NoStorageAdvice>
+      <WarnBootFirstDrive>Es scheint diese VM nicht in der Lage, von dem ersten Laufwerk (%s) zu booten\r\nWegen anderen Laufwerk(e) ist/sind angeschlossen Festplatten Controller in vorderer Position(nen).\r\n\r\nMein Tip ist befreie einen port am VM Festplatten Controlervor den anderen Laufwerken.\r\nDu kannst das tun indem Du den VirtualBox Manager startest, editierst die VM Festplatten management\r\nund bewegst die andere Ports in nachfolgenden port(s) im VM-Festplatten Controller.\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</WarnBootFirstDrive>
+      <WarnBootDrive>Es scheint, diese VM nicht in der Lage,vom Laufwerk (%s)\r\nWeil andere(m) Laufwerk(e) ist/sind verbunden sind zum Festplatten Controller in vorheriger(en) Positionen(en).\r\n\r\nMein Rat ist, einen Anschluss in der Speicher-Controller, vor den andere Festplatte(n) zu lösen. (s).\r\nDu kannst das tun indem Du den VirtualBox Manager startest, editierst die VM Festplatten management\r\nund bewegst der anderen Festplatte(n) in nachfolgende Port(s) VM-Festplatten-Controller.\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</WarnBootDrive>
+      <ErrorVBMan>Ende der Zeit zum warten auf VBoxManage.exe um den actuellen Vorgang zu ende zu bringen (%s) !\r\n\r\nVorgang = %s\r\n\r\nDas ist ein VirtualBox bug. Mein Rat ist 20..30 secunden zu warten und es nochmal zu versuchen...</ErrorVBMan>
+      <HardwareVirtOp>Wechseln der Hardware virtualization</HardwareVirtOp>
+      <VBManErrorCode>VBoxManage.exe gibt Errorcode %d zurück für den actuellen Vorgang (%s) !\r\n\r\nVorgang = %s</VBManErrorCode>
+      <VBManExitError>Error gibt den exit code für den actuellen VBox manage Vorgang (%s) !\r\n\r\nVorgang = %s</VBManExitError>
+      <VBManUnableLaunch>Unmöglich VBoxManage.exe zu starten !\r\n\r\nSystemmeldung: %s</VBManUnableLaunch>
+      <CantAddDrives>Kann das Laufwerk(e) nicht automatisch zu VirtualBox VM hinzufügen.\r\n\r\nMögliche Ursache: %s\r\n\r\nBist Du dir sicher wweiter zu machen (NICHT Empfehlenswert)...?</CantAddDrives>
+      <VBUnableLaunch>Unmöglich VirtualBox.exe zu starten !\r\n\r\nSystemmeldung: %s</VBUnableLaunch>
+      <QMUnableLaunch>Unmöglich QemuManager.exe zu starten !\r\n\r\nSystemmeldung: %s</QMUnableLaunch>
+      <ExplorerUnableLaunch>Unmöglich Windows Explorer zu starten !\r\n\r\nSystemmeldung: %s</ExplorerUnableLaunch>
+      <CantDeleteFile>Kann die Datei nicht löschen "%s" !\r\nSystemmeldung: %s</CantDeleteFile>
+      <CantRemoveDrives>Kann nicht automatisch das Laufwerk(s) entfernen von der VirtualBox VM.\r\n\r\nMögliche Gründe:</CantRemoveDrives>
+      <QEMUError>QEMU gibt Fehlermeldung !\r\n\r\nStdErr output: %s\r\n\r\nTip: Du solltest die command line parameter überprüfen\r\num zu sehen ob irgedwas fehlt oder flasch geschrieben ist.\r\nWenn Du die default parameters benutzt\r\nDu solltest deine QEMU Version anpassen.\r\n\r\nUm mehr informationen zu bekommen wurde die cmd-line informationen in das Clipboard copiert.\r\nErstelle eine neue bat/cmd Datei, füge es vom clipboarard ein und starte es (Als Administrator).</QEMUError>
+      <QEMUStartError>Unmöglich zum Starten von QEMU !\r\n\r\nSystemmeldung: %s</QEMUStartError>
+      <NotUSBDrive>Das ist kein USB-Laufwerk !</NotUSBDrive>
+      <CantReadDrive>Kann nicht vom Laufwerk lesen !\r\n\r\nSystemmeldung: %s</CantReadDrive>
+      <ErrorAccessDrive>Kann nicht auf das Laufwerk zugreifen !\r\n\r\nSystemmeldung: %s</ErrorAccessDrive>
+      <CantUseOSDrive>Das ist das System Laufwerk!!\nIch kann das nicht benutzen !</CantUseOSDrive>
+      <ErrorGetDriveNr>Probleme um die Laufwerknumber zu bekommen !\r\n\r\nSystemmeldung: %s</ErrorGetDriveNr>
+      <ErrorAccessVolDrive>Fehler beim benutzen der Datei auf dem Laufwerk !\r\n\r\nSystemmeldung: %s</ErrorAccessVolDrive>
+      <ErrorAccessDrive>Fehler beim benutzen des Laufwerks !\r\n\r\nSystemmeldung: %s</ErrorAccessDrive>
+      <NotRemFixedLocalDrive>Das ist kein endfernbares oder locales Laufwerk !</NotRemFixedLocalDrive>
+      <NotVolDrive>Kein vm-Laufwerk oder echtes laufwerk  !</NotVolDrive>
+      <JustOneItem>Nur ein Element auf einmal!  !</JustOneItem>
+      <StartAsAdministrator> Um in der Lage zu sein, alles richtig zu erkennen und den Computer noch Leistung mehr zu nutzen,\r\nbraucht es Administrator Privilegien.\r\nDu kannst es direkt mit "Starten als Administrator" oder Du kannst die Links oder exe's Einstellungen verändern.</StartAsAdministrator>
+      <AlreadyStarted>The application is already started but the interface is hidden.\r\nDo you want to forcibly close that session (not recommended)?</AlreadyStarted>
+      <CantReadDrive>Can''t read from drive !\r\n\r\nSystemmeldung: %s</CantReadDrive>
+      <SureClose>Are you sure you want to close the application?</SureClose>
+      <ErrorGetInfEject>Could not retrieve the informations necessary to eject the drive !\r\n\r\nSystem message: %s</ErrorGetInfEject>
+      <ErrorEject>Could not automatically eject the drive !\r\n\r\nClose the application(s) who access this drive and try again...</ErrorEject>
+    </Messages>
+  </Main>
+  <AddEdit>
+    <Caption>
+      <Add>Hinzufügen</Add>
+      <Edit>Editieren</Edit>
+    </Caption>
+    <Buttons>
+      <OK>Öffnen</OK>
+      <Cancel>Abrechen</Cancel>
+    </Buttons>
+    <Labels>
+      <Audio>Audio:</Audio>
+      <CDROM>CD/DVD device:</CDROM>
+      <EnableCPUVirtualization>Ermögliche VT-x/AMD-V Benuzung:</EnableCPUVirtualization>
+      <ExeParams>Exe Parameter:</ExeParams>
+      <FirstDrive>Das erste Laufwerk hinzufügen und booten:</FirstDrive>
+      <Drive>Laufwerk hinzu zu fügen und booten:</Drive>
+      <HDD>Interne HDD:</HDD>
+      <Memory>Speicher (MB):</Memory>
+      <Mode>Modus zum laden der VM:</Mode>
+      <Priority>CPU Priorität:</Priority>
+      <Run>Ausführen:</Run>
+      <SecondDrive>Zweites Laufwerk zum hinzufügen (optional):</SecondDrive>
+      <Type>Type:</Type>
+      <VMName>VM Name:</VMName>
+      <VMPath>VM Pfad:</VMPath>
+    </Labels>
+    <Dialogs>
+      <LoadVM>
+        <Title>Virtual Box VM öffnen</Title>
+        <Filter>VirtualBox VM (*.vbox)|*.vbox|Alle Dateien (*.*)|*.*</Filter>
+      </LoadVM>
+      <LoadHDDImage>
+        <Title>VM Image öffnen</Title>
+        <Filter>QEMU Festplatten Images|*.img;*.qcow;*.qcow2;*.qed;*.qcow;*.cow;*.vdi;*.vmdk;*.vpc|Alle Dateien|*.*</Filter>
+      </LoadHDDImage>
+      <LoadISO>
+        <Title>Iso Datei öffnen</Title>
+        <Filter>ISO files|*.iso|All files|*.*</Filter>
+      </LoadISO>
+    </Dialogs>
+    <Comboboxes>
+      <NoneText>Kein Text</NoneText>
+      <EnableCPUVirtualization>Unverändert\r\nAn\r\nAus\r\nSchalter</EnableCPUVirtualization>
+      <Mode>VM Name\r\nVM Pfad\r\nExe Parameter</Mode>
+      <Priority>Unter Normal\r\nNormal\r\nÜber Normal\r\nHoch</Priority>
+      <WindowSize>
+        <VirtualBox>Normal\r\nMinimiert\r\nMaximiert\r\nFullscreen</VirtualBox>
+        <QEMU>Normal\r\nMinimiert\r\nMaximiert\r\nFullscreen</QEMU>
+      </WindowSize>
+      <LoadISO>Lade ISO Datei...</LoadISO>
+    </Comboboxes>
+    <Messages>
+      <SetVMPath>Bitte setze den VM Pfad !</SetVMPath>
+      <VMNotFound>Konnte die VMaschine nicht finden in den VirtualBox configurations Dateien !\r\nBitte stellen Sie sicher, dass VirtualBox richtig installiert ist\r\nund die VM richtig in der VirtualBox Manager registriert.</VMNotFound>
+      <SetExeParam>Bitte stellen Sie die exe Parameter ein !</SetExeParam>
+      <SetExeParamCor>Bitte stellen Sie die exe Parameter correckt ein !\r\nJust use &lt;&lt;--startvm "Path_to_VM or GUID"&gt;&gt; (without the &lt;&lt;&gt;&gt;)</SetExeParamCor>
+      <SetVMName>Bitte setze einen VM Name !</SetVMName>
+      <NoVMsFound>Bitte erstelle eine VM im VirtualBox Manager oder behebe das Problem\r\nmit einer VirtualBox installation so kannst du einen VM Name einstellen !</NoVMsFound>
+      <ChooseFirstDrive>Bitte benutze das erste Laufwerk !</ChooseFirstDrive>
+      <ChooseDrive>Bitte benutze das Laufwerk !</ChooseDrive>
+      <DifSecDrive>Bitte benutze ein anderes zweites laufwerk !</DifSecDrive>
+      <MemoryRange>Bitte setze eine Speichereinstellung in 1..65535 interval !</MemoryRange>
+      <MoreThanHalfRam>Du hast mehr als 50%% zugewiesen von dem ganzen\r\nphysishem RAM (%d from %d MB) !\r\n\r\nBist du sicher, dass das klug ist...?</MoreThanHalfRam>
+      <HDDNotFound>"%s" Scheint nicht zu existieren !\r\nSind Sie sicher, dass Sie es verwenden möchten...?\r\nTip: Wenn Sie nicht möchten, stellen Sie eine interne HDD, nur deaktiviere das Bearbeitungsfeld...</HDDNotFound>
+      <AddFirstPort>Es wird hinzugefügt ein Laufwerk an den ersten verfügbaren Port in der VirtualBox VM Festplattencontroller.\r\nWenn er keinen zu verfügung stehenden Port findet, wird dies fehlschlagen...\r\n\r\nWenn Sie booten möchten, von diesem Laufwerk, stellen Sie sicher, dass die verfügbaren Port\r\nist vor anderen ports mit HDDs und die VirtualBox VM eingestellt ist, um das Booten von HDD sicher zu stellen.</AddFirstPort>
+      <NotAFile>Das ist keine Datei !</NotAFile>
+      <JustOneItem>Nur ein Stückchen auf einmal !</JustOneItem>
+      <NotACD>Dies ist kein CD/DVD-Gerät !</NotACD>
+      <NotACDOrIso>Kein CD/DVD-Laufwerk oder eine ISO Datei!</NotACDOrIso>
+      <NotUSB>Dies ist nicht ein USB-Laufwerk !</NotUSB>
+      <CantReadDrive>Kann nicht von Laufwerk gelesen !\r\n\r\nSystemmeldung: %s</CantReadDrive>
+      <ErrorAccessDrive>Fehler beim Zugreifen auf das Laufwerk !\r\n\r\nSystemmeldung: %s</ErrorAccessDrive>
+      <CantUseOSDrive>Das ist ein Systemlaufwerk das nicht benutzt werden kann !</CantUseOSDrive>
+      <ErrorDriveNumber>Fehler beim Abrufen der Laufwerksnummer !\r\n\r\nSystemmeldung: %s</ErrorDriveNumber>
+      <ErrorAccessVolume>Fehler beim Zugreifen auf das Volumen !\r\n\r\nSystemmeldung: %s</ErrorAccessVolume>
+      <NotADrive>Dies ist keine herausnehmbares oder festes lokales Laufwerk !</NotADrive>
+      <NotAVolOrDrive>Keine vmdisk oder Festplatte !</NotAVolOrDrive>
+    </Messages>
+    <Hints>
+      <BrowseForHdd>Klicken Sie auf "Durchsuchen", um nach HDD-Image Datei</BrowseForHdd>
+      <BrowseForVM>Hier klicken, um die VM zu suchen</BrowseForVM>
+    </Hints>
+  </AddEdit>
+  <Options>
+    <Width>690</Width>
+    <Caption>Optionen</Caption>
+    <Labels>
+      <WaitTime>Wartezeit, Systemdaten zu leeren vor dem Entfernen (ms):</WaitTime>
+      <ExePath>Exe Pfad:</ExePath>
+      <DefCommParam>Die Standard-Befehlszeilenparametern:</DefCommParam>
+    </Labels>
+    <Dialogs>
+      <LoadExe>
+        <Title>Öffnen</Title>
+        <Filter>Exe Dateien (*.exe)|*.exe|Alle Dateien (*.*)|*.*</Filter>
+      </LoadExe>
+    </Dialogs>
+    <Buttons>
+      <ChooseFont>Wähle die Schriftart</ChooseFont>
+      <OK>OK</OK>
+      <Cancel>Abrechen</Cancel>
+    </Buttons>
+    <Checkboxes>
+      <LockVol>Sperr die Volumes auf dem Laufwerk vor dem Entfernen (sicher, aber manchmal langsam)</LockVol>
+      <SecDrive>Anzeigen einer zweiten Festplattenmöglichkeit</SecDrive>
+      <BackupOldEntries>Speichere die alten Einträge, bevor die neue Einträge erstellt werden</BackupOldEntries>
+      <DontWarn>Nicht warnen, bei einem read only Medium, um die Konfiguration oder die Einträge der Datei zu speichern </DontWarn>
+      <OnlyUSB>Liste nur USB Laufwerke</OnlyUSB>
+      <AutomaticFont>Schriftgröße, Stil und Farbe wird automatisch eingestellt</AutomaticFont>
+      <EscapeKey>ESC-Taste schließt das Hauptfenster</EscapeKey>
+      <AutodetectMethod>Versuche besten geeigneteste Methode für die gegebene Situationen zu erkennen</AutodetectMethod>
+      <UseVBMethod>benutze VBoxManage.exe commandline (langsamer)</UseVBMethod>
+      <DirectWrtMethod>Direkt schreiben Methode (schneller, aber der VB Manager muß geschlossen sein)</DirectWrtMethod>
+      <VirtOpt>Füge "Ermögliche VT-x/AMD-V" Möglchkeit zum Hinzufügen/Bearbeiten Fenster hinzu</VirtOpt>
+      <RemDrives>Entferne das Laufwerk(s) von der VM nach dem schließen</RemDrives>
+      <PrecacheVBFiles>Precache the VirtualBox files</PrecacheVBFiles>
+      <PrestartVBFiles>Prestart the VirtualBox exe files</PrestartVBFiles>
+      <HideConsoleWindow>Hide console window</HideConsoleWindow>
+    </Checkboxes>
+    <Groupboxes>
+      <General>Allgemein</General>
+      <DefaultVMType>Standard-VM-Typ beim hinzufügen eines neuen Eintrags</DefaultVMType>
+      <UpdateVMMethod>Methode zum aktualisieren der VM-Konfiguration-Datei (*.vbox)</UpdateVMMethod>
+    </Groupboxes>
+    <Messages>
+      <ProperWaitTime>Bitte stellen Sie einen geeigneten Wert für die Wartezeit ein (0..20000) !</ProperWaitTime>
+      <FileDoesntExist>Die Datei "%s" existiert nicht !\r\nLöschen Sie bitte den %s Exe Pfad aus dem Bearbeitungsfeld, wenn Sie es nicht benutzen möchten...</FileDoesntExist>
+      <NotAFile>Dies ist keine Datei !</NotAFile>
+      <JustOneItem>Nur ein Stückchen auf einmal !</JustOneItem>
+    </Messages>
+    <Hints>
+      <BrowseForExe>klicken Sie auf suchen wegen der exe</BrowseForExe>
+      <DefaultParam>Grundlegende Parameter für x86/x64-Version</DefaultParam>
+    </Hints>
+  </Options>
+  <Messages>
+    <Types>
+      <Information>Information</Information>
+      <Warning>Warnung</Warning>
+      <Error>Fehler</Error>
+    </Types>
+    <Buttons>
+      <Yes>&amp;Ja</Yes>
+      <No>&amp;Nein</No>
+      <OK>&amp;Öffnen</OK>
+      <Cancel>&amp;Abrechen</Cancel>
+      <Abort>&amp;Abrechen</Abort>
+      <Retry>&amp;Wierderholen</Retry>
+      <Ignore>&amp;Ignorieren</Ignore>
+      <Choose>&amp;Choose</Choose>
+      <CloseAll>&amp;Close all</CloseAll>
+    </Buttons>
+    <Checkboxes>
+      <DontShow>Dies das nächste Mal nicht mehr anzeigen</DontShow>
+    </Checkboxes>
+  </Messages>
+</Interface>
