@@ -1,5 +1,17 @@
 Use Delphi 10 Seattle to compile.
+
+To change from portable version to install switch
+
+isInstalledVersion := False;
+
+to
+
+isInstalledVersion := True;
+
+in Main\Virtual_Machine_USB_Boot.dpr
+
 Third party components:
+
 TVirtualTree
 TPNGImage
 
