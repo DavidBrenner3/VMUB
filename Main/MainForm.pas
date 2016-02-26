@@ -3924,7 +3924,7 @@ begin
          if isVBPortable then
          begin
             VBOX_USER_HOME := ExcludeTrailingPathDelimiter(ExtractFilePath(ws));
-            isVBInstalledToo := (ServiceStatus.dwCurrentState = SERVICE_RUNNING) and (ServiceDisplayName = 'VirtualBox Service');
+            isVBInstalledToo := (ServiceStatus.dwCurrentState = SERVICE_RUNNING) and (ServiceDisplayName <> 'PortableVBoxDRV');
             ExeVBPathToo := GetEnvVarValue('VBOX_MSI_INSTALL_PATH');
             if ExeVBPathToo = '' then
                ExeVBPathToo := GetEnvVarValue('VBOX_INSTALL_PATH');
@@ -13201,7 +13201,7 @@ begin
                            if isVBPortable then
                            begin
                               VBOX_USER_HOME := ExcludeTrailingPathDelimiter(ExtractFilePath(ws));
-                              isVBInstalledToo := (ServiceStatus.dwCurrentState = SERVICE_RUNNING) and (ServiceDisplayName = 'VirtualBox Service');
+                              isVBInstalledToo := (ServiceStatus.dwCurrentState = SERVICE_RUNNING) and (ServiceDisplayName = 'PortableVBoxDRV');
                               ExeVBPathToo := GetEnvVarValue('VBOX_MSI_INSTALL_PATH');
                               if ExeVBPathToo = '' then
                                  ExeVBPathToo := GetEnvVarValue('VBOX_INSTALL_PATH');

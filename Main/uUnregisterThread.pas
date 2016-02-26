@@ -184,6 +184,9 @@ begin
       finally
       end;
 
+      if Terminated then
+         Exit;
+
       SetLength(exeRegsvr32Path, StrLen(Buffer));
       exeRegsvr32Path := IncludeTrailingPathDelimiter(Buffer);
       exeRegsvr32Path := exeRegsvr32Path + 'regsvr32.exe';
@@ -504,7 +507,6 @@ begin
          if Terminated then
             Exit;
 
-         drvSysPath := IncludeTrailingPathDelimiter(string(Buffer)) + '\Drivers\';
          if DirectoryExists(drvSysPath) then
          begin
             DeleteFile(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys');
@@ -525,6 +527,9 @@ begin
          ssStatus := ServiceStatus('VBoxNetAdp');
          if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
             ServiceDelete('VBoxNetAdp');
+
+         if Terminated then
+            Exit;
 
          {$IFDEF WIN32}
          if TOSversion.Architecture = arIntelX64 then
@@ -622,9 +627,8 @@ begin
             finally
             end;
 
-         SetLength(exeRegsvr32Path, StrLen(Buffer));
-         exeRegsvr32Path := IncludeTrailingPathDelimiter(Buffer);
-         exeRegsvr32Path := exeRegsvr32Path + 'regsvr32.exe';
+         if Terminated then
+            Exit;
 
          if TOSVersion.Major < 6 then
             try
@@ -726,6 +730,9 @@ begin
             finally
             end;
 
+         if Terminated then
+            Exit;
+
          exeRegSvr32Path := ExtractFilePath(exeRegSvr32Path);
          if TOSVersion.Major < 6 then
          begin
@@ -733,6 +740,10 @@ begin
             if FileExists(exeRegSvr32Path + 'VBoxNetFltNobj.dll.pvbbak') then
                RenameFile(exeRegSvr32Path + 'VBoxNetFltNobj.dll.pvbbak', exeRegSvr32Path + 'VBoxNetFltNobj.dll');
          end;
+
+         if Terminated then
+            Exit;
+
          DeleteFile(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys');
          if FileExists(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys.pvbbak') then
             RenameFile(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys.pvbbak', exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys');
@@ -758,9 +769,6 @@ begin
       ssStatus := ServiceStatus;
       if ServiceDisplayName = 'PortableVBoxDRV' then
       begin
-         if Terminated then
-            Exit;
-
          if ssStatus.dwCurrentState = SERVICE_RUNNING then
             ServiceStop;
 
@@ -776,9 +784,6 @@ begin
          Exit;
 
       dllPath := IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs));
-      SetLength(exeRegsvr32Path, StrLen(Buffer));
-      exeRegsvr32Path := Buffer;
-      exeRegSvr32Path := IncludeTrailingPathDelimiter(exeRegSvr32Path);
 
       New(wfa);
       try
@@ -807,6 +812,9 @@ begin
          until not Windows.FindNextFile(hFind, wfa^);
          Windows.FindClose(hFind);
       end;
+
+      if Terminated then
+         Exit;
 
       if (not isVBinstalledToo) or (not FileExists(exeVBPathToo)) then
          Exit;
@@ -1046,9 +1054,12 @@ begin
       finally
       end;
 
+      if Terminated then
+         Exit;
+
       ssStatus := ServiceStatus;
       if ssStatus.dwCurrentState = 0 then
-         ServiceCreate(IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathToo)) + 'drivers\VBoxDrv\VBoxDrv.sys', 'VirtualBox Service');
+         ServiceCreate(IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathToo)) + 'drivers\VBoxDrv\VBoxDrv.sys', 'VboxDRV', 'VirtualBox Service');
 
       if Terminated then
          Exit;
@@ -1060,507 +1071,497 @@ begin
       if Terminated then
          Exit;
 
-      if LoadUSBPortable then
+      ssStatus := ServiceStatus('VBoxUSBMon');
+      if ssStatus.dwCurrentState = 0 then
+         ServiceCreate(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\filter\VBoxUSBMon.sys', 'VBoxUSBMon', 'VirtualBox USB Monitor Driver');
+
+      if Terminated then
+         Exit;
+
+      ssStatus := ServiceStatus('VBoxUSBMon');
+      if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
+         ServiceStart('VBoxUSBMon');
+
+      if Terminated then
+         Exit;
+
+      if CheckInstalledInf('USB\VID_80EE&PID_CAFE') < 1 then
       begin
-         ssStatus := ServiceStatus('VBoxUSBMon');
-         if ssStatus.dwCurrentState = 0 then
-            ServiceCreate(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\filter\VBoxUSBMon.sys', 'VBoxUSBMon', 'VirtualBox USB Monitor Driver');
-
-         ssStatus := ServiceStatus('VBoxUSBMon');
-         if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
-            ServiceStart('VBoxUSBMon');
-
-         if Terminated then
-            Exit;
-
-         if CheckInstalledInf('USB\VID_80EE&PID_CAFE') < 1 then
+         {$IFDEF WIN32}
+         if TOSversion.Architecture = arIntelX64 then
          begin
-            {$IFDEF WIN32}
-            if TOSversion.Architecture = arIntelX64 then
-            begin
-               exeDevConPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\devcon_x64.exe';
+            exeDevConPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\devcon_x64.exe';
+            try
+               strTemp := '"' + exeDevConPath + '" install "' + IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\device\VBoxUSB.inf" "USB\VID_80EE&PID_CAFE"';
+               UniqueString(strTemp);
+               PexeDevCon := PChar(strTemp);
+               PexeDevConPath := PChar(ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\');
+               ResetLastError;
                try
-                  strTemp := '"' + exeDevConPath + '" install "' + IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\device\VBoxUSB.inf" "USB\VID_80EE&PID_CAFE"';
-                  UniqueString(strTemp);
-                  PexeDevCon := PChar(strTemp);
-                  PexeDevConPath := PChar(ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\');
-                  ResetLastError;
-                  try
-                     Result := CreateProcess(nil, PexeDevCon, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeDevConPath, eStartupInfo, eProcessInfo);
-                     LastError := GetLastError;
-                  except
-                     on E: Exception do
-                     begin
-                        Result := False;
-                        LastExceptionStr := E.Message;
-                     end;
-                  end;
-                  if Terminated then
-                     Exit;
-                  if Result then
+                  Result := CreateProcess(nil, PexeDevCon, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeDevConPath, eStartupInfo, eProcessInfo);
+                  LastError := GetLastError;
+               except
+                  on E: Exception do
                   begin
-                     dt := GetTickCount;
-                     while (GetTickCount - dt) <= 5000 do
-                     begin
-                        if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                           Break;
-                        if Terminated then
-                           Exit;
-                     end;
-                     dt := GetTickCount;
-                     while (GetTickCount - dt) <= 8000 do
-                     begin
-                        if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                           Break;
-                        if Terminated then
-                           Exit;
-                     end;
-                     try
-                        GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                        if ExitCode = Still_Active then
-                        begin
-                           uExitCode := 0;
-                           RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                           bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                           if GetExitCodeProcess(hProcessDup, dwCode) then
-                           begin
-                              hKernel := GetModuleHandle('Kernel32');
-                              FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                              hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                              if hrt = 0 then
-                                 TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                              else
-                                 CloseHandle(hRT);
-                           end
-                           else
-                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                           if (bDup) then
-                              CloseHandle(hProcessDup);
-                           GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                        end;
-                        CloseHandle(eProcessInfo.hProcess);
-                        CloseHandle(eProcessInfo.hThread);
-                     except
-                     end;
+                     Result := False;
+                     LastExceptionStr := E.Message;
                   end;
-               finally
                end;
-            end
-            else
-               InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\device\VBoxUSB.inf', 'USB\VID_80EE&PID_CAFE');
-            {$ENDIF}
-            {$IFDEF WIN64}
-            InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\device\VBoxUSB.inf', 'USB\VID_80EE&PID_CAFE');
-            {$ENDIF}
-         end;
-
-         if Terminated then
-            Exit;
-
-         drvSysPath := IncludeTrailingPathDelimiter(string(Buffer)) + '\Drivers\';
-         if DirectoryExists(drvSysPath) then
-         begin
-            if FileExists(drvSysPath + 'VBoxUSB.sys') then
-               RenameFile(drvSysPath + 'VBoxUSB.sys', drvSysPath + 'VBoxUSB.sys.ivbbak');
-            CopyFile(PChar(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\filter\VBoxUSBMon.sys'), PChar(drvSysPath + 'VBoxUSB.sys'), False);
-         end;
-
-         if Terminated then
-            Exit;
-
-         ssStatus := ServiceStatus('VBoxUSB');
-         if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
-         begin
-            i := 0;
-            while True do
-            begin
-               mEvent.WaitFor(500);
-               Result := ServiceStart('VBoxUSB');
+               if Terminated then
+                  Exit;
                if Result then
-                  Break;
-               if (i >= 6) and (not Result) then
-                  Break;
-               Inc(i);
+               begin
+                  dt := GetTickCount;
+                  while (GetTickCount - dt) <= 5000 do
+                  begin
+                     if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                        Break;
+                     if Terminated then
+                        Exit;
+                  end;
+                  dt := GetTickCount;
+                  while (GetTickCount - dt) <= 8000 do
+                  begin
+                     if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                        Break;
+                     if Terminated then
+                        Exit;
+                  end;
+                  try
+                     GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                     if ExitCode = Still_Active then
+                     begin
+                        uExitCode := 0;
+                        RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                        bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                        if GetExitCodeProcess(hProcessDup, dwCode) then
+                        begin
+                           hKernel := GetModuleHandle('Kernel32');
+                           FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                           hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                           if hrt = 0 then
+                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                           else
+                              CloseHandle(hRT);
+                        end
+                        else
+                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                        if (bDup) then
+                           CloseHandle(hProcessDup);
+                        GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                     end;
+                     CloseHandle(eProcessInfo.hProcess);
+                     CloseHandle(eProcessInfo.hThread);
+                  except
+                  end;
+               end;
+            finally
             end;
-         end;
-
-         if Terminated then
-            Exit;
+         end
+         else
+            InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\device\VBoxUSB.inf', 'USB\VID_80EE&PID_CAFE');
+         {$ENDIF}
+         {$IFDEF WIN64}
+         InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\device\VBoxUSB.inf', 'USB\VID_80EE&PID_CAFE');
+         {$ENDIF}
       end;
 
       if Terminated then
          Exit;
 
-      //times[10] := GetTickCount;
-      if LoadNetPortable then
+      if DirectoryExists(drvSysPath) then
       begin
-         //times[7] := GetTickCount - //times[7];
+         if FileExists(drvSysPath + 'VBoxUSB.sys') then
+            RenameFile(drvSysPath + 'VBoxUSB.sys', drvSysPath + 'VBoxUSB.sys.ivbbak');
+         CopyFile(PChar(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\USB\filter\VBoxUSBMon.sys'), PChar(drvSysPath + 'VBoxUSB.sys'), False);
+      end;
 
-         drvSysPath := IncludeTrailingPathDelimiter(string(Buffer)) + '\Drivers\';
-         if DirectoryExists(drvSysPath) then
+      if Terminated then
+         Exit;
+
+      ssStatus := ServiceStatus('VBoxUSB');
+      if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
+      begin
+         i := 0;
+         while True do
          begin
-            if FileExists(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys') then
-               RenameFile(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys', drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys.ivbbak');
-            CopyFile(PChar(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.sys'), PChar(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys'), False);
+            mEvent.WaitFor(500);
+            Result := ServiceStart('VBoxUSB');
+            if Result then
+               Break;
+            if (i >= 6) and (not Result) then
+               Break;
+            Inc(i);
          end;
+      end;
 
-         if Terminated then
-            Exit;
+      if Terminated then
+         Exit;
 
-         if CheckInstalledInf('sun_VBoxNetAdp') < 1 then
+      if DirectoryExists(drvSysPath) then
+      begin
+         if FileExists(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys') then
+            RenameFile(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys', drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys.ivbbak');
+         CopyFile(PChar(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.sys'), PChar(drvSysPath + 'VBoxNetAdp' + strNetAdp + '.sys'), False);
+      end;
+
+      if Terminated then
+         Exit;
+
+      if CheckInstalledInf('sun_VBoxNetAdp') < 1 then
+      begin
+         {$IFDEF WIN32}
+         if TOSversion.Architecture = arIntelX64 then
          begin
-            {$IFDEF WIN32}
-            if TOSversion.Architecture = arIntelX64 then
-            begin
-               exeDevConPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\devcon_x64.exe';
+            exeDevConPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\devcon_x64.exe';
+            try
+               strTemp := '"' + exeDevConPath + '" install "' + IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf" "sun_VBoxNetAdp"';
+               UniqueString(strTemp);
+               PexeDevCon := PChar(strTemp);
+               PexeDevConPath := PChar(ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\');
+               ResetLastError;
                try
-                  strTemp := '"' + exeDevConPath + '" install "' + IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf" "sun_VBoxNetAdp"';
-                  UniqueString(strTemp);
-                  PexeDevCon := PChar(strTemp);
-                  PexeDevConPath := PChar(ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathAbs))) + 'data\tools\');
-                  ResetLastError;
-                  try
-                     Result := CreateProcess(nil, PexeDevCon, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeDevConPath, eStartupInfo, eProcessInfo);
-                     LastError := GetLastError;
-                  except
-                     on E: Exception do
-                     begin
-                        Result := False;
-                        LastExceptionStr := E.Message;
-                     end;
+                  Result := CreateProcess(nil, PexeDevCon, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeDevConPath, eStartupInfo, eProcessInfo);
+                  LastError := GetLastError;
+               except
+                  on E: Exception do
+                  begin
+                     Result := False;
+                     LastExceptionStr := E.Message;
                   end;
+               end;
+               if Terminated then
+                  Exit;
+               if Result then
+               begin
+                  dt := GetTickCount;
+                  while (GetTickCount - dt) <= 5000 do
+                  begin
+                     if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                        Break;
+                     if Terminated then
+                        Exit;
+                  end;
+                  dt := GetTickCount;
+                  while (GetTickCount - dt) <= 8000 do
+                  begin
+                     if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                        Break;
+                     if Terminated then
+                        Exit;
+                  end;
+                  try
+                     GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                     if ExitCode = Still_Active then
+                     begin
+                        uExitCode := 0;
+                        RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                        bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                        if GetExitCodeProcess(hProcessDup, dwCode) then
+                        begin
+                           hKernel := GetModuleHandle('Kernel32');
+                           FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                           hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                           if hrt = 0 then
+                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                           else
+                              CloseHandle(hRT);
+                        end
+                        else
+                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                        if (bDup) then
+                           CloseHandle(hProcessDup);
+                        GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                     end;
+                     CloseHandle(eProcessInfo.hProcess);
+                     CloseHandle(eProcessInfo.hThread);
+                  except
+                  end;
+               end;
+            finally
+            end;
+         end
+         else
+            InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf', 'sun_VBoxNetAdp');
+         {$ENDIF}
+         {$IFDEF WIN64}
+         InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf', 'sun_VBoxNetAdp');
+         {$ENDIF}
+      end;
+
+      if Terminated then
+         Exit;
+
+      ssStatus := ServiceStatus('VBoxNetAdp');
+      if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
+      begin
+         i := 0;
+         while True do
+         begin
+            mEvent.WaitFor(500);
+            Result := ServiceStart('VBoxNetAdp');
+            if Result then
+               Break;
+            if (i >= 6) and (not Result) then
+               Break;
+            Inc(i);
+         end;
+      end;
+
+      if Terminated then
+         Exit;
+
+      curDir := GetCurrentDir();
+      SetCurrentDir(ExtractFilePath(exeVBPathToo));
+      {$IFDEF WIN32}
+      if TOSversion.Architecture = arIntelX64 then
+         exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x64.exe'
+      else
+         exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x86.exe';
+      {$ENDIF}
+      {$IFDEF WIN64}
+      exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x64.exe';
+      {$ENDIF}
+      ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
+      if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) < 1)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState = 0) then
+         try
+            strTemp := '"' + exeSnetCfgPath + '" -v -l "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf" -m "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf" -c s -i ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+            UniqueString(strTemp);
+            PexeSnetCfg := PChar(strTemp);
+            if ExtractFilePath(exeVBPathAbs) <> '' then
+               PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
+            else
+               PexeSnetCfgPath := nil;
+            ResetLastError;
+            try
+               Result := CreateProcess(nil, PexeSnetCfg, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
+               LastError := GetLastError;
+            except
+               on E: Exception do
+               begin
+                  Result := False;
+                  LastExceptionStr := E.Message;
+               end;
+            end;
+            if Terminated then
+               Exit;
+            if Result then
+            begin
+               dt := GetTickCount;
+               while (GetTickCount - dt) <= 5000 do
+               begin
+                  if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                     Break;
                   if Terminated then
                      Exit;
-                  if Result then
+               end;
+               dt := GetTickCount;
+               while (GetTickCount - dt) <= 10000 do
+               begin
+                  if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                     Break;
+                  if Terminated then
+                     Exit;
+               end;
+               try
+                  GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                  if ExitCode = Still_Active then
                   begin
-                     dt := GetTickCount;
-                     while (GetTickCount - dt) <= 5000 do
+                     uExitCode := 0;
+                     RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                     bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                     if GetExitCodeProcess(hProcessDup, dwCode) then
                      begin
-                        if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                           Break;
-                        if Terminated then
-                           Exit;
-                     end;
-                     dt := GetTickCount;
-                     while (GetTickCount - dt) <= 8000 do
-                     begin
-                        if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                           Break;
-                        if Terminated then
-                           Exit;
-                     end;
-                     try
-                        GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                        if ExitCode = Still_Active then
-                        begin
-                           uExitCode := 0;
-                           RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                           bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                           if GetExitCodeProcess(hProcessDup, dwCode) then
-                           begin
-                              hKernel := GetModuleHandle('Kernel32');
-                              FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                              hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                              if hrt = 0 then
-                                 TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                              else
-                                 CloseHandle(hRT);
-                           end
-                           else
-                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                           if (bDup) then
-                              CloseHandle(hProcessDup);
-                           GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                        end;
-                        CloseHandle(eProcessInfo.hProcess);
-                        CloseHandle(eProcessInfo.hThread);
-                     except
-                     end;
+                        hKernel := GetModuleHandle('Kernel32');
+                        FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                        hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                        if hrt = 0 then
+                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                        else
+                           CloseHandle(hRT);
+                     end
+                     else
+                        TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                     if (bDup) then
+                        CloseHandle(hProcessDup);
+                     GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
                   end;
-               finally
+                  if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                  begin
+                     if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf') then
+                        strRegErrMsg := 'VBoxNet' + strNetBrdg1 + '.inf not found'
+                     else if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf') then
+                        strRegErrMsg := 'VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf not found'
+                     else
+                        strRegErrMsg := IntToStr(ExitCode) + ' error code from snetcfg';
+                     strRegErrMsg := 'problem installing VBoxNet' + strNetBrdg1 + '.inf'#13#10#13#10'System message: ' + strRegErrMsg;
+                  end;
+                  CloseHandle(eProcessInfo.hProcess);
+                  CloseHandle(eProcessInfo.hThread);
+               except
                end;
             end
             else
-               InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf', 'sun_VBoxNetAdp');
-            {$ENDIF}
-            {$IFDEF WIN64}
-            InstallInf(IncludeTrailingPathDelimiter(ExtractFilePath(ExeVBPathToo)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf', 'sun_VBoxNetAdp');
-            {$ENDIF}
-         end;
-
-         if Terminated then
-            Exit;
-
-         ssStatus := ServiceStatus('VBoxNetAdp');
-         if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
-         begin
-            i := 0;
-            while True do
             begin
-               mEvent.WaitFor(500);
-               Result := ServiceStart('VBoxNetAdp');
-               if Result then
-                  Break;
-               if (i >= 6) and (not Result) then
-                  Break;
-               Inc(i);
+               if not FileExists(exeSnetCfgPath) then
+                  strRegErrMsg := 'file not found'
+               else if LastError > 0 then
+                  strRegErrMsg := SysErrorMessage(LastError)
+               else if LastExceptionStr <> '' then
+                  strRegErrMsg := LastExceptionStr;
+               strRegErrMsg := 'problem starting snetcfg'#13#10#13#10'System message: ' + strRegErrMsg;
+               Exit;
             end;
+         finally
          end;
 
-         if Terminated then
-            Exit;
+      SetCurrentDir(curDir);
 
-         curDir := GetCurrentDir();
-         SetCurrentDir(ExtractFilePath(exeVBPathToo));
-         {$IFDEF WIN32}
-         if TOSversion.Architecture = arIntelX64 then
-            exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x64.exe'
-         else
-            exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x86.exe';
-         {$ENDIF}
-         {$IFDEF WIN64}
-         exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x64.exe';
-         {$ENDIF}
-         ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
-         if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) < 1)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState = 0) then
-            try
-               strTemp := '"' + exeSnetCfgPath + '" -v -l "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf" -m "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf" -c s -i ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+      if Terminated then
+         Exit;
+
+      DeleteFile(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys');
+      if FileExists(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys.ivbbak') then
+         RenameFile(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys.ivbbak', exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys');
+
+      if Terminated then
+         Exit;
+
+      if TOSVersion.Major < 6 then
+      begin
+         SetLength(exeRegsvr32Path, StrLen(Buffer));
+         exeRegsvr32Path := Buffer;
+         exeRegSvr32Path := IncludeTrailingPathDelimiter(exeRegSvr32Path);
+
+         DeleteFile(exeRegSvr32Path + 'VBoxNetFltNobj.dll');
+         if FileExists(exeRegSvr32Path + 'VBoxNetFltNobj.dll.ivbbak') then
+            RenameFile(exeRegSvr32Path + 'VBoxNetFltNobj.dll.ivbbak', exeRegSvr32Path + 'VBoxNetFltNobj.dll');
+
+         exeRegsvr32Path := exeRegsvr32Path + 'regsvr32.exe';
+
+         try
+            if exeRegsvr32Path <> '' then
+            begin
+               strTEmp := '"' + exeRegsvr32Path + '" /S "' + IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll"';
                UniqueString(strTemp);
-               PexeSnetCfg := PChar(strTemp);
-               if ExtractFilePath(exeVBPathAbs) <> '' then
-                  PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
-               else
-                  PexeSnetCfgPath := nil;
-               ResetLastError;
-               try
-                  Result := CreateProcess(nil, PexeSnetCfg, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
-                  LastError := GetLastError;
-               except
-                  on E: Exception do
-                  begin
-                     Result := False;
-                     LastExceptionStr := E.Message;
-                  end;
-               end;
-               if Terminated then
-                  Exit;
-               if Result then
-               begin
-                  dt := GetTickCount;
-                  while (GetTickCount - dt) <= 5000 do
-                  begin
-                     if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                        Break;
-                     if Terminated then
-                        Exit;
-                  end;
-                  dt := GetTickCount;
-                  while (GetTickCount - dt) <= 10000 do
-                  begin
-                     if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                        Break;
-                     if Terminated then
-                        Exit;
-                  end;
-                  try
-                     GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                     if ExitCode = Still_Active then
-                     begin
-                        uExitCode := 0;
-                        RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                        bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                        if GetExitCodeProcess(hProcessDup, dwCode) then
-                        begin
-                           hKernel := GetModuleHandle('Kernel32');
-                           FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                           hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                           if hrt = 0 then
-                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                           else
-                              CloseHandle(hRT);
-                        end
-                        else
-                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                        if (bDup) then
-                           CloseHandle(hProcessDup);
-                        GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                     end;
-                     if (ExitCode <> Still_Active) and (ExitCode <> 0) then
-                     begin
-                        if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf') then
-                           strRegErrMsg := 'VBoxNet' + strNetBrdg1 + '.inf not found'
-                        else if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf') then
-                           strRegErrMsg := 'VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf not found'
-                        else
-                           strRegErrMsg := IntToStr(ExitCode) + ' error code from snetcfg';
-                        strRegErrMsg := 'problem installing VBoxNet' + strNetBrdg1 + '.inf'#13#10#13#10'System message: ' + strRegErrMsg;
-                     end;
-                     CloseHandle(eProcessInfo.hProcess);
-                     CloseHandle(eProcessInfo.hThread);
-                  except
-                  end;
-               end
-               else
-               begin
-                  if not FileExists(exeSnetCfgPath) then
-                     strRegErrMsg := 'file not found'
-                  else if LastError > 0 then
-                     strRegErrMsg := SysErrorMessage(LastError)
-                  else if LastExceptionStr <> '' then
-                     strRegErrMsg := LastExceptionStr;
-                  strRegErrMsg := 'problem starting snetcfg'#13#10#13#10'System message: ' + strRegErrMsg;
-                  Exit;
-               end;
-            finally
-            end;
-
-         SetCurrentDir(curDir);
-
-         if Terminated then
-            Exit;
-
-         DeleteFile(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys');
-         if FileExists(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys.ivbbak') then
-            RenameFile(exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys.ivbbak', exeRegSvr32Path + 'drivers\VBoxNet' + strNetBrdg1 + '.sys');
-
-         if Terminated then
-            Exit;
-
-         if TOSVersion.Major < 6 then
-         begin
-            SetLength(exeRegsvr32Path, StrLen(Buffer));
-            exeRegsvr32Path := Buffer;
-            exeRegSvr32Path := IncludeTrailingPathDelimiter(exeRegSvr32Path);
-
-            DeleteFile(exeRegSvr32Path + 'VBoxNetFltNobj.dll');
-            if FileExists(exeRegSvr32Path + 'VBoxNetFltNobj.dll.ivbbak') then
-               RenameFile(exeRegSvr32Path + 'VBoxNetFltNobj.dll.ivbbak', exeRegSvr32Path + 'VBoxNetFltNobj.dll');
-
-            exeRegsvr32Path := exeRegsvr32Path + 'regsvr32.exe';
-
+               PexeRegsvr32 := PChar(strTemp);
+            end
+            else
+               PexeRegsvr32 := nil;
+            if ExtractFilePath(exeRegsvr32Path) <> '' then
+               PexeRegsvr32Path := PChar(ExtractFilePath(exeRegsvr32Path))
+            else
+               PexeRegsvr32Path := nil;
+            ResetLastError;
             try
-               if exeRegsvr32Path <> '' then
+               Result := CreateProcess(nil, PexeRegsvr32, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeRegsvr32Path, eStartupInfo, eProcessInfo);
+               LastError := GetLastError;
+            except
+               on E: Exception do
                begin
-                  strTEmp := '"' + exeRegsvr32Path + '" /S "' + IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll"';
-                  UniqueString(strTemp);
-                  PexeRegsvr32 := PChar(strTemp);
-               end
-               else
-                  PexeRegsvr32 := nil;
-               if ExtractFilePath(exeRegsvr32Path) <> '' then
-                  PexeRegsvr32Path := PChar(ExtractFilePath(exeRegsvr32Path))
-               else
-                  PexeRegsvr32Path := nil;
-               ResetLastError;
-               try
-                  Result := CreateProcess(nil, PexeRegsvr32, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeRegsvr32Path, eStartupInfo, eProcessInfo);
-                  LastError := GetLastError;
-               except
-                  on E: Exception do
-                  begin
-                     Result := False;
-                     LastExceptionStr := E.Message;
-                  end;
+                  Result := False;
+                  LastExceptionStr := E.Message;
                end;
-               if Terminated then
-                  Exit;
-               if Result then
-               begin
-                  dt := GetTickCount;
-                  while (GetTickCount - dt) <= 3000 do
-                  begin
-                     if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                        Break;
-                     if Terminated then
-                        Exit;
-                  end;
-                  dt := GetTickCount;
-                  while (GetTickCount - dt) <= 5000 do
-                  begin
-                     if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                        Break;
-                     if Terminated then
-                        Exit;
-                  end;
-                  try
-                     GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                     if ExitCode = Still_Active then
-                     begin
-                        uExitCode := 0;
-                        RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                        bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                        if GetExitCodeProcess(hProcessDup, dwCode) then
-                        begin
-                           hKernel := GetModuleHandle('Kernel32');
-                           FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                           hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                           if hrt = 0 then
-                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                           else
-                              CloseHandle(hRT);
-                        end
-                        else
-                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                        if (bDup) then
-                           CloseHandle(hProcessDup);
-                        GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                     end;
-                     if (ExitCode <> Still_Active) and (ExitCode <> 0) then
-                     begin
-                        if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
-                           strRegErrMsg := 'dll file not found'
-                        else
-                           case ExitCode of
-                              1: strRegErrMsg := 'Invalid argument';
-                              2: strRegErrMsg := 'OleInitialize failed';
-                              3: strRegErrMsg := 'LoadLibrary failed';
-                              4: strRegErrMsg := 'GetProcAddress failed';
-                              5: strRegErrMsg := 'DllRegisterServer or DllUnregisterServer failed';
-                           end;
-                        strRegErrMsg := 'problem registering VBoxNetFltNobj.dll'#13#10#13#10'System message: ' + strRegErrMsg;
-                     end;
-                     CloseHandle(eProcessInfo.hProcess);
-                     CloseHandle(eProcessInfo.hThread);
-                  except
-                  end;
-               end
-               else
-               begin
-                  if not FileExists(exeRegSvr32Path) then
-                     strRegErrMsg := 'file not found'
-                  else if LastError > 0 then
-                     strRegErrMsg := SysErrorMessage(LastError)
-                  else if LastExceptionStr <> '' then
-                     strRegErrMsg := LastExceptionStr;
-                  strRegErrMsg := 'problem starting regsvr32.exe'#13#10#13#10'System message: ' + strRegErrMsg;
-               end;
-            finally
             end;
-         end;
-
-         ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
-         if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
-         begin
-            i := 0;
-            while True do
+            if Terminated then
+               Exit;
+            if Result then
             begin
-               Sleep(500);
-               Result := ServiceStart('VBoxNet' + strNetBrdg1);
-               if Result then
-                  Break;
-               if (i >= 6) and (not Result) then
+               dt := GetTickCount;
+               while (GetTickCount - dt) <= 3000 do
                begin
-                  if LastError > 0 then
-                     strRegErrMsg := SysErrorMessage(LastError)
-                  else if LastExceptionStr <> '' then
-                     strRegErrMsg := LastExceptionStr;
-                  strRegErrMsg := 'problem starting VBoxNet' + strNetBrdg1 + ' service'#13#10#13#10'System message: ' + strRegErrMsg;
-                  Break;
+                  if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                     Break;
+                  if Terminated then
+                     Exit;
                end;
-               Inc(i);
+               dt := GetTickCount;
+               while (GetTickCount - dt) <= 5000 do
+               begin
+                  if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                     Break;
+                  if Terminated then
+                     Exit;
+               end;
+               try
+                  GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                  if ExitCode = Still_Active then
+                  begin
+                     uExitCode := 0;
+                     RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                     bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                     if GetExitCodeProcess(hProcessDup, dwCode) then
+                     begin
+                        hKernel := GetModuleHandle('Kernel32');
+                        FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                        hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                        if hrt = 0 then
+                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                        else
+                           CloseHandle(hRT);
+                     end
+                     else
+                        TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                     if (bDup) then
+                        CloseHandle(hProcessDup);
+                     GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                  end;
+                  if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                  begin
+                     if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
+                        strRegErrMsg := 'dll file not found'
+                     else
+                        case ExitCode of
+                           1: strRegErrMsg := 'Invalid argument';
+                           2: strRegErrMsg := 'OleInitialize failed';
+                           3: strRegErrMsg := 'LoadLibrary failed';
+                           4: strRegErrMsg := 'GetProcAddress failed';
+                           5: strRegErrMsg := 'DllRegisterServer or DllUnregisterServer failed';
+                        end;
+                     strRegErrMsg := 'problem registering VBoxNetFltNobj.dll'#13#10#13#10'System message: ' + strRegErrMsg;
+                  end;
+                  CloseHandle(eProcessInfo.hProcess);
+                  CloseHandle(eProcessInfo.hThread);
+               except
+               end;
+            end
+            else
+            begin
+               if not FileExists(exeRegSvr32Path) then
+                  strRegErrMsg := 'file not found'
+               else if LastError > 0 then
+                  strRegErrMsg := SysErrorMessage(LastError)
+               else if LastExceptionStr <> '' then
+                  strRegErrMsg := LastExceptionStr;
+               strRegErrMsg := 'problem starting regsvr32.exe'#13#10#13#10'System message: ' + strRegErrMsg;
             end;
+         finally
          end;
+      end;
 
+      ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
+      if (ssStatus.dwCurrentState = SERVICE_STOPPED) or (ssStatus.dwCurrentState = SERVICE_STOP_PENDING) then
+      begin
+         i := 0;
+         while True do
+         begin
+            Sleep(500);
+            Result := ServiceStart('VBoxNet' + strNetBrdg1);
+            if Result then
+               Break;
+            if Terminated then
+               Exit;
+            if (i >= 6) and (not Result) then
+            begin
+               if LastError > 0 then
+                  strRegErrMsg := SysErrorMessage(LastError)
+               else if LastExceptionStr <> '' then
+                  strRegErrMsg := LastExceptionStr;
+               strRegErrMsg := 'problem starting VBoxNet' + strNetBrdg1 + ' service'#13#10#13#10'System message: ' + strRegErrMsg;
+               Break;
+            end;
+            Inc(i);
+         end;
       end;
 
    finally
