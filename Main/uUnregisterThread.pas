@@ -541,9 +541,9 @@ begin
          exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x64.exe';
          {$ENDIF}
          ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
-         if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) > 0)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState > 0) then
+        // if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) > 0)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState > 0) then
             try
-               exeSnetCfgPath := '"' + exeSnetCfgPath + '" -v -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+               exeSnetCfgPath := '"' + exeSnetCfgPath + '" -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
                UniqueString(exeSnetCfgPath);
                PexeSnetCfg := PChar(exeSnetCfgPath);
                if ExtractFilePath(exeVBPathAbs) <> '' then
@@ -606,8 +606,8 @@ begin
                      end;
                      if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                      begin
-                        strRegErrMsg := IntToStr(ExitCode) + ' error code from snetcfg';
-                        strRegErrMsg := 'problem uninstalling VBoxNet' + strNetBrdg1 + #13#10#13#10'System message: ' + strRegErrMsg;
+                //        strRegErrMsg := IntToStr(ExitCode) + ' error code from snetcfg';
+                  //      strRegErrMsg := 'problem uninstalling VBoxNet' + strNetBrdg1 + #13#10#13#10'System message: ' + strRegErrMsg;
                      end;
                      CloseHandle(eProcessInfo.hProcess);
                      CloseHandle(eProcessInfo.hThread);
@@ -616,13 +616,13 @@ begin
                end
                else
                begin
-                  if not FileExists(exeSnetCfgPath) then
+          {        if not FileExists(exeSnetCfgPath) then
                      strRegErrMsg := 'file not found'
                   else if LastError > 0 then
                      strRegErrMsg := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
                      strRegErrMsg := LastExceptionStr;
-                  strRegErrMsg := 'problem starting snetcfg'#13#10#13#10'System message: ' + strRegErrMsg;
+                  strRegErrMsg := 'problem starting snetcfg'#13#10#13#10'System message: ' + strRegErrMsg;}
                end;
             finally
             end;

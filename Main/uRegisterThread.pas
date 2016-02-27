@@ -385,9 +385,9 @@ begin
       exeSnetCfgPath := ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs))) + 'data\tools\snetcfg_x64.exe';
       {$ENDIF}
       ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
-      if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) > 0)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState > 0) then
+    //  if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) > 0)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState > 0) then
          try
-            strTemp := '"' + exeSnetCfgPath + '" -v -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+            strTemp := '"' + exeSnetCfgPath + '" -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
             UniqueString(strTemp);
             PexeSnetCfg := PChar(strTemp);
             if ExtractFilePath(exeVBPathAbs) <> '' then
@@ -448,11 +448,11 @@ begin
                         CloseHandle(hProcessDup);
                      GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
                   end;
-                  if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                 { if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                   begin
                      strTemp := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');
                      strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemUninstalling'], ['VBoxNet' + strNetBrdg1], 'problem uninstalling %s'#13#10#13#10'System message:') + strTemp;
-                  end;
+                  end; }
                   CloseHandle(eProcessInfo.hProcess);
                   CloseHandle(eProcessInfo.hThread);
                except
@@ -460,13 +460,13 @@ begin
             end
             else
             begin
-               if not FileExists(exeSnetCfgPath) then
+             {  if not FileExists(exeSnetCfgPath) then
                   strTemp := 'file not found'
                else if LastError > 0 then
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;}
             end;
          finally
          end;
