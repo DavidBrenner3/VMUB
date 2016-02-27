@@ -140,8 +140,8 @@
       <ProblemUnreg>problem unregistering %s\r\n\r\nSystem message:</ProblemUnreg>
       <ProblemReg>problem registering %s\rn\r\nSystem message:</ProblemReg>
       <ProblemFcntDll>problem starting %s function from %s\r\n\r\nSystem message:</ProblemFcntDll>
-      <ProblemCreatingServ>problem creating %s service\r\n\r\nSystem message:</ProblemCreatingServ>
-      <ProblemStartSer>problem starting %s service\r\n\r\nSystem message:</ProblemStartSer>
+      <ProblemCreateSrv>problem creating %s service\r\n\r\nSystem message:</ProblemCreateSrv>
+      <ProblemStartSrv>problem starting %s service\r\n\r\nSystem message:</ProblemStartSrv>
       <ProblemInstalling>problem installing %s\r\n\r\nSystem message:</ProblemInstalling>
       <ProperRegUnreg>In order to properly (un)register VirtualBox dlls, infs and services'#13#10'for the portable version, all the VirtualBox windows have to be closed!\r\n\r\nYou can choose to Abort, close all VirtualBox windows manually and click on Retry,\r\nclick on Ignore to not (un)register or click on Close all to automatically close them</ProperRegUnreg>
       <CouldNotReg>Could not automatically register the VirtualBox%s dlls, infs and services !\r\n\r\nReason:</CouldNotReg>
