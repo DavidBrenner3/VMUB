@@ -1030,7 +1030,7 @@ object frmMain: TfrmMain
   end
   object xmlGen: TXMLDocument
     Left = 48
-    Top = 40
+    Top = 48
     DOMVendorDesc = 'MSXML'
   end
   object xmlVBox: TXMLDocument

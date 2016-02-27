@@ -7788,7 +7788,7 @@ begin
                                              if Cardinal(Length(sVbox)) <> dwBytesReturned then
                                              begin
                                                 LastError := GetLastError;
-                                                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorSpaceVolume'], [FileName, SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please free some space or check the volume ''%s'' for errors.'#13#10#13#10'System message: %s');
+                                                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorSpaceVolume'], [FileName, ExtractFileDrive(FileName), SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please free some space or check the volume ''%s'' for errors.'#13#10#13#10'System message: %s');
                                                 AllOK := False;
                                              end
                                              else
@@ -7805,7 +7805,7 @@ begin
                                        on E: Exception do
                                        begin
                                           AllOK := False;
-                                          errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteVolume'], [FileName, E.Message], 'error writing in "%s",'#13#10'please remove the write protection or check the volume ''%s'' for errors.'#13#10'System message: %s');
+                                          errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteVolume'], [FileName, ExtractFileDrive(FileName), E.Message], 'error writing in "%s",'#13#10'please remove the write protection or check the volume ''%s'' for errors.'#13#10'System message: %s');
                                        end;
                                     end;
                                     try
@@ -8644,7 +8644,7 @@ begin
                                     if Cardinal(Length(sVbox)) <> dwBytesReturned then
                                     begin
                                        LastError := GetLastError;
-                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorSpaceVolume'], [FileName, SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please free some space or check the volume ''%s'' for errors.'#13#10#13#10'System message: %s');
+                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorSpaceVolume'], [FileName, ExtractFileDrive(FileName), SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please free some space or check the volume ''%s'' for errors.'#13#10#13#10'System message: %s');
                                        AllOK := False;
                                     end
                                     else
@@ -8661,7 +8661,7 @@ begin
                               on E: Exception do
                               begin
                                  AllOK := False;
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteVolume'], [FileName, E.Message], 'error writing in "%s",'#13#10'please remove the write protection or check the volume ''%s'' for errors.'#13#10'System message: %s');
+                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteVolume'], [FileName, ExtractFileDrive(FileName), E.Message], 'error writing in "%s",'#13#10'please remove the write protection or check the volume ''%s'' for errors.'#13#10'System message: %s');
                               end;
                            end;
                         try
@@ -9613,7 +9613,7 @@ begin
                      Delete(strRegErrMsg, l, 1);
                      Dec(l);
                   end;
-                  if CustomMessageBox(frmMain.Handle, GetLangTextDef(idxMain, ['Messages', 'CouldNotRegister'], 'Could not automatically register the VirtualBox dlls, infs and services !'#13#10#13#10'Reason: ') + strRegErrMsg,
+                  if CustomMessageBox(frmMain.Handle, GetLangTextFormatDef(idxMain, ['Messages', 'CouldNotReg'], [''], 'Could not automatically register the VirtualBox%s dlls, infs and services !'#13#10#13#10'Reason: ') + strRegErrMsg,
                      GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbRetry, mbIgnore], mbRetry) = mrRetry then
                   begin
                      if FRegThread <> nil then
@@ -12254,7 +12254,7 @@ begin
                                              strRegErrMsg := SysErrorMessage(LastError)
                                           else if LastExceptionStr <> '' then
                                              strRegErrMsg := LastExceptionStr;
-                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxNetAdp'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSrv'], ['VBoxNetAdp'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                           Result := False;
                                           Break;
                                        end;
@@ -12513,7 +12513,7 @@ begin
                                                 strRegErrMsg := SysErrorMessage(LastError)
                                              else if LastExceptionStr <> '' then
                                                 strRegErrMsg := LastExceptionStr;
-                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxNet' + strNetBrdg1], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSrv'], ['VBoxNet' + strNetBrdg1], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                              Break;
                                           end;
                                           Inc(i);
@@ -12529,7 +12529,7 @@ begin
                                           strRegErrMsg := SysErrorMessage(LastError)
                                        else if LastExceptionStr <> '' then
                                           strRegErrMsg := LastExceptionStr;
-                                       strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxNet' + strNetBrdg1], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                       strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSrv'], ['VBoxNet' + strNetBrdg1], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                        Result := False;
                                     end;
                                  end;
@@ -12756,7 +12756,7 @@ begin
                                           strRegErrMsg := SysErrorMessage(LastError)
                                        else if LastExceptionStr <> '' then
                                           strRegErrMsg := LastExceptionStr;
-                                       strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemCreateSer'], ['VBoxUSBMon'], 'problem creating %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                       strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemCreateSrv'], ['VBoxUSBMon'], 'problem creating %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                     end;
                                  end;
                                  if Result then
@@ -12772,7 +12772,7 @@ begin
                                              strRegErrMsg := SysErrorMessage(LastError)
                                           else if LastExceptionStr <> '' then
                                              strRegErrMsg := LastExceptionStr;
-                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxUSBMon'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSrv'], ['VBoxUSBMon'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                        end;
                                     end;
                                  end;
@@ -12915,7 +12915,7 @@ begin
                                                 strRegErrMsg := SysErrorMessage(LastError)
                                              else if LastExceptionStr <> '' then
                                                 strRegErrMsg := LastExceptionStr;
-                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxUSB'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSrv'], ['VBoxUSB'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                              Result := False;
                                              Break;
                                           end;
