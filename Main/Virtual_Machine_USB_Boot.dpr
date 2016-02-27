@@ -132,10 +132,13 @@ begin
                         SetForegroundWindow(AllWindowsList[i].Handle)
                      else if CustomMessageBox(Application.Handle, GetLangTextDef(idxMain, ['Messages', 'AlreadyStarted'], 'The application is already started but the interface is hidden.'#13#10'Do you want to forcibly close that session (not recommended)?'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbNo], mbYes) = mrYes then
                      begin
-                        GetFileNameAndThreadFromHandle(AllWindowsList[i].Handle, ThreadID);
-                        try
-                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ThreadID), 0);
-                        except
+                        if IsWindow(AllWindowsList[i].Handle) then
+                        begin
+                           GetFileNameAndThreadFromHandle(AllWindowsList[i].Handle, ThreadID);
+                           try
+                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ThreadID), 0);
+                           except
+                           end;
                         end;
                         goto TryAgain;
                      end;

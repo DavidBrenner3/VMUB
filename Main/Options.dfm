@@ -542,6 +542,7 @@ object frmOptions: TfrmOptions
           State = cbChecked
           TabOrder = 0
           WordWrap = True
+          OnClick = cbuseLoadedFromInstalledClick
           OnKeyDown = AllKeyDown
         end
       end

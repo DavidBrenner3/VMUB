@@ -118,7 +118,7 @@ begin
             strTemp := SysErrorMessage(LastError)
          else if LastExceptionStr <> '' then
             strTemp := LastExceptionStr;
-         strRegErrMsg := strRegErrMsg + #13#10#13#10'problem changing the environment variable VBOX_USER_HOME'#13#10#13#10'System message: ' + strTemp;
+         strRegErrMsg := strRegErrMsg + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemChangeEnv'], ['VBOX_USER_HOME'], 'problem changing the %s environment variable'#13#10#13#10'System message:') + ' ' + strTemp;
       end;
 
       if isVBInstalledToo and FileExists(exeVBPathToo) and useLoadedFromInstalled then
@@ -199,13 +199,13 @@ begin
                      end;
                      if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                      begin
-                        if not FileExists(exeDevConPath) then
-                           strTemp := 'devcon not found'
-                        else if LastError > 0 then
+                        if LastError > 0 then
                            strTemp := SysErrorMessage(LastError)
                         else if LastExceptionStr <> '' then
-                           strTemp := LastExceptionStr;
-                        strRegErrMsg := strRegErrMsg + #13#10#13#10'problem loading VBoxUSB.inf'#13#10#13#10'System message: ' + strTemp;
+                           strTemp := LastExceptionStr
+                        else
+                           strTemp := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'devcon'], '%s error code from %s');
+                        strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemUninstalling'], ['VBoxUSB.inf'], 'problem uninstalling %s'#13#10#13#10'System message:') + ' ' + strTemp;
                         Result := Result and False;
                      end;
                      CloseHandle(eProcessInfo.hProcess);
@@ -215,11 +215,13 @@ begin
                end
                else
                begin
-                  if LastError > 0 then
+                  if not FileExists(exeDevConPath) then
+                     strTemp := 'file not found'
+                  else if LastError > 0 then
                      strTemp := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
                      strTemp := LastExceptionStr;
-                  strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting devcon'#13#10#13#10'System message: ' + strTemp;
+                  strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['devcon'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
                   Result := Result and False;
                end;
             finally
@@ -448,8 +450,8 @@ begin
                   end;
                   if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                   begin
-                     strTemp := IntToStr(ExitCode) + ' error code from snetcfg';
-                     strRegErrMsg := strRegErrMsg + #13#10#13#10'problem uninstalling VBoxNet' + strNetBrdg1 + #13#10#13#10' System message: ' + strTemp;
+                     strTemp := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');
+                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemUninstalling'], ['VBoxNet' + strNetBrdg1], 'problem uninstalling %s'#13#10#13#10'System message:') + strTemp;
                   end;
                   CloseHandle(eProcessInfo.hProcess);
                   CloseHandle(eProcessInfo.hThread);
@@ -464,7 +466,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting snetcfg'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
          finally
          end;
@@ -543,16 +545,18 @@ begin
                   if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                   begin
                      if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
-                        strTemp := 'dll file not found'
+                        strTemp := 'file not found'
                      else
                         case ExitCode of
-                           1: strTemp := 'Invalid argument';
-                           2: strTemp := 'OleInitialize failed';
-                           3: strTemp := 'LoadLibrary failed';
-                           4: strTemp := 'GetProcAddress failed';
-                           5: strTemp := 'DllRegisterServer or DllUnregisterServer failed';
+                           1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
+                           2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
+                           3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
+                           4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
+                           5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
+                        else
+                           strTemp := '';
                         end;
-                     strRegErrMsg := strRegErrMsg + #13#10#13#10'problem registering VBoxNetFltNobj.dll'#13#10#13#10'System message: ' + strTemp;
+                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemUnreg'], ['VBoxNetFltNobj.dll'], 'problem unregistering %s'#13#10#13#10'System message:') + ' ' + strTemp;
                   end;
                   CloseHandle(eProcessInfo.hProcess);
                   CloseHandle(eProcessInfo.hThread);
@@ -743,7 +747,7 @@ begin
                strTemp := SysErrorMessage(LastError)
             else if LastExceptionStr <> '' then
                strTemp := LastExceptionStr;
-            strRegErrMsg := strRegErrMsg + #13#10#13#10'problem registering VBoxSVC.exe'#13#10#13#10'System message: ' + strTemp;
+            strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxSVC.exe'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strTemp;
             Result := Result and resCP;
          end;
       finally
@@ -827,13 +831,15 @@ begin
                      strTemp := 'dll file not found'
                   else
                      case ExitCode of
-                        1: strTemp := 'Invalid argument';
-                        2: strTemp := 'OleInitialize failed';
-                        3: strTemp := 'LoadLibrary failed';
-                        4: strTemp := 'GetProcAddress failed';
-                        5: strTemp := 'DllRegisterServer or DllUnregisterServer failed';
+                        1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
+                        2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
+                        3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
+                        4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
+                        5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
+                     else
+                        strTemp := '';
                      end;
-                  strRegErrMsg := strRegErrMsg + #13#10#13#10'problem registering VBoxC.dll'#13#10#13#10'System message: ' + strTemp;
+                  strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxC.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strTemp;
                   Result := Result and False;
                end;
                CloseHandle(eProcessInfo.hProcess);
@@ -849,7 +855,7 @@ begin
                strTemp := SysErrorMessage(LastError)
             else if LastExceptionStr <> '' then
                strTemp := LastExceptionStr;
-            strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting regsvr32.exe'#13#10#13#10'System message: ' + strTemp;
+            strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['devcon'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
             Result := Result and False;
          end;
       finally
@@ -886,7 +892,7 @@ begin
                strTemp := LastExceptionStr
             else if @InitFunc = nil then
                strTemp := 'function not found';
-            strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting function RTR3Init(Dll) from VBoxRT.dll'#13#10#13#10'System message: ' + strTemp;
+            strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemFcntDll'], ['RTR3InitDll', 'VBoxRT.dll'], 'problem starting %s function from %s'#13#10#13#10'System message:') + ' ' + strTemp;
             Result := Result and False;
          end;
       end;
@@ -894,7 +900,7 @@ begin
       if Terminated then
          Exit;
 
-      if not Result then
+      if not resCp then
       begin
          SetLength(exeRundll32Path, StrLen(Buffer));
          exeRundll32Path := IncludeTrailingPathDelimiter(Buffer);
@@ -972,12 +978,15 @@ begin
                         strRegErrMsg := 'dll file not found'
                      else
                         case ExitCode of
-                           1: strTemp := 'Invalid argument';
-                           2: strTemp := 'OleInitialize failed';
-                           3: strTemp := 'LoadLibrary failed';
-                           4: strTemp := 'GetProcAddress failed';
+                           1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
+                           2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
+                           3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
+                           4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
+                           5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
+                        else
+                           strTemp := '';
                         end;
-                     strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting function RTR3InitDll from VBoxRT.dll'#13#10#13#10'System message: ' + strTemp;
+                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemFcntDll'], ['RTR3InitDll', 'VBoxRT.dll'], 'problem starting %s function from %s'#13#10#13#10'System message:') + ' ' + strTemp;
                      Result := Result and False;
                   end;
                   CloseHandle(eProcessInfo.hProcess);
@@ -993,7 +1002,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting rundll32.exe'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['rundll32.exe'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
                Result := Result and False;
             end;
          finally
@@ -1013,7 +1022,7 @@ begin
                strTemp := SysErrorMessage(LastError)
             else if LastExceptionStr <> '' then
                strTemp := LastExceptionStr;
-            strRegErrMsg := strRegErrMsg + #13#10#13#10'problem creating VBoxDrv service'#13#10#13#10'System message: ' + strTemp;
+            strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemCreateSer'], ['VBoxDRV'], 'problem creating %s service'#13#10#13#10'System message:') + ' ' + strTemp;
          end;
       end;
 
@@ -1030,7 +1039,7 @@ begin
                strTemp := SysErrorMessage(LastError)
             else if LastExceptionStr <> '' then
                strTemp := LastExceptionStr;
-            strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting VBoxDrv service'#13#10#13#10'System message: ' + strTemp;
+            strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxDRV'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strTemp;
          end;
       end;
 
@@ -1050,7 +1059,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem creating VBoxUSBMon service'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemCreateSer'], ['VBoxUSBMon'], 'problem creating %s service'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
          end;
 
@@ -1068,7 +1077,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting VBoxUSBMon service'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxUSBMon'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
          end;
 
@@ -1143,10 +1152,10 @@ begin
                         if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                         begin
                            if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs)) + 'drivers\USB\device\VBoxUSB.inf') then
-                              strTemp := 'VBoxUSB.inf not found'
+                              strTemp := 'file not found'
                            else
-                              strTemp := IntToStr(ExitCode) + ' error code from devcon';
-                           strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBoxUSB.inf'#13#10#13#10'System message: ' + strTemp;
+                              strTemp := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'devcon'], '%s error code from %s');
+                           strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxUSB.inf'], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
                            Result := Result and False;
                         end;
                         CloseHandle(eProcessInfo.hProcess);
@@ -1175,7 +1184,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBox USB driver'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxUSB.inf'], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
             {$ENDIF}
             {$IFDEF WIN64}
@@ -1186,7 +1195,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBox USB driver'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxUSB.inf'], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
             {$ENDIF}
          end;
@@ -1222,7 +1231,7 @@ begin
                      strTemp := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
                      strTemp := LastExceptionStr;
-                  strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting VBoxUSB service'#13#10#13#10'System message: ' + strTemp;
+                  strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxUSB'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strTemp;
                   Result := Result and False;
                   Break;
                end;
@@ -1318,10 +1327,10 @@ begin
                         if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                         begin
                            if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs)) + 'drivers\network\netadp' + strNetAdp + '\VBoxNetAdp' + strNetAdp + '.inf') then
-                              strTemp := 'VBoxNetAdp' + strNetAdp + '.inf not found'
+                              strTemp := 'file not found'
                            else
-                              strTemp := IntToStr(ExitCode) + ' error code from devcon';
-                           strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBoxNetadp' + strNetAdp + '.inf'#13#10#13#10'System message: ' + strTemp;
+                              strTemp := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'devcon'], '%s error code from %s');
+                           strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxNetAdp' + strNetAdp + '.inf'], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
                            Result := Result and False;
                         end;
                         CloseHandle(eProcessInfo.hProcess);
@@ -1337,7 +1346,8 @@ begin
                         strTemp := SysErrorMessage(LastError)
                      else if LastExceptionStr <> '' then
                         strTemp := LastExceptionStr;
-                     strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting devcon'#13#10#13#10'System message: ' + strTemp;
+                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['devcon'], 'problem starting %s'#13#10#13#10'System message:')
+ + ' ' + strTemp;
                      Result := Result and False;
                   end;
                finally
@@ -1350,7 +1360,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBox Net driver'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxNetAdp' + strNetAdp], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
             {$ENDIF}
             {$IFDEF WIN64}
@@ -1361,7 +1371,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBox Net driver'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxNetAdp' + strNetAdp], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
             end;
             {$ENDIF}
          end;
@@ -1387,7 +1397,7 @@ begin
                      strTemp := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
                      strTemp := LastExceptionStr;
-                  strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting VBoxNetAdp service'#13#10#13#10'System message: ' + strTemp;
+                  strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStartSer'], ['VBoxNetAdp'], 'problem starting %s service'#13#10#13#10'System message:') + ' ' + strTemp;
                   Result := Result and False;
                   Break;
                end;
@@ -1480,8 +1490,8 @@ begin
                         else if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf') then
                            strTemp := 'VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf not found'
                         else
-                           strTemp := IntToStr(ExitCode) + ' error code from snetcfg';
-                        strRegErrMsg := strRegErrMsg + #13#10#13#10'problem installing VBoxNet' + strNetBrdg1 + '.inf'#13#10#13#10'System message: ' + strTemp;
+                           strTemp := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');;
+                        strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxNet' + strNetBrdg1], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strTemp;
                         Result := Result and False;
                      end;
                      CloseHandle(eProcessInfo.hProcess);
@@ -1497,7 +1507,7 @@ begin
                      strTemp := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
                      strTemp := LastExceptionStr;
-                  strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting snetcfg'#13#10#13#10'System message: ' + strTemp;
+                  strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
                   Result := Result and False;
                end;
             finally
@@ -1622,7 +1632,7 @@ begin
                            4: strRegErrMsg := 'GetProcAddress failed';
                            5: strRegErrMsg := 'DllRegisterServer or DllUnregisterServer failed';
                         end;
-                     strRegErrMsg := strRegErrMsg + #13#10#13#10'problem registering VBoxNetFltNobj.dll'#13#10#13#10'System message: ' + strTemp;
+                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxNetFltNobj.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strTemp;
                      Result := Result and False;
                   end;
                   CloseHandle(eProcessInfo.hProcess);
@@ -1638,7 +1648,7 @@ begin
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
                   strTemp := LastExceptionStr;
-               strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting regsvr32.exe'#13#10#13#10'System message: ' + strTemp;
+               strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['regsvr32.exe'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
                Result := Result and False;
             end;
          finally
@@ -1662,7 +1672,7 @@ begin
                      strTemp := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
                      strTemp := LastExceptionStr;
-                  strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting VBoxNet' + strNetBrdg1 + ' service'#13#10#13#10'System message: ' + strTemp;
+                  strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['VBoxNet' + strNetBrdg1], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
                   Result := Result and False;
                   Break;
                end;
@@ -1680,7 +1690,7 @@ begin
                strTemp := SysErrorMessage(LastError)
             else if LastExceptionStr <> '' then
                strTemp := LastExceptionStr;
-            strRegErrMsg := strRegErrMsg + #13#10#13#10'problem starting VBoxNet' + strNetBrdg1 + ' service'#13#10#13#10'System message: ' + strTemp;
+            strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['VBoxNet' + strNetBrdg1], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
             Result := Result and False;
          end;
       end;

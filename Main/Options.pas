@@ -85,6 +85,7 @@ type
       procedure pnlQEMUExit(Sender: TObject);
       procedure pnlVirtualBoxEnter(Sender: TObject);
       procedure pnlVirtualBoxExit(Sender: TObject);
+      procedure cbuseLoadedFromInstalledClick(Sender: TObject);
    private
       originaledtVBExePathWindowProc: TWndMethod;
       originaledtQExePathWindowProc: TWndMethod;
@@ -114,6 +115,12 @@ procedure TfrmOptions.cbDirectlyClick(Sender: TObject);
 begin
    cbUseVboxmanage.Checked := not cbDirectly.Checked and (not cbAutoDetect.Checked);
    cbAutoDetect.Checked := not cbDirectly.Checked and (not cbUseVboxmanage.Checked);
+end;
+
+procedure TfrmOptions.cbuseLoadedFromInstalledClick(Sender: TObject);
+begin
+   cbLoadNetPortable.Enabled := not (isVBInstalledToo and FileExists(exeVBPathToo) and cbuseLoadedFromInstalled.Checked);
+   cbLoadUSBPortable.Enabled := not (isVBInstalledToo and FileExists(exeVBPathToo) and cbuseLoadedFromInstalled.Checked);
 end;
 
 procedure TfrmOptions.btnBrowseForVBExeClick(Sender: TObject);
