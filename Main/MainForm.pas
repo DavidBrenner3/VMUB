@@ -10942,7 +10942,7 @@ var
    PexeSnetCfgPath, PexeRegSvr32, PexeRegSvr32Path: PChar;
    dt: Cardinal;
    ssStatus: TServiceStatus;
-   Result, DoNotRegister: Boolean;
+   resCP, Result, DoNotRegister: Boolean;
 begin
    if isBusyStartVM then
    begin
@@ -11882,88 +11882,88 @@ begin
                                  if Result then
                                  begin
 
-                                    ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
-                                    if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) > 0)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState > 0) then
+                                    //  ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
+                                      //if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) > 0)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState > 0) then
+                                    try
+                                       strTemp := '"' + exeSnetCfgPath + '" -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+                                       l := (Length(strTemp) + 1) * SizeOf(Char);
+                                       SetLength(CommLine, l);
+                                       Move(strTemp[1], CommLine[0], l);
+                                       if ExtractFilePath(exeVBPathAbs) <> '' then
+                                          PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
+                                       else
+                                          PexeSnetCfgPath := nil;
+                                       ResetLastError;
                                        try
-                                          strTemp := '"' + exeSnetCfgPath + '" -v -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
-                                          l := (Length(strTemp) + 1) * SizeOf(Char);
-                                          SetLength(CommLine, l);
-                                          Move(strTemp[1], CommLine[0], l);
-                                          if ExtractFilePath(exeVBPathAbs) <> '' then
-                                             PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
-                                          else
-                                             PexeSnetCfgPath := nil;
-                                          ResetLastError;
-                                          try
-                                             Result := CreateProcess(nil, @CommLine[0], nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
-                                             LastError := GetLastError;
-                                          except
-                                             on E: Exception do
-                                             begin
-                                                Result := False;
-                                                LastExceptionStr := E.Message;
-                                             end;
-                                          end;
-                                          if Result then
+                                          Result := CreateProcess(nil, @CommLine[0], nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
+                                          LastError := GetLastError;
+                                       except
+                                          on E: Exception do
                                           begin
-                                             dt := GetTickCount;
-                                             while (GetTickCount - dt) <= 5000 do
-                                             begin
-                                                if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                   Break;
-                                             end;
-                                             dt := GetTickCount;
-                                             while (GetTickCount - dt) <= 50000 do
-                                             begin
-                                                if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                   Break;
-                                             end;
-                                             try
-                                                GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                                if ExitCode = Still_Active then
-                                                begin
-                                                   uExitCode := 0;
-                                                   RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                                                   bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                                                   if GetExitCodeProcess(hProcessDup, dwCode) then
-                                                   begin
-                                                      hKernel := GetModuleHandle('Kernel32');
-                                                      FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                                                      hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                                                      if hrt = 0 then
-                                                         TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                                                      else
-                                                         CloseHandle(hRT);
-                                                   end
-                                                   else
-                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                                                   if (bDup) then
-                                                      CloseHandle(hProcessDup);
-                                                   GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                                end;
-                                                if (ExitCode <> Still_Active) and (ExitCode <> 0) then
-                                                begin
-                                                   strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');
-                                                   strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemUninstalling'], ['VBoxNet' + strNetBrdg1], 'problem uninstalling %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
-                                                   Result := False;
-                                                end;
-                                                CloseHandle(eProcessInfo.hProcess);
-                                                CloseHandle(eProcessInfo.hThread);
-                                             except
-                                             end;
-                                          end
-                                          else
-                                          begin
-                                             if not FileExists(exeSnetCfgPath) then
-                                                strRegErrMsg := 'file not found'
-                                             else if LastError > 0 then
-                                                strRegErrMsg := SysErrorMessage(LastError)
-                                             else if LastExceptionStr <> '' then
-                                                strRegErrMsg := LastExceptionStr;
-                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                             Result := False;
+                                             LastExceptionStr := E.Message;
                                           end;
-                                       finally
                                        end;
+                                       if Result then
+                                       begin
+                                          dt := GetTickCount;
+                                          while (GetTickCount - dt) <= 5000 do
+                                          begin
+                                             if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                                Break;
+                                          end;
+                                          dt := GetTickCount;
+                                          while (GetTickCount - dt) <= 50000 do
+                                          begin
+                                             if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                                Break;
+                                          end;
+                                          try
+                                             GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                             if ExitCode = Still_Active then
+                                             begin
+                                                uExitCode := 0;
+                                                RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                                                bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                                                if GetExitCodeProcess(hProcessDup, dwCode) then
+                                                begin
+                                                   hKernel := GetModuleHandle('Kernel32');
+                                                   FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                                                   hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                                                   if hrt = 0 then
+                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                                                   else
+                                                      CloseHandle(hRT);
+                                                end
+                                                else
+                                                   TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                                                if (bDup) then
+                                                   CloseHandle(hProcessDup);
+                                                GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                             end;
+                                             if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                                             begin
+                                                strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');
+                                                strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemUninstalling'], ['VBoxNet' + strNetBrdg1], 'problem uninstalling %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                                Result := False;
+                                             end;
+                                             CloseHandle(eProcessInfo.hProcess);
+                                             CloseHandle(eProcessInfo.hThread);
+                                          except
+                                          end;
+                                       end
+                                       else
+                                       begin
+                                          if not FileExists(exeSnetCfgPath) then
+                                             strRegErrMsg := 'file not found'
+                                          else if LastError > 0 then
+                                             strRegErrMsg := SysErrorMessage(LastError)
+                                          else if LastExceptionStr <> '' then
+                                             strRegErrMsg := LastExceptionStr;
+                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                       end;
+                                    finally
+                                    end;
                                  end;
 
                                  SetLength(exeRegsvr32Path, StrLen(Buffer));
@@ -12260,6 +12260,71 @@ begin
                                        end;
                                        Inc(i);
                                     end;
+                                 end;
+
+                                 try
+                                    strTemp := '"' + exeSnetCfgPath + '" -u ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+                                    l := (Length(strTemp) + 1) * SizeOf(Char);
+                                    SetLength(CommLine, l);
+                                    Move(strTemp[1], CommLine[0], l);
+                                    if ExtractFilePath(exeVBPathAbs) <> '' then
+                                       PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
+                                    else
+                                       PexeSnetCfgPath := nil;
+                                    ResetLastError;
+                                    try
+                                       resCP := CreateProcess(nil, @CommLine[0], nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
+                                       LastError := GetLastError;
+                                    except
+                                       on E: Exception do
+                                       begin
+                                          resCP := False;
+                                          LastExceptionStr := E.Message;
+                                       end;
+                                    end;
+                                    if resCP then
+                                    begin
+                                       dt := GetTickCount;
+                                       while (GetTickCount - dt) <= 5000 do
+                                       begin
+                                          if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                             Break;
+                                       end;
+                                       dt := GetTickCount;
+                                       while (GetTickCount - dt) <= 50000 do
+                                       begin
+                                          if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                             Break;
+                                       end;
+                                       try
+                                          GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                          if ExitCode = Still_Active then
+                                          begin
+                                             uExitCode := 0;
+                                             RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                                             bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                                             if GetExitCodeProcess(hProcessDup, dwCode) then
+                                             begin
+                                                hKernel := GetModuleHandle('Kernel32');
+                                                FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                                                hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                                                if hrt = 0 then
+                                                   TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                                                else
+                                                   CloseHandle(hRT);
+                                             end
+                                             else
+                                                TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                                             if (bDup) then
+                                                CloseHandle(hProcessDup);
+                                             GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                          end;
+                                          CloseHandle(eProcessInfo.hProcess);
+                                          CloseHandle(eProcessInfo.hThread);
+                                       except
+                                       end;
+                                    end;
+                                 finally
                                  end;
 
                                  curDir := GetCurrentDir();
