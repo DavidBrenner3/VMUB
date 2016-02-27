@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Interface>
   <Language>
     <Name>English</Name>
@@ -128,6 +128,26 @@
       <SureClose>Are you sure you want to close the application?</SureClose>
       <ErrorGetInfEject>Could not retrieve the informations necessary to eject the drive !\r\n\r\nSystem message: %s</ErrorGetInfEject>
       <ErrorEject>Could not automatically eject the drive !\r\n\r\nClose the application(s) who access this drive and try again...</ErrorEject>
+      <ErrorCode>%s error code from %s</ErrorCode>
+      <ProblemChangeEnv>problem changing the %s environment variable\r\n\r\nSystem message:</ProblemChangeEnv>
+      <ProblemUninstalling>problem uninstalling %s\r\n\r\nSystem message:</ProblemUninstalling>
+      <ProblemStarting>problem starting %s\r\n\r\nSystem message:</ProblemStarting>
+      <InvArg>Invalid argument</InvArg>
+      <OleinitFld>OleInitialize failed</OleinitFld>
+      <LoadLibFld>LoadLibrary failed</LoadLibFld>
+      <GetPrcAdFld>GetProcAddress failed</GetPrcAdFld>
+      <DllRegUnregFld>DllRegisterServer or DllUnregisterServer failed</DllRegUnregFld>
+      <ProblemUnreg>problem unregistering %s\r\n\r\nSystem message:</ProblemUnreg>
+      <ProblemReg>problem registering %s\rn\r\nSystem message:</ProblemReg>
+      <ProblemFcntDll>problem starting %s function from %s\r\n\r\nSystem message:</ProblemFcntDll>
+      <ProblemCreatingServ>problem creating %s service\r\n\r\nSystem message:</ProblemCreatingServ>
+      <ProblemStartSer>problem starting %s service\r\n\r\nSystem message:</ProblemStartSer>
+      <ProblemInstalling>problem installing %s\r\n\r\nSystem message:</ProblemInstalling>
+      <ProperRegUnreg>In order to properly (un)register VirtualBox dlls, infs and services'#13#10'for the portable version, all the VirtualBox windows have to be closed!\r\n\r\nYou can choose to Abort, close all VirtualBox windows manually and click on Retry,\r\nclick on Ignore to not (un)register or click on Close all to automatically close them</ProperRegUnreg>
+      <CouldNotReg>Could not automatically register the VirtualBox%s dlls, infs and services !\r\n\r\nReason:</CouldNotReg>
+      <CouldNotUnreg>Could not automatically unregister the VirtualBox%s dlls, infs and services !\r\n\r\nReason:</CouldNotUnreg>
+      <ProblemStopSrv>problem stopping %s service'#13#10#13#10'System message:</ProblemStopSrv>
+      <ProblemRemSrv>problem removing VBoxNetAdp service'#13#10#13#10'System message:</ProblemRemSrv>
     </Messages>
   </Main>
   <AddEdit>
