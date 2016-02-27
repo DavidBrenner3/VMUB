@@ -9603,17 +9603,17 @@ begin
                if Message.lParam = 3 then
                begin
                   l := Length(strRegErrMsg);
-                  while (l > 0) and (strRegErrMsg[1] = #13) or (strRegErrMsg[1] = #10) do
+                  while (l > 0) and ((strRegErrMsg[1] = #13) or (strRegErrMsg[1] = #10)) do
                   begin
                      Delete(strRegErrMsg, 1, 1);
                      Dec(l);
                   end;
-                  while (l > 0) and (strRegErrMsg[l] = #13) or (strRegErrMsg[l] = #10) do
+                  while (l > 0) and ((strRegErrMsg[l] = #13) or (strRegErrMsg[l] = #10)) do
                   begin
                      Delete(strRegErrMsg, l, 1);
                      Dec(l);
                   end;
-                  if CustomMessageBox(frmMain.Handle, GetLangTextFormatDef(idxMain, ['Messages', 'CouldNotReg'], [''], 'Could not automatically register the VirtualBox%s dlls, infs and services !'#13#10#13#10'Reason: ') + strRegErrMsg,
+                  if CustomMessageBox(frmMain.Handle, GetLangTextFormatDef(idxMain, ['Messages', 'CouldNotReg'], [''], 'Could not automatically register the VirtualBox%s dlls, infs and services !'#13#10#13#10'Reason:') + ' ' + strRegErrMsg,
                      GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbRetry, mbIgnore], mbRetry) = mrRetry then
                   begin
                      if FRegThread <> nil then
@@ -13129,9 +13129,7 @@ begin
                            begin
                               uExitCode := 0;
                               RemoteProcHandle := GetProcessHandleFromID(svcThrProcessInfo.dwProcessId);
-                              bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup,
-
-                                 PROCESS_ALL_ACCESS, False, 0);
+                              bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
                               if GetExitCodeProcess(hProcessDup, dwCode) then
                               begin
                                  hKernel := GetModuleHandle('Kernel32');
@@ -13158,6 +13156,7 @@ begin
                      LoadUSBPortableTemp := cbLoadUSBPortable.Checked;
                      useLoadedFromInstalledTemp := cbuseLoadedFromInstalled.Checked;
                      ChangeFromTempToReal := True;
+                     StartRegToo := False;
                      if not isVBPortable then
                      begin
                         ChangeFromTempToReal := False;
@@ -13193,7 +13192,7 @@ begin
                               ws := exeVBPathTemp;
                         end
                         else
-                           ws := exeVBPath;
+                           ws := exeVBPathTemp;
                         ws := ExcludeTrailingPathDelimiter(ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(ws)))) + '\data\.VirtualBox\VirtualBox.xml';
                         if FileExists(ws) then
                         begin
@@ -13208,7 +13207,7 @@ begin
                            if isVBPortable then
                            begin
                               VBOX_USER_HOME := ExcludeTrailingPathDelimiter(ExtractFilePath(ws));
-                              isVBInstalledToo := (ServiceStatus.dwCurrentState = SERVICE_RUNNING) and (ServiceDisplayName = 'PortableVBoxDRV');
+                              isVBInstalledToo := (ServiceStatus.dwCurrentState = SERVICE_RUNNING) and (ServiceDisplayName <> 'PortableVBoxDRV');
                               ExeVBPathToo := GetEnvVarValue('VBOX_MSI_INSTALL_PATH');
                               if ExeVBPathToo = '' then
                                  ExeVBPathToo := GetEnvVarValue('VBOX_INSTALL_PATH');
@@ -13262,6 +13261,11 @@ begin
                                  FRegJobDone := False;
                                  FRegThread := TRegisterThread.Create;
                               end;
+                           end
+                           else
+                           begin
+                              isVBInstalledToo := False;
+                              ExeVBPathToo := '';
                            end;
                         end;
                      end;

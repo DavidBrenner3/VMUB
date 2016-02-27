@@ -461,7 +461,7 @@ begin
             else
             begin
                if not FileExists(exeSnetCfgPath) then
-                  strRegErrMsg := 'file not found'
+                  strTemp := 'file not found'
                else if LastError > 0 then
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
@@ -864,8 +864,8 @@ begin
       if Terminated then
          Exit;
 
-      Result := Result and False;
       vLibHandle := LoadLibrary(PChar(IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs)) + 'VBoxRT.dll'));
+      resCP := True;
       if vLibHandle <> 0 then
       begin
          ResetLastError;
@@ -893,7 +893,6 @@ begin
             else if @InitFunc = nil then
                strTemp := 'function not found';
             strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemFcntDll'], ['RTR3InitDll', 'VBoxRT.dll'], 'problem starting %s function from %s'#13#10#13#10'System message:') + ' ' + strTemp;
-            Result := Result and False;
          end;
       end;
 
@@ -975,7 +974,7 @@ begin
                   if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                   begin
                      if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeVBPathAbs)) + 'VBoxRT.dll') then
-                        strRegErrMsg := 'dll file not found'
+                        strTemp := 'file not found'
                      else
                         case ExitCode of
                            1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
@@ -997,7 +996,7 @@ begin
             else
             begin
                if not FileExists(exeRundll32Path) then
-                  strRegErrMsg := 'file not found'
+                  strTemp := 'file not found'
                else if LastError > 0 then
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
@@ -1166,7 +1165,7 @@ begin
                   else
                   begin
                      if not FileExists(exeDevConPath) then
-                        strRegErrMsg := 'file not found'
+                        strTemp := 'file not found'
                      else if LastError > 0 then
                         strTemp := SysErrorMessage(LastError)
                      else if LastExceptionStr <> '' then
@@ -1341,13 +1340,12 @@ begin
                   else
                   begin
                      if not FileExists(exeDevConPath) then
-                        strRegErrMsg := 'file not found'
+                        strTemp := 'file not found'
                      else if LastError > 0 then
                         strTemp := SysErrorMessage(LastError)
                      else if LastExceptionStr <> '' then
                         strTemp := LastExceptionStr;
-                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['devcon'], 'problem starting %s'#13#10#13#10'System message:')
- + ' ' + strTemp;
+                     strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['devcon'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strTemp;
                      Result := Result and False;
                   end;
                finally
@@ -1502,7 +1500,7 @@ begin
                else
                begin
                   if not FileExists(exeSnetCfgPath) then
-                     strRegErrMsg := 'file not found'
+                     strTemp := 'file not found'
                   else if LastError > 0 then
                      strTemp := SysErrorMessage(LastError)
                   else if LastExceptionStr <> '' then
@@ -1623,14 +1621,14 @@ begin
                   if (ExitCode <> Still_Active) and (ExitCode <> 0) then
                   begin
                      if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
-                        strRegErrMsg := 'dll file not found'
+                        strTemp := 'dll file not found'
                      else
                         case ExitCode of
-                           1: strRegErrMsg := 'Invalid argument';
-                           2: strRegErrMsg := 'OleInitialize failed';
-                           3: strRegErrMsg := 'LoadLibrary failed';
-                           4: strRegErrMsg := 'GetProcAddress failed';
-                           5: strRegErrMsg := 'DllRegisterServer or DllUnregisterServer failed';
+                           1: strTemp := 'Invalid argument';
+                           2: strTemp := 'OleInitialize failed';
+                           3: strTemp := 'LoadLibrary failed';
+                           4: strTemp := 'GetProcAddress failed';
+                           5: strTemp := 'DllRegisterServer or DllUnregisterServer failed';
                         end;
                      strRegErrMsg := strRegErrMsg + #13#10#13#10 + GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxNetFltNobj.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strTemp;
                      Result := Result and False;
@@ -1643,7 +1641,7 @@ begin
             else
             begin
                if not FileExists(exeRegSvr32Path) then
-                  strRegErrMsg := 'file not found'
+                  strTemp := 'file not found'
                else if LastError > 0 then
                   strTemp := SysErrorMessage(LastError)
                else if LastExceptionStr <> '' then
