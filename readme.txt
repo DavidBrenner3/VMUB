@@ -10,7 +10,7 @@ isInstalledVersion := True;
 
 in Main\Virtual_Machine_USB_Boot.dpr
 
-Third party components:
+Third party components (slightly modified from the originals):
 
 TVirtualTree
 TPNGImage
