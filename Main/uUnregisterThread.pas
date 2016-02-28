@@ -1356,7 +1356,7 @@ begin
                      Exit;
                end;
                dt := GetTickCount;
-               while (GetTickCount - dt) <= 10000 do
+               while (GetTickCount - dt) <= 12000 do
                begin
                   if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
                      Break;
