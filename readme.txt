@@ -8,7 +8,7 @@ VirtualBox (installed or portable) and/or QEMU
 
 
 
-Use Delphi 10 Seattle to compile.
+Use Delphi XE or newer to compile.
 
 To change from portable version to install switch
 
