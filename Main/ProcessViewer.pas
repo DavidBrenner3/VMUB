@@ -105,6 +105,11 @@ begin
             end;
             Inc(i);
          end;
+      end
+      else
+      begin
+         Result := True;
+         Exit;
       end;
       GetWindowText(hWnd, WCaption, 255);
       Inc(FCount);

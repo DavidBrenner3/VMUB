@@ -4,7 +4,7 @@ object frmOptions: TfrmOptions
   BorderIcons = [biSystemMenu]
   BorderStyle = bsToolWindow
   Caption = 'Options'
-  ClientHeight = 740
+  ClientHeight = 711
   ClientWidth = 586
   Color = clBtnFace
   DoubleBuffered = True
@@ -15,20 +15,20 @@ object frmOptions: TfrmOptions
   Font.Style = []
   KeyPreview = True
   OldCreateOrder = False
-  Scaled = False
+  Position = poDesigned
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyPress = FormKeyPress
   DesignSize = (
     586
-    740)
+    711)
   PixelsPerInch = 96
   TextHeight = 13
   object pnlAll: TPanel
-    Left = 7
+    Left = 8
     Top = 8
     Width = 571
-    Height = 696
+    Height = 667
     Anchors = [akLeft, akTop, akRight, akBottom]
     BevelInner = bvLowered
     BevelOuter = bvSpace
@@ -39,12 +39,12 @@ object frmOptions: TfrmOptions
     TabOrder = 0
     DesignSize = (
       571
-      696)
+      667)
     object gbGeneral: TGroupBox
       Left = 8
-      Top = 8
+      Top = 10
       Width = 554
-      Height = 227
+      Height = 193
       Anchors = [akLeft, akTop, akRight]
       Caption = 'General'
       Font.Charset = DEFAULT_CHARSET
@@ -56,10 +56,10 @@ object frmOptions: TfrmOptions
       TabOrder = 0
       DesignSize = (
         554
-        227)
+        193)
       object lblWaitTime: TLabel
         Left = 8
-        Top = 17
+        Top = 21
         Width = 324
         Height = 16
         Anchors = [akLeft, akTop, akRight]
@@ -70,11 +70,11 @@ object frmOptions: TfrmOptions
         Font.Name = 'Tahoma'
         Font.Style = []
         ParentFont = False
-        Transparent = False
+        Transparent = True
       end
       object lblLanguage: TLabel
         Left = 8
-        Top = 200
+        Top = 166
         Width = 157
         Height = 16
         Anchors = [akLeft, akTop, akRight]
@@ -85,11 +85,39 @@ object frmOptions: TfrmOptions
         Font.Name = 'Tahoma'
         Font.Style = []
         ParentFont = False
-        Transparent = False
+        Transparent = True
+      end
+      object lblDefaultVMType: TLabel
+        Left = 8
+        Top = 81
+        Width = 244
+        Height = 16
+        Anchors = [akLeft, akTop, akRight]
+        Caption = 'Default VM type when adding a new entry:'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ParentFont = False
+      end
+      object lblKeyCombination: TLabel
+        Left = 8
+        Top = 140
+        Width = 239
+        Height = 16
+        Anchors = [akLeft, akTop, akRight]
+        Caption = 'Hotkey to start the current selected entry:'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ParentFont = False
       end
       object cbLock: TCheckBox
         Left = 8
-        Top = 39
+        Top = 43
         Width = 536
         Height = 17
         Anchors = [akLeft, akTop, akRight]
@@ -109,7 +137,7 @@ object frmOptions: TfrmOptions
       end
       object cbSecondDrive: TCheckBox
         Left = 8
-        Top = 58
+        Top = 62
         Width = 536
         Height = 17
         Anchors = [akLeft, akTop, akRight]
@@ -125,7 +153,7 @@ object frmOptions: TfrmOptions
       end
       object edtWaitTime: TEdit
         Left = 344
-        Top = 14
+        Top = 18
         Width = 200
         Height = 24
         Anchors = [akTop, akRight]
@@ -141,96 +169,9 @@ object frmOptions: TfrmOptions
         OnKeyDown = AllKeyDown
         OnKeyPress = edtWaitTimeKeyPress
       end
-      object gbDefaultVMType: TGroupBox
-        Left = 3
-        Top = 78
-        Width = 536
-        Height = 55
-        Anchors = [akLeft, akTop, akRight]
-        Caption = 'Default VM type when adding a new entry'
-        TabOrder = 3
-        DesignSize = (
-          536
-          55)
-        object pnlQEMU: TPanel
-          Left = 170
-          Top = 22
-          Width = 161
-          Height = 25
-          Anchors = [akLeft]
-          BevelInner = bvLowered
-          DoubleBuffered = False
-          ParentDoubleBuffered = False
-          TabOrder = 1
-          TabStop = True
-          OnEnter = pnlQEMUEnter
-          OnExit = pnlQEMUExit
-          object sbQEMU: TPngSpeedButton
-            Left = 2
-            Top = 2
-            Width = 157
-            Height = 21
-            Align = alClient
-            AllowAllUp = True
-            GroupIndex = 2
-            Caption = '  QEMU'
-            Flat = True
-            Font.Charset = DEFAULT_CHARSET
-            Font.Color = clWindowText
-            Font.Height = -13
-            Font.Name = 'Tahoma'
-            Font.Style = []
-            ParentFont = False
-            OnClick = sbQEMUClick
-            OnMouseActivate = sbQEMUMouseActivate
-            ExplicitLeft = 0
-            ExplicitTop = 0
-            ExplicitWidth = 160
-            ExplicitHeight = 25
-          end
-        end
-        object pnlVirtualBox: TPanel
-          Left = 10
-          Top = 22
-          Width = 161
-          Height = 25
-          Anchors = [akLeft]
-          BevelInner = bvLowered
-          DoubleBuffered = False
-          ParentDoubleBuffered = False
-          TabOrder = 0
-          TabStop = True
-          OnEnter = pnlVirtualBoxEnter
-          OnExit = pnlVirtualBoxExit
-          object sbVirtualBox: TPngSpeedButton
-            Left = 2
-            Top = 2
-            Width = 157
-            Height = 21
-            Align = alClient
-            AllowAllUp = True
-            GroupIndex = 1
-            Down = True
-            Caption = '  VirtualBox'
-            Flat = True
-            Font.Charset = DEFAULT_CHARSET
-            Font.Color = clWindowText
-            Font.Height = -13
-            Font.Name = 'Tahoma'
-            Font.Style = []
-            ParentFont = False
-            OnClick = sbVirtualBoxClick
-            OnMouseActivate = sbVirtualBoxMouseActivate
-            ExplicitLeft = 0
-            ExplicitTop = 0
-            ExplicitWidth = 160
-            ExplicitHeight = 25
-          end
-        end
-      end
       object cbListOnlyUSBDrives: TCheckBox
         Left = 8
-        Top = 139
+        Top = 100
         Width = 357
         Height = 17
         Anchors = [akLeft, akTop, akRight]
@@ -241,12 +182,12 @@ object frmOptions: TfrmOptions
         Font.Name = 'Tahoma'
         Font.Style = []
         ParentFont = False
-        TabOrder = 4
+        TabOrder = 5
         OnKeyDown = AllKeyDown
       end
       object cbAutomaticFont: TCheckBox
         Left = 8
-        Top = 158
+        Top = 119
         Width = 357
         Height = 17
         Anchors = [akLeft, akTop, akRight]
@@ -259,47 +200,29 @@ object frmOptions: TfrmOptions
         Font.Style = []
         ParentFont = False
         State = cbChecked
-        TabOrder = 6
-        OnClick = cbAutomaticFontClick
-        OnKeyDown = AllKeyDown
-      end
-      object cbEscapeKeyClosesMain: TCheckBox
-        Left = 8
-        Top = 177
-        Width = 357
-        Height = 17
-        Anchors = [akLeft, akTop, akRight]
-        Caption = 'Escape key closes the main window'
-        Checked = True
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -13
-        Font.Name = 'Tahoma'
-        Font.Style = []
-        ParentFont = False
-        State = cbChecked
         TabOrder = 7
+        OnClick = cbAutomaticFontClick
         OnKeyDown = AllKeyDown
       end
       object cmbLanguage: TComboBox
         Left = 172
-        Top = 197
+        Top = 163
         Width = 372
         Height = 24
         Style = csDropDownList
-        Anchors = [akTop, akRight]
-        TabOrder = 8
+        Anchors = [akLeft, akTop, akRight]
+        TabOrder = 9
         OnKeyDown = AllKeyDown
       end
       object btnChooseFont: TPngBitBtn
         Left = 428
-        Top = 153
+        Top = 110
         Width = 116
         Height = 25
         Anchors = [akTop, akRight]
         Caption = 'Choose font'
         Enabled = False
-        TabOrder = 5
+        TabOrder = 6
         OnClick = btnChooseFontClick
         OnKeyDown = AllKeyDown
         PngImage.Data = {
@@ -323,10 +246,92 @@ object frmOptions: TfrmOptions
           4E309D9002068F21003D01C7DFE491BBE20000000049454E44AE426082}
         PngOptions = [pngBlendOnDisabled, pngGrayscaleOnDisabled]
       end
+      object pnlQEMU: TPanel
+        Left = 441
+        Top = 79
+        Width = 103
+        Height = 25
+        Anchors = [akTop, akRight]
+        BevelInner = bvLowered
+        DoubleBuffered = False
+        ParentDoubleBuffered = False
+        TabOrder = 4
+        TabStop = True
+        OnEnter = pnlQEMUEnter
+        OnExit = pnlQEMUExit
+        object sbQEMU: TPngSpeedButton
+          Left = 2
+          Top = 2
+          Width = 99
+          Height = 21
+          Align = alClient
+          AllowAllUp = True
+          GroupIndex = 2
+          Caption = '  QEMU'
+          Flat = True
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -13
+          Font.Name = 'Tahoma'
+          Font.Style = []
+          ParentFont = False
+          OnClick = sbQEMUClick
+          OnMouseActivate = sbQEMUMouseActivate
+          ExplicitWidth = 100
+          ExplicitHeight = 22
+        end
+      end
+      object pnlVirtualBox: TPanel
+        Left = 335
+        Top = 79
+        Width = 107
+        Height = 25
+        Anchors = [akTop, akRight]
+        BevelInner = bvLowered
+        DoubleBuffered = False
+        ParentDoubleBuffered = False
+        TabOrder = 3
+        TabStop = True
+        OnEnter = pnlVirtualBoxEnter
+        OnExit = pnlVirtualBoxExit
+        object sbVirtualBox: TPngSpeedButton
+          Left = 2
+          Top = 2
+          Width = 103
+          Height = 21
+          Align = alClient
+          AllowAllUp = True
+          GroupIndex = 1
+          Down = True
+          Caption = '  VirtualBox'
+          Flat = True
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -13
+          Font.Name = 'Tahoma'
+          Font.Style = []
+          ParentFont = False
+          OnClick = sbVirtualBoxClick
+          OnMouseActivate = sbVirtualBoxMouseActivate
+          ExplicitWidth = 104
+          ExplicitHeight = 22
+        end
+      end
+      object hkStart: THotKey
+        Left = 335
+        Top = 139
+        Width = 209
+        Height = 19
+        Anchors = [akLeft, akTop, akRight]
+        AutoSize = False
+        HotKey = 0
+        Modifiers = []
+        TabOrder = 8
+      end
     end
     object gbVirtualBox: TGroupBox
       Left = 8
-      Top = 239
+      Top = 206
       Width = 554
       Height = 314
       Anchors = [akLeft, akTop, akRight]
@@ -355,13 +360,6 @@ object frmOptions: TfrmOptions
         Font.Style = []
         ParentFont = False
       end
-      object imgVB: TImage
-        Left = 3
-        Top = -1
-        Width = 16
-        Height = 16
-        Transparent = True
-      end
       object btnBrowseForVBExe: TPngSpeedButton
         Left = 519
         Top = 18
@@ -380,10 +378,17 @@ object frmOptions: TfrmOptions
         ShowHint = True
         OnClick = btnBrowseForVBExeClick
       end
+      object imgVB: TImage
+        Left = 3
+        Top = 2
+        Width = 17
+        Height = 16
+        Transparent = True
+      end
       object edtVBExePath: TEdit
         Left = 71
         Top = 18
-        Width = 444
+        Width = 473
         Height = 24
         Anchors = [akTop, akRight]
         Font.Charset = DEFAULT_CHARSET
@@ -595,7 +600,7 @@ object frmOptions: TfrmOptions
     end
     object gbQemu: TGroupBox
       Left = 8
-      Top = 556
+      Top = 525
       Width = 554
       Height = 129
       Anchors = [akLeft, akTop, akRight]
@@ -639,7 +644,7 @@ object frmOptions: TfrmOptions
         ParentFont = False
       end
       object imgQEMU: TImage
-        Left = 10
+        Left = 6
         Top = 1
         Width = 17
         Height = 16
@@ -664,10 +669,24 @@ object frmOptions: TfrmOptions
         ShowHint = True
         OnClick = btnBrowseForQExeClick
       end
+      object lblEmulationBusType: TLabel
+        Left = 238
+        Top = 51
+        Width = 113
+        Height = 16
+        Anchors = [akTop]
+        Caption = 'Emulation bus type:'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ParentFont = False
+      end
       object edtQExePath: TEdit
         Left = 71
         Top = 18
-        Width = 224
+        Width = 251
         Height = 24
         Anchors = [akLeft, akTop, akRight]
         Font.Charset = DEFAULT_CHARSET
@@ -702,7 +721,7 @@ object frmOptions: TfrmOptions
         OnKeyDown = AllKeyDown
       end
       object cmbExeVersion: TComboBox
-        Left = 301
+        Left = 328
         Top = 18
         Width = 215
         Height = 24
@@ -721,7 +740,7 @@ object frmOptions: TfrmOptions
       object cbHideConsoleWindow: TCheckBox
         Left = 8
         Top = 50
-        Width = 537
+        Width = 177
         Height = 17
         Anchors = [akLeft, akTop, akRight]
         Caption = 'Hide the console window'
@@ -737,11 +756,33 @@ object frmOptions: TfrmOptions
         WordWrap = True
         OnKeyDown = AllKeyDown
       end
+      object cbEmulationBusType: TComboBox
+        Left = 357
+        Top = 48
+        Width = 187
+        Height = 24
+        Style = csDropDownList
+        Anchors = [akTop, akRight]
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -13
+        Font.Name = 'Tahoma'
+        Font.Style = []
+        ItemIndex = 1
+        MaxLength = 1024
+        ParentFont = False
+        TabOrder = 4
+        Text = 'SCSI (fast, less compatible)'
+        OnKeyDown = AllKeyDown
+        Items.Strings = (
+          'IDE (slow, compatible)'
+          'SCSI (fast, less compatible)')
+      end
     end
   end
   object btnOK: TPngBitBtn
     Left = 129
-    Top = 710
+    Top = 681
     Width = 90
     Height = 25
     Anchors = [akBottom]
@@ -754,7 +795,7 @@ object frmOptions: TfrmOptions
   end
   object btnCancel: TPngBitBtn
     Left = 375
-    Top = 710
+    Top = 681
     Width = 90
     Height = 25
     Anchors = [akBottom]

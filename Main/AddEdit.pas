@@ -86,6 +86,8 @@ type
       btnOK: TPngBitBtn;
       btnCancel: TPngBitBtn;
       pnlQEMU: TPanel;
+      lblCache: TLabel;
+      cmbCache: TComboBox;
       procedure sbVirtualBoxClick(Sender: TObject);
       procedure sbQEMUClick(Sender: TObject);
       procedure btnOKClick(Sender: TObject);
@@ -116,6 +118,7 @@ type
       procedure sbVirtualBoxMouseActivate(Sender: TObject; Button: TMouseButton;
          Shift: TShiftState; X, Y, HitTest: Integer;
          var MouseActivate: TMouseActivate);
+      procedure cmbVMNameChange(Sender: TObject);
    private
       { Private declarations }
       meParams: Boolean;
@@ -232,6 +235,13 @@ begin
    begin
       lblSecondDrive.Top := lblSecondDrive.Top + 3 * ItemHeight;
       cmbSecondDrive.Top := cmbSecondDrive.Top + 3 * ItemHeight;
+      lblCache.Top := HMargin + 5 * ItemHeight;
+      cmbCache.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
+   end
+   else
+   begin
+      lblCache.Top := HMargin + 4 * ItemHeight;
+      cmbCache.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
    end;
    if Visible then
    begin
@@ -348,11 +358,24 @@ begin
    cmbFirstDrive.Top := cmbFirstDrive.Top - 3 * ItemHeight;
    lblExeParams.Top := lblExeParams.Top - 3 * ItemHeight;
    edtExeParams.Top := edtExeParams.Top - 3 * ItemHeight;
+   btnBrowseForHDD.Top := edtHDD.Top;
    if AddSecondDrive then
    begin
       lblSecondDrive.Top := lblSecondDrive.Top - 3 * ItemHeight;
       cmbSecondDrive.Top := cmbSecondDrive.Top - 3 * ItemHeight;
+      lblCache.Top := HMargin + 4 * ItemHeight;
+      cmbCache.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
+      lblHDD.Top := HMargin + 5 * ItemHeight;
+      edtHDD.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
+   end
+   else
+   begin
+      lblCache.Top := HMargin + 3 * ItemHeight;
+      cmbCache.Top := HMargin + 3 * ItemHeight - lblToEditDiff;
+      lblHDD.Top := HMargin + 4 * ItemHeight;
+      edtHDD.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
    end;
+   btnBrowseForHDD.Top := edtHDD.Top;
    if Visible then
    begin
       SendMessage(Handle, WM_SETREDRAW, WPARAM(True), 0);
@@ -452,28 +475,28 @@ begin
                   with frmMain.xmlGen do
                   begin
                      if Tag = 1 then
-                        try
-                           Active := True;
-                           n1 := ChildNodes.IndexOf('VirtualBox');
-                           if n1 > -1 then
+                     try
+                        Active := True;
+                        n1 := ChildNodes.IndexOf('VirtualBox');
+                        if n1 > -1 then
+                        begin
+                           n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                           if n2 > -1 then
                            begin
-                              n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                              if n2 > -1 then
+                              n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                              if n3 > -1 then
                               begin
-                                 n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                 if n3 > -1 then
+                                 a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                 if a1 > -1 then
                                  begin
-                                    a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                    if a1 > -1 then
-                                    begin
-                                       wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a1].Text;
-                                       Replacebks(wst, Length(wst));
-                                    end;
+                                    wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a1].Text;
+                                    Replacebks(wst, Length(wst));
                                  end;
                               end;
                            end;
-                        except
                         end;
+                     except
+                     end;
                      Active := False;
                   end;
 
@@ -502,9 +525,9 @@ begin
                end;
             end
          else
-            if cmbVMName.ItemIndex = 0 then
+            if cmbVMName.ItemIndex <= 1 then
             begin
-               if cmbVMName.Items.Count > 1 then
+               if cmbVMName.Items.Count > 2 then
                begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'SetVMName'], 'Please set a VM name !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                   cmbVMName.SetFocus;
@@ -582,6 +605,26 @@ end;
 
 procedure TfrmAddEdit.FormShow(Sender: TObject);
 begin
+   case SystemIconSize of
+      -2147483647..18:
+         begin
+            frmMain.imlBtn16.GetIcon(1 + Integer(isEdit), Icon);
+            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+         end;
+      19..22:
+         begin
+            frmMain.imlBtn20.GetIcon(1 + Integer(isEdit), Icon);
+            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+         end;
+      23..2147483647:
+         begin
+            frmMain.imlBtn24.GetIcon(1 + Integer(isEdit), Icon);
+            btnBrowseForVM.PngImage := frmMain.imlBtn32.PngImages[0].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn32.PngImages[0].PngImage;
+         end;
+   end;
    if FocusFirstDrive then
       cmbFirstDrive.SetFocus
    else if FocusSecDrive then
@@ -627,18 +670,18 @@ begin
                edtExeParams.SelLength := 0;
             end;
          end;
-   else
-      begin
-         lblVMName.Visible := True;
-         cmbVMName.Visible := True;
-         lblVMPath.Visible := False;
-         edtVMPath.Visible := False;
-         btnBrowseForVM.Visible := False;
-         lblExeParams.Visible := False;
-         edtExeParams.Visible := False;
-         if Visible then
-            cmbVMName.SetFocus;
-      end;
+      else
+         begin
+            lblVMName.Visible := True;
+            cmbVMName.Visible := True;
+            lblVMPath.Visible := False;
+            edtVMPath.Visible := False;
+            btnBrowseForVM.Visible := False;
+            lblExeParams.Visible := False;
+            edtExeParams.Visible := False;
+            if Visible then
+               cmbVMName.SetFocus;
+         end;
    end;
 end;
 
@@ -658,38 +701,38 @@ begin
          with frmMain.xmlGen do
          begin
             if Tag = 1 then
-               try
-                  Active := True;
-                  n1 := ChildNodes.IndexOf('VirtualBox');
-                  if n1 > -1 then
+            try
+               Active := True;
+               n1 := ChildNodes.IndexOf('VirtualBox');
+               if n1 > -1 then
+               begin
+                  n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                  if n2 > -1 then
                   begin
-                     n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                     if n2 > -1 then
+                     n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                     if n3 > -1 then
                      begin
-                        n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                        if n3 > -1 then
+                        a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                        if a > -1 then
                         begin
-                           a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                           if a > -1 then
+                           FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                           l := Length(FolderName);
+                           if l > 2 then
                            begin
-                              FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                              l := Length(FolderName);
-                              if l > 2 then
+                              i := 1;
+                              while i <= l do
                               begin
-                                 i := 1;
-                                 while i <= l do
-                                 begin
-                                    if FolderName[i] = '/' then
-                                       FolderName[i] := '\';
-                                    Inc(i);
-                                 end;
+                                 if FolderName[i] = '/' then
+                                    FolderName[i] := '\';
+                                 Inc(i);
                               end;
                            end;
                         end;
                      end;
                   end;
-               except
                end;
+            except
+            end;
             Active := False;
          end;
 
@@ -743,49 +786,49 @@ begin
    with frmMain.xmlGen do
    begin
       if Tag = 1 then
-         try
-            Active := True;
-            n1 := ChildNodes.IndexOf('VirtualBox');
-            if n1 > -1 then
+      try
+         Active := True;
+         n1 := ChildNodes.IndexOf('VirtualBox');
+         if n1 > -1 then
+         begin
+            n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+            if n2 > -1 then
             begin
-               n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-               if n2 > -1 then
-               begin
-                  n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MachineRegistry');
-                  if n3 > -1 then
-                     for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
-                        try
-                           p1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('src');
-                           if p1 = -1 then
-                              Continue;
-                           wn := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[p1].Text;
-                           l := Length(wn);
-                           if l < 9 then
-                              Continue;
-                           p1 := l;
-                           while p1 > 0 do
-                           begin
-                              if (wn[p1] = '\') or (wn[p1] = '/') then
-                                 Break;
-                              Dec(p1);
-                           end;
-                           wn := ChangeFileExt(Copy(wn, p1 + 1, l - p1), '');
-                           p1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('uuid');
-                           if p1 = -1 then
-                              Continue;
-                           wid := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[p1].Text;
-                           l := Length(wid);
-                           if l < 3 then
-                              Continue;
-                           SetLength(VMIDs, Length(VMIDs) + 1);
-                           VMIDs[High(VMIDs)].Name := wn;
-                           VMIDs[High(VMIDs)].ID := AnsiString(Copy(wid, 2, l - 2));
-                        except
-                        end;
-               end;
+               n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MachineRegistry');
+               if n3 > -1 then
+                  for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
+                  try
+                     p1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('src');
+                     if p1 = -1 then
+                        Continue;
+                     wn := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[p1].Text;
+                     l := Length(wn);
+                     if l < 9 then
+                        Continue;
+                     p1 := l;
+                     while p1 > 0 do
+                     begin
+                        if (wn[p1] = '\') or (wn[p1] = '/') then
+                           Break;
+                        Dec(p1);
+                     end;
+                     wn := ChangeFileExt(Copy(wn, p1 + 1, l - p1), '');
+                     p1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('uuid');
+                     if p1 = -1 then
+                        Continue;
+                     wid := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[p1].Text;
+                     l := Length(wid);
+                     if l < 3 then
+                        Continue;
+                     SetLength(VMIDs, Length(VMIDs) + 1);
+                     VMIDs[High(VMIDs)].Name := wn;
+                     VMIDs[High(VMIDs)].ID := AnsiString(Copy(wid, 2, l - 2));
+                  except
+                  end;
             end;
-         except
          end;
+      except
+      end;
       Active := False;
    end;
 end;
@@ -810,6 +853,19 @@ begin
    sbVirtualBox.Repaint;
 end;
 
+procedure TfrmAddEdit.cmbVMNameChange(Sender: TObject);
+begin
+   if not Visible then
+      Exit;
+   if not cmbVMName.Visible then
+      Exit;
+   if cmbVMName.ItemIndex = 1 then
+   begin
+      frmMain.StartVBNewMachineWizzard;
+      cmbVMName.ItemIndex := 0;
+   end;
+end;
+
 procedure TfrmAddEdit.cmbVMNameDropDown(Sender: TObject);
 var
    i: Integer;
@@ -819,6 +875,7 @@ begin
    try
       t := TStringList.Create;
       t.Add(GetLangTextDef(idxAddEdit, ['Comboboxes', 'NoneText'], 'None'));
+      t.Add(GetLangTextDef(idxAddEdit, ['Comboboxes', 'CreateNewVM'], 'Create new VM'));
       for i := 0 to High(VMIDs) do
          t.Add('"' + VMIDs[i].Name + '"');
       if not cmbVMName.Items.Equals(t) then
@@ -1131,8 +1188,8 @@ begin
                                        end;
                                     end;
                                  end
-                           else
-                              Continue;
+                              else
+                                 Continue;
                            end;
                         except
                         end
@@ -1573,6 +1630,7 @@ begin
    lblType.Caption := GetLangTextDef(idxAddEdit, ['Labels', 'Type'], 'Type:');
    lblVMName.Caption := GetLangTextDef(idxAddEdit, ['Labels', 'VMName'], 'VM name:');
    lblVMPath.Caption := GetLangTextDef(idxAddEdit, ['Labels', 'VMPath'], 'VM path:');
+   lblCache.Caption := GetLangTextDef(idxAddEdit, ['Labels', 'UseHostCache'], 'Use host I/O cache:');
    odSearchVM.Title := GetLangTextDef(idxAddEdit, ['Dialogs', 'LoadVM', 'Title'], 'Load');
    odSearchVM.Filter := GetLangTextDef(idxAddEdit, ['Dialogs', 'LoadVM', 'Filter'], 'VirtualBox VM (*.vbox)|*.vbox|All files (*.*)|*.*');
    odSearchHDD.Title := GetLangTextDef(idxAddEdit, ['Dialogs', 'LoadHDDImage', 'Title'], 'Load');
@@ -1588,6 +1646,7 @@ begin
    cmbFirstDrive.Items[0] := GetLangTextDef(idxAddEdit, ['Comboboxes', 'NoneText'], 'None');
    cmbFirstDrive.ItemIndex := 0;
    cmbVMName.Items[0] := GetLangTextDef(idxAddEdit, ['Comboboxes', 'NoneText'], 'None');
+   cmbVMName.Items[1] := GetLangTextDef(idxAddEdit, ['Comboboxes', 'CreateNewVM'], 'Create new VM');
    cmbVMName.ItemIndex := 0;
    cmbSecondDrive.Items[0] := GetLangTextDef(idxAddEdit, ['Comboboxes', 'NoneText'], 'None');
    cmbSecondDrive.ItemIndex := 0;
@@ -1601,12 +1660,31 @@ begin
    cmbWS.ItemIndex := 0;
    btnBrowseForVM.Hint := GetLangTextDef(idxAddEdit, ['Hints', 'BrowseForVM'], 'click to browse for VM');
    btnBrowseForHDD.Hint := GetLangTextDef(idxAddEdit, ['Hints', 'BrowseForHdd'], 'click to browse for HDD image file');
-   sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[4].PngImage;
-   sbQEMU.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
-   btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[10].PngImage;
-   btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[10].PngImage;
-   btnOK.PngImage := frmMain.imlBtn16.PngImages[13].PngImage;
-   btnCancel.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
+
+   case SystemIconSize of
+      -2147483647..18:
+         begin
+            sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn16.PngImages[9].PngImage;
+            btnOK.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
+         end;
+      19..22:
+         begin
+            sbVirtualBox.PngImage := frmMain.imlBtn20.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn20.PngImages[9].PngImage;
+            btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
+         end;
+      23..2147483647:
+         begin
+            sbVirtualBox.PngImage := frmMain.imlBtn20.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn20.PngImages[9].PngImage;
+            btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
+         end;
+   end;
+
    cmbFirstDrive.Canvas.Font.Assign(cmbFirstDrive.Font);
    cmbFirstDrive.Canvas.Font.Assign(cmbFirstDrive.Font);
    btnOK.Glyph.Canvas.Font.Assign(btnOK.Font);
@@ -1639,6 +1717,11 @@ begin
       HalfSpaceCharCMB := ' ';
    bflenfd := lblFirstDrive.Width - bflenfd;
    bflensd := lblSecondDrive.Width - bflensd;
+
+   for i := 0 to ComponentCount - 1 do
+      if Components[i] is TComboBox then
+         (Components[i] as TComboBox).ItemHeight := Round(1.0 * Screen.PixelsPerInch / 96 * (Components[i] as TComboBox).ItemHeight);
+
    if not AddSecondDrive then
    begin
       lblFirstDrive.Caption := GetLangTextDef(idxAddEdit, ['Labels', 'Drive'], 'Drive to add and boot:');
@@ -1688,23 +1771,25 @@ begin
    begin
       lblSecondDrive.Visible := True;
       cmbSecondDrive.Visible := True;
-      ClientHeight := ClientHeight - pnlAll.Height + 2 * HMargin + ItemHeight * 7 + lblPriority.Height;
+      ClientHeight := ClientHeight - pnlAll.Height + 2 * HMargin + ItemHeight * 8 + lblPriority.Height;
       lblSecondDrive.Top := HMargin + 4 * ItemHeight;
       cmbSecondDrive.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
-      lblEnableCPUVirtualization.Top := HMargin + 5 * ItemHeight;
-      cmbEnableCPUVirtualization.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
-      lblRun.Top := HMargin + 6 * ItemHeight;
-      cmbWS.Top := HMargin + 6 * ItemHeight - lblToEditDiff;
-      lblPriority.Top := HMargin + 7 * ItemHeight;
-      cmbPriority.Top := HMargin + 7 * ItemHeight - lblToEditDiff;
-      lblHDD.Top := HMargin + 2 * ItemHeight;
-      edtHDD.Top := HMargin + 2 * ItemHeight - lblToEditDiff;
-      lblCDROM.Top := HMargin + 3 * ItemHeight;
-      cmbCDROM.Top := HMargin + 3 * ItemHeight - lblToEditDiff;
-      lblMemory.Top := HMargin + 4 * ItemHeight;
-      edtMemory.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
-      lblAudio.Top := HMargin + 5 * ItemHeight;
-      cmbAudio.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
+      lblCache.Top := HMargin + 5 * ItemHeight;
+      cmbCache.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
+      lblEnableCPUVirtualization.Top := HMargin + 6 * ItemHeight;
+      cmbEnableCPUVirtualization.Top := HMargin + 6 * ItemHeight - lblToEditDiff;
+      lblRun.Top := HMargin + 7 * ItemHeight;
+      cmbWS.Top := HMargin + 7 * ItemHeight - lblToEditDiff;
+      lblPriority.Top := HMargin + 8 * ItemHeight;
+      cmbPriority.Top := HMargin + 8 * ItemHeight - lblToEditDiff;
+      lblHDD.Top := HMargin + 3 * ItemHeight;
+      edtHDD.Top := HMargin + 3 * ItemHeight - lblToEditDiff;
+      lblCDROM.Top := HMargin + 4 * ItemHeight;
+      cmbCDROM.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
+      lblMemory.Top := HMargin + 5 * ItemHeight;
+      edtMemory.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
+      lblAudio.Top := HMargin + 6 * ItemHeight;
+      cmbAudio.Top := HMargin + 6 * ItemHeight - lblToEditDiff;
       btnBrowseForVM.Top := HMargin + 2 * ItemHeight - lblToEditDiff;
       btnBrowseForHDD.Top := HMargin + 2 * ItemHeight - lblToEditDiff;
    end
@@ -1712,21 +1797,23 @@ begin
    begin
       lblSecondDrive.Visible := False;
       cmbSecondDrive.Visible := False;
-      ClientHeight := ClientHeight - pnlAll.Height + 2 * HMargin + ItemHeight * 6 + lblPriority.Height;
-      lblEnableCPUVirtualization.Top := HMargin + 4 * ItemHeight;
-      cmbEnableCPUVirtualization.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
-      lblRun.Top := HMargin + 5 * ItemHeight;
-      cmbWS.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
-      lblPriority.Top := HMargin + 6 * ItemHeight;
-      cmbPriority.Top := HMargin + 6 * ItemHeight - lblToEditDiff;
+      ClientHeight := ClientHeight - pnlAll.Height + 2 * HMargin + ItemHeight * 7 + lblPriority.Height;
+      lblCache.Top := HMargin + 4 * ItemHeight;
+      cmbCache.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
+      lblEnableCPUVirtualization.Top := HMargin + 5 * ItemHeight;
+      cmbEnableCPUVirtualization.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
+      lblRun.Top := HMargin + 6 * ItemHeight;
+      cmbWS.Top := HMargin + 6 * ItemHeight - lblToEditDiff;
+      lblPriority.Top := HMargin + 7 * ItemHeight;
+      cmbPriority.Top := HMargin + 7 * ItemHeight - lblToEditDiff;
       lblHDD.Top := HMargin + ItemHeight;
       edtHDD.Top := HMargin + ItemHeight - lblToEditDiff;
-      lblCDROM.Top := HMargin + 2 * ItemHeight;
-      cmbCDROM.Top := HMargin + 2 * ItemHeight - lblToEditDiff;
-      lblMemory.Top := HMargin + 3 * ItemHeight;
-      edtMemory.Top := HMargin + 3 * ItemHeight - lblToEditDiff;
-      lblAudio.Top := HMargin + 4 * ItemHeight;
-      cmbAudio.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
+      lblCDROM.Top := HMargin + 3 * ItemHeight;
+      cmbCDROM.Top := HMargin + 3 * ItemHeight - lblToEditDiff;
+      lblMemory.Top := HMargin + 4 * ItemHeight;
+      edtMemory.Top := HMargin + 4 * ItemHeight - lblToEditDiff;
+      lblAudio.Top := HMargin + 5 * ItemHeight;
+      cmbAudio.Top := HMargin + 5 * ItemHeight - lblToEditDiff;
       btnBrowseForVM.Top := HMargin + 2 * ItemHeight - lblToEditDiff;
       btnBrowseForHDD.Top := HMargin + ItemHeight - lblToEditDiff;
    end;
@@ -1870,35 +1957,35 @@ begin
    SetLength(aCDROMInfo, 0);
    // CoInitializeEx(nil, COINIT_MULTITHREADED);
    if Succeeded(CoInitialize(nil)) then
+   try
       try
-         try
-            objWMIService := GetWMIObject(AnsiString(Format('winmgmts:\\%s\%s', ['.', 'root\CIMV2'])));
-            colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Drive', 'Win32_CDROMDrive']), 'WQL', 0);
-            oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
-            while oEnum.Next(1, colItem, iValue) = 0 do
-            begin
-               s := AnsiString(colItem.Properties_.Item('Drive', 0));
-               SetLength(aCDROMInfo, Length(aCDROMInfo) + 1);
-               if (Length(s) = 2) and (s[2] = ':') and (s[1] in ['A'..'Z']) then
-                  aCDROMInfo[High(aCDROMInfo)].Letter := s[1]
-               else
-                  aCDROMInfo[High(aCDROMInfo)].Letter := '0';
-            end;
-            colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Caption', 'Win32_CDROMDrive']), 'WQL', 0);
-            oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
-            i := 0;
-            while oEnum.Next(1, colItem, iValue) = 0 do
-            begin
-               if i > High(aCDROMInfo) then
-                  Break;
-               aCDROMInfo[i].Name := AnsiString(colItem.Properties_.Item('Caption', 0));
-               Inc(i);
-            end;
-         except
+         objWMIService := GetWMIObject(AnsiString(Format('winmgmts:\\%s\%s', ['.', 'root\CIMV2'])));
+         colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Drive', 'Win32_CDROMDrive']), 'WQL', 0);
+         oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
+         while oEnum.Next(1, colItem, iValue) = 0 do
+         begin
+            s := AnsiString(colItem.Properties_.Item('Drive', 0));
+            SetLength(aCDROMInfo, Length(aCDROMInfo) + 1);
+            if (Length(s) = 2) and (s[2] = ':') and (s[1] in ['A'..'Z']) then
+               aCDROMInfo[High(aCDROMInfo)].Letter := s[1]
+            else
+               aCDROMInfo[High(aCDROMInfo)].Letter := '0';
          end;
-      finally
-         CoUninitialize;
+         colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Caption', 'Win32_CDROMDrive']), 'WQL', 0);
+         oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
+         i := 0;
+         while oEnum.Next(1, colItem, iValue) = 0 do
+         begin
+            if i > High(aCDROMInfo) then
+               Break;
+            aCDROMInfo[i].Name := AnsiString(colItem.Properties_.Item('Caption', 0));
+            Inc(i);
+         end;
+      except
       end;
+   finally
+      CoUninitialize;
+   end;
    l := Length(aCDROMInfo);
    if l > 1 then
       repeat
@@ -2053,9 +2140,9 @@ begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotAFile'], 'This is not a file !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                end;
             end;
-      else
-         DragFinish(Msg.WPARAM);
-         CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+         else
+            DragFinish(Msg.WPARAM);
+            CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       end;
    end
    else
@@ -2095,9 +2182,9 @@ begin
                                  cmbCDROM.SetFocus;
                               end;
                            end
-                     else
-                        CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotACD'], 'This is not a CD/DVD device !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
-                        Exit;
+                        else
+                           CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotACD'], 'This is not a CD/DVD device !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+                           Exit;
                      end;
                   finally
                      SetErrorMode(ErrorMode);
@@ -2126,9 +2213,9 @@ begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotACDOrIso'], 'Not a CD/DVD device or ISO file !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                end;
             end;
-      else
-         DragFinish(Msg.WPARAM);
-         CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+         else
+            DragFinish(Msg.WPARAM);
+            CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       end;
    end
    else
@@ -2233,9 +2320,9 @@ begin
                                  CustomMessageBox(Handle, (GetLangTextFormatDef(idxAddEdit, ['Messages', 'ErrorAccessVolume'], [SysErrorMessage(LastError)], 'Error accessing the volume on drive !'#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                               end;
                            end
-                     else
-                        CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotADrive'], 'This is not a removable or fixed local drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
-                        Exit;
+                        else
+                           CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotADrive'], 'This is not a removable or fixed local drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+                           Exit;
                      end;
                   finally
                      SetErrorMode(ErrorMode);
@@ -2246,9 +2333,9 @@ begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotAVolOrDrive'], 'Not a volume or drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                end;
             end;
-      else
-         DragFinish(Msg.WPARAM);
-         CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+         else
+            DragFinish(Msg.WPARAM);
+            CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       end;
    end
    else
@@ -2353,9 +2440,9 @@ begin
                                  CustomMessageBox(Handle, (GetLangTextFormatDef(idxAddEdit, ['Messages', 'ErrorAccessVolume'], [SysErrorMessage(LastError)], 'Error accessing the volume on drive !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                               end;
                            end
-                     else
-                        CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotADrive'], 'This is not a removable or fixed local drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
-                        Exit;
+                        else
+                           CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotADrive'], 'This is not a removable or fixed local drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+                           Exit;
                      end;
                   finally
                      SetErrorMode(ErrorMode);
@@ -2366,9 +2453,9 @@ begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'NotAVolOrDrive'], 'Not a volume or drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                end;
             end;
-      else
-         DragFinish(Msg.WPARAM);
-         CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+         else
+            DragFinish(Msg.WPARAM);
+            CustomMessageBox(Handle, (GetLangTextDef(idxAddEdit, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       end;
    end
    else
@@ -2400,44 +2487,44 @@ var
 begin
    Result := '';
    if Succeeded(CoInitialize(nil)) then
+   try
       try
-         try
-            objWMIService := GetWMIObject(AnsiString(Format('winmgmts:\\%s\%s', ['.', 'root\CIMV2'])));
-            colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Drive', 'Win32_CDROMDrive']), 'WQL', 0);
-            oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
-            i := 0;
-            isFound := False;
-            while oEnum.Next(1, colItem, iValue) = 0 do
+         objWMIService := GetWMIObject(AnsiString(Format('winmgmts:\\%s\%s', ['.', 'root\CIMV2'])));
+         colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Drive', 'Win32_CDROMDrive']), 'WQL', 0);
+         oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
+         i := 0;
+         isFound := False;
+         while oEnum.Next(1, colItem, iValue) = 0 do
+         begin
+            strTemp := AnsiString(colItem.Properties_.Item('Drive', 0));
+            if strTemp = AnsiString(CDROMLetter + ':') then
             begin
-               strTemp := AnsiString(colItem.Properties_.Item('Drive', 0));
-               if strTemp = AnsiString(CDROMLetter + ':') then
-               begin
-                  isFound := True;
-                  Break;
-               end;
-               Inc(i);
+               isFound := True;
+               Break;
             end;
-            if not isFound then
-               Exit;
-            colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Caption', 'Win32_CDROMDrive']), 'WQL', 0);
-            oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
-            j := 0;
-            while oEnum.Next(1, colItem, iValue) = 0 do
-            begin
-               if i = j then
-               begin
-                  Result := AnsiString(colItem.Properties_.Item('Caption', 0));
-                  Break;
-               end;
-               Inc(j);
-               if j > i then
-                  Break;
-            end;
-         except
+            Inc(i);
          end;
-      finally
-         CoUninitialize;
+         if not isFound then
+            Exit;
+         colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Caption', 'Win32_CDROMDrive']), 'WQL', 0);
+         oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
+         j := 0;
+         while oEnum.Next(1, colItem, iValue) = 0 do
+         begin
+            if i = j then
+            begin
+               Result := AnsiString(colItem.Properties_.Item('Caption', 0));
+               Break;
+            end;
+            Inc(j);
+            if j > i then
+               Break;
+         end;
+      except
       end;
+   finally
+      CoUninitialize;
+   end;
 end;
 
 procedure TfrmAddEdit.cmbFirstDriveDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);

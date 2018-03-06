@@ -1,28 +1,28 @@
 program Virtual_Machine_USB_Boot;
 
 uses
-   Forms,
-   ShellApi,
-   Windows,
-   ProcessViewer,
-   Messages,
-   Math,
-   Sysutils,
-   Classes,
-   Dialogs,
-   Controls,
-   VirtualTrees,
-   Vcl.StdCtrls,
-   System.Uitypes,
-   MainForm in 'MainForm.pas' {frmMain},
-   AddEdit in 'AddEdit.pas' {frmAddEdit},
-   Options in 'Options.pas' {frmOptions},
-   uPrestartThread in 'uPrestartThread.pas',
-   uPrecacheThread in 'uPrecacheThread.pas',
-   uEjectThread in 'uEjectThread.pas',
-   uFLDThread in 'uFLDThread.pas',
-   uRegisterThread in 'uRegisterThread.pas',
-   uUnregisterThread in 'uUnregisterThread.pas';
+  Forms,
+  ShellApi,
+  Windows,
+  ProcessViewer,
+  Messages,
+  Math,
+  Sysutils,
+  Classes,
+  Dialogs,
+  Controls,
+  VirtualTrees,
+  Vcl.StdCtrls,
+  System.Uitypes,
+  MainForm in 'MainForm.pas' {frmMain},
+  AddEdit in 'AddEdit.pas' {frmAddEdit},
+  Options in 'Options.pas' {frmOptions},
+  uPrestartThread in 'uPrestartThread.pas',
+  uPrecacheThread in 'uPrecacheThread.pas',
+  uEjectThread in 'uEjectThread.pas',
+  uFLDThread in 'uFLDThread.pas',
+  uRegisterThread in 'uRegisterThread.pas',
+  uUnregisterThread in 'uUnregisterThread.pas';
 
 // {$R *.res}
 {$R AdminComctl6.res}
@@ -88,7 +88,7 @@ label
 
 begin
    Application.Initialize;
-   Application.MainFormOnTaskbar := True;
+   Application.MainFormOnTaskbar := False;
    Application.Title := 'Virtual Machine USB Boot';
    isInstalledVersion := False;
 
@@ -114,7 +114,7 @@ begin
    LngFolder := ExtractFilePath(AppGenExePath) + 'Languages';
 
    Application.CreateForm(TfrmMain, frmMain);
-   TryAgain:
+  TryAgain:
 
    if CreateFileMapping(INVALID_HANDLE_VALUE, nil, PAGE_READONLY, 0, 32, 'VirtualMachineUSBBoot') <> 0 then
    begin
@@ -198,6 +198,8 @@ begin
       Application.OnDeactivate := AppDeact;
       Application.OnModalBegin := ModBeg;
       Application.OnModalEnd := ModEnd;
+      Application.OnMinimize := AppMinimize;
+      Application.OnRestore := AppRestore;
       SetBounds(MainLeft, MainTop, MainWidth, MainHeight);
       IntLeft := Left;
       IntTop := Top;

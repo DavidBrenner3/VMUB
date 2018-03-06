@@ -11,7 +11,7 @@ uses
    Winapi.ShlObj, Vcl.Themes, Winapi.UxTheme,
    Clipbrd, Vcl.Extctrls, VirtualTrees, VirtualTrees.Utils, PngImageList, Vcl.ImgList,
    System.UITypes, uFLDThread, uPrestartThread, uPrecacheThread, uEjectThread, uRegisterThread, uUnregisterThread,
-   System.ImageList, Vcl.Buttons, PngSpeedButton, PngImage, PngBitBtn;
+   System.ImageList, Vcl.Buttons, PngSpeedButton, PngImage, PngBitBtn, Syncobjs;
 
 type
 
@@ -54,6 +54,7 @@ type
       CPUPriority: Byte;
       luIDS: LastUsedIDS;
       VBCPUVirtualization: Byte;
+      UseHostIOCache: Boolean;
    end;
 
 function GetEnvVarValue(const VarName: string): string;
@@ -204,6 +205,20 @@ type
       imlBtn16: TPngImageList;
       imlReg16: TPngImageList;
       imlReg24: TPngImageList;
+      TrayIcon: TTrayIcon;
+      imlTray: TPngImageList;
+      pmTray: TPopupMenu;
+      mmExit: TMenuItem;
+      mmShowHideMainWindow: TMenuItem;
+      mmStart: TMenuItem;
+      mmHideTrayIcon: TMenuItem;
+      btnShowTrayIcon: TPngSpeedButton;
+      tmCloseHint: TTimer;
+      imlBtn20: TPngImageList;
+      imlVst20: TPngImageList;
+      imlReg20: TPngImageList;
+      imlVst28: TPngImageList;
+      imlBtn32: TPngImageList;
       procedure btnExitClick(Sender: TObject);
       procedure btnAddClick(Sender: TObject);
       procedure FormCreate(Sender: TObject);
@@ -270,9 +285,19 @@ type
       procedure vstVMsDblClick(Sender: TObject);
       procedure mmOpenInEXplorerClick(Sender: TObject);
       procedure mmEjectClick(Sender: TObject);
+      procedure pmTrayPopup(Sender: TObject);
+      procedure mmShowHideMainWindowClick(Sender: TObject);
+      procedure mmHideTrayIconClick(Sender: TObject);
+      procedure btnShowTrayIconClick(Sender: TObject);
+      procedure tmCloseHintTimer(Sender: TObject);
+      procedure TrayIconBalloonClick(Sender: TObject);
+      procedure TrayIconMouseDown(Sender: TObject; Button: TMouseButton;
+         Shift: TShiftState; X, Y: Integer);
    private
       { Private declarations }
+      Hotkey_id: NativeUINT;
       procedure SortAfterColumn(const ColumnIndex: Integer);
+      procedure WMHotKey(var Msg: TWMHotKey); message WM_HOTKEY;
    public
       { Public declarations }
       procedure RealignColumns(const NoRedraw: Boolean = True);
@@ -284,6 +309,8 @@ type
       procedure AppDeact(Sender: TObject);
       procedure ModEnd(Sender: TObject);
       procedure ModBeg(Sender: TObject);
+      procedure AppMinimize(Sender: TObject);
+      procedure AppRestore(Sender: TObject);
       procedure OpenInternetHelp(const OwnerWindowHandle: THandle; const SiteHelp: array of string);
       function FindCDROMLetter(const CDROMName: AnsiString): AnsiChar;
       procedure AppException(Sender: TObject; E: Exception);
@@ -296,6 +323,12 @@ type
       procedure StopSecDriveAnimation;
       procedure StopVMAnimation;
       procedure HideAutoSustainScrollbars;
+      //function LoadIconFromResource(const nIndex: Integer): HIcon;
+      procedure SetTrayIcon;
+      procedure StopTrayAnimation;
+      procedure ShowTray;
+      procedure HideTray;
+      procedure StartVBNewMachineWizzard;
    end;
 
 type
@@ -630,7 +663,7 @@ function CM_Get_Device_ID(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; u
 function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiSetClassInstallParamsW';
 
 const
-   BaseVersion = ' 1.6';
+   BaseVersion = ' 1.7 Beta 1';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -688,6 +721,7 @@ var
    RemoveDrive: Boolean = False;
    WaitForVBSVC: Boolean = True;
    VBSVC2x: Boolean = True;
+   VBWinClass: string = 'QWidget';
    DriveDetect: TComponentDrive;
    FindDrivesScheduled: Boolean;
    ListOnlyUSBDrives: Boolean = False;
@@ -733,7 +767,8 @@ var
    EditModalResult: Integer = 0;
    CurSelNode: Cardinal;
    AnimationStartIndex: Integer = 9;
-   AnimationEndIndex: Integer = 17;
+   AnimationEndIndex: Integer = 53;
+   AnimTrayStartCopyIndex: Integer = 4;
    VMAnimImageIndex: Integer = 9;
    FirstDriveAnimImageIndex: Integer = 9;
    SecDriveAnimImageIndex: Integer = 9;
@@ -786,6 +821,18 @@ var
    LoadUSBPortableTemp: Boolean = False;
    useLoadedFromInstalledTemp: Boolean = True;
    ChangeFromTempToReal: Boolean = False;
+   ShowTrayIcon: Boolean = False;
+   ReallyClose: Boolean = False;
+   StartKeyComb: TShortcut = Ord('V') + scCtrl + scShift;
+   isOnModal: Boolean = False;
+   VMisOff: Boolean = True;
+   SystemIconSize: Integer = 16;
+   SnapResize: Integer = 10;
+   PreviousDPI: Integer = 96;
+   fDPI: Single = 1;
+   mEvent: TEvent;
+   NumberOfProcessors: Cardinal;
+   EmulationBusType: Byte = 1;
 
    IconIDs: array[TMsgDlgType] of PChar = (
       IDI_EXCLAMATION,
@@ -843,6 +890,20 @@ begin
    LastExceptionStr := '';
 end;
 
+procedure ShortCutToHotKey(HotKey: TShortCut; var Key: Word; var Modifiers: Uint);
+var
+   Shift: TShiftState;
+begin
+   ShortCutToKey(HotKey, Key, Shift);
+   Modifiers := 0;
+   if (ssShift in Shift) then
+      Modifiers := Modifiers or MOD_SHIFT;
+   if (ssAlt in Shift) then
+      Modifiers := Modifiers or MOD_ALT;
+   if (ssCtrl in Shift) then
+      Modifiers := Modifiers or MOD_CONTROL;
+end;
+
 procedure TfrmMain.OpenInternetHelp(const OwnerWindowHandle: THandle; const SiteHelp: array of string);
 const
    INTERNET_CONNECTION_MODEM = 1;
@@ -881,8 +942,8 @@ begin
             Continue;
          mrIgnore:
             Break;
-      else
-         Exit;
+         else
+            Exit;
       end;
    end;
    while True do
@@ -1418,7 +1479,7 @@ type
    {$Z1}
 
 type
-   STORAGE_BUS_TYPE = (BusTypeUnknown = $00, BusTypeScsi, BusTypeAtapi, BusTypeAta, BusType1394, BusTypeSsa, BusTypeFibre, BusTypeUsb, BusTypeRAID, BusTypeiScsi, BusTypeSas, BusTypeSata, BusTypeSd, BusTypeMmc, BusTypeVirtual, BusTypeFileBackedVirtual, BusTypeMax, BusTypeMaxReserved = $7F);
+   STORAGE_BUS_TYPE = (BusTypeUnknown = $00, BusTypeScsi, BusTypeAtapi, BusTypeAta, BusType1394, BusTypeSsa, BusTypeFibre, BusTypeUsb, BusTypeRAID, BusTypeiScsi, BusTypeSas, BusTypeSata, BusTypeSd, BusTypeMmc, BusTypeVirtual, BusTypeFileBackedVirtual, BusTypeMax, BusTypeNvme, BusTypeMaxReserved = $7F);
 
    STORAGE_PROPERTY_QUERY = record
       PropertyId: STORAGE_PROPERTY_ID;
@@ -1820,29 +1881,29 @@ var
 begin
    t := nil;
    while True do
-      try
-         t := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
-         Break;
-      except
-         on E: Exception do
-         begin
-            if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantOpenToRead'], [FileName, E.Message], 'Could not open "%s" for reading !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Exit;
-         end;
+   try
+      t := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+      Break;
+   except
+      on E: Exception do
+      begin
+         if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantOpenToRead'], [FileName, E.Message], 'Could not open "%s" for reading !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Exit;
       end;
+   end;
    l := 0;
    while True do
-      try
-         l := Min(1048576, t.Size div 2);
-         SetLength(psEntries, l);
-         t.Position := 0;
-         t.ReadBuffer(Pointer(psEntries)^, l * 2);
-         Break;
-      except
-         on E: Exception do
-            if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantRead'], [FileName, E.Message], 'Could not read from "%s" !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Break;
-      end;
+   try
+      l := Min(1048576, t.Size div 2);
+      SetLength(psEntries, l);
+      t.Position := 0;
+      t.ReadBuffer(Pointer(psEntries)^, l * 2);
+      Break;
+   except
+      on E: Exception do
+         if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantRead'], [FileName, E.Message], 'Could not read from "%s" !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Break;
+   end;
    try
       t.Free;
    except
@@ -1889,6 +1950,7 @@ begin
             with Data^ do
             begin
                ModeLoadVM := 2;
+               UseHostIOCache := False;
                CPUPriority := 1;
                FirstDriveName := 'Unknown';
                VBCPUVirtualization := 0;
@@ -1951,6 +2013,8 @@ begin
                SecondDriveName := AnsiString(Trim(Copy(wsa[i], 17, Min(1024, l - 16))));
             if (pos(string('SecondDriveBusType='), wsa[i]) = 1) and (l > 19) then
                SecondDriveBusType := GetIntBusType(Trim(Copy(wsa[i], 20, Min(1024, l - 19))));
+            if (pos(string('UseHostIOCache='), wsa[i]) = 1) and (l > 15) then
+               UseHostIOCache := Trim(Copy(wsa[i], 16, Min(1024, l - 15))) = 'On';
             if (pos(string('EnableCPUVirtualization='), wsa[i]) = 1) and (l > 24) then
             begin
                st := Trim(Copy(wsa[i], 25, Min(1024, l - 24)));
@@ -2070,7 +2134,7 @@ procedure TfrmMain.SaveVMentries(const FileName: string);
 var
    l: Integer;
    t: TFileStream;
-   s, sType, sMode, sRun, sPriority, sEnableCPUVirtualization, BaseFolder, sAudio, sCDROMType, strFirstDriveBusType, strSecDriveBusType: string;
+   s, sType, sMode, sRun, sPriority, sEnableCPUVirtualization, BaseFolder, sAudio, sCDROMType, strFirstDriveBusType, strSecDriveBusType, sUseHostCache: string;
    Node: PVirtualNode;
    Data: PData;
 begin
@@ -2090,8 +2154,8 @@ begin
                sMode := 'PathToVM';
             2:
                sMode := 'ExeParameters';
-         else
-            sMode := 'VMName';
+            else
+               sMode := 'VMName';
          end;
          case VBCPUVirtualization of
             1:
@@ -2100,8 +2164,8 @@ begin
                sEnableCPUVirtualization := 'Off';
             3:
                sEnableCPUVirtualization := 'Switch';
-         else
-            sEnableCPUVirtualization := 'Unchanged';
+            else
+               sEnableCPUVirtualization := 'Unchanged';
          end;
          if CDROMType = 0 then
             sCDROMType := 'Device'
@@ -2124,8 +2188,8 @@ begin
                sAudio := 'Yamaha YM3812 (OPL2)';
             8:
                sAudio := 'Intel 82801AA AC97 Audio';
-         else
-            sAudio := 'None';
+            else
+               sAudio := 'None';
          end;
          case RunAs of
             1:
@@ -2134,8 +2198,8 @@ begin
                sRun := 'Maximized';
             3:
                sRun := 'Fullscreen';
-         else
-            sRun := 'Normal';
+            else
+               sRun := 'Normal';
          end;
          case CPUPriority of
             0:
@@ -2144,26 +2208,30 @@ begin
                sPriority := 'AboveNormal';
             3:
                sPriority := 'High';
-         else
-            sPriority := 'Normal';
+            else
+               sPriority := 'Normal';
          end;
          strFirstDriveBusType := GetStrBusType(FirstDriveBusType);
          if strFirstDriveBusType = '' then
             strFirstDriveBusType := 'UNKNOWN';
+         if UseHostIOCache then
+            sUseHostCache := 'On'
+         else
+            sUseHostCache := 'Off';
          if AddSecondDrive then
          begin
             strSecDriveBusType := GetStrBusType(SecondDriveBusType);
             if strSecDriveBusType = '' then
                strSecDriveBusType := 'UNKNOWN';
             if Ptype = 0 then
-               s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ModeToLoadVM=' + sMode + #13#10'ExeParams=' + ExeParams + #13#10'VMID=' + VMID + #13#10'VMName=' + VMName + #13#10'PathToVM=' + VMPath + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'SecondDriveName=' + string(SecondDriveName) + #13#10'SecondDriveBusType=' + strSecDriveBusType + #13#10'EnableCPUVirtualization=' + sEnableCPUVirtualization + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10
+               s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ModeToLoadVM=' + sMode + #13#10'ExeParams=' + ExeParams + #13#10'VMID=' + VMID + #13#10'VMName=' + VMName + #13#10'PathToVM=' + VMPath + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'SecondDriveName=' + string(SecondDriveName) + #13#10'SecondDriveBusType=' + strSecDriveBusType + #13#10'UseHostIOCache=' + sUseHostCache + #13#10'EnableCPUVirtualization=' + sEnableCPUVirtualization + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10
             else
-               s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ExeParams=' + ExeParams + #13#10'VMName=' + VMName + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'SecondDriveName=' + string(SecondDriveName) + #13#10'SecondDriveBusType=' + strSecDriveBusType + #13#10'InternalHDD=' + InternalHDD + #13#10'CDDVDName=' + CDROMName + #13#10'CDDVDType=' + sCDROMType + #13#10'Memory=' + IntToStr(MemorySize) + #13#10'Audio=' + sAudio + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10;
+               s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ExeParams=' + ExeParams + #13#10'VMName=' + VMName + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'SecondDriveName=' + string(SecondDriveName) + #13#10'SecondDriveBusType=' + strSecDriveBusType + #13#10'UseHostIOCache=' + sUseHostCache + #13#10'InternalHDD=' + InternalHDD + #13#10'CDDVDName=' + CDROMName + #13#10'CDDVDType=' + sCDROMType + #13#10'Memory=' + IntToStr(MemorySize) + #13#10'Audio=' + sAudio + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10;
          end
          else if Ptype = 0 then
-            s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ModeToLoadVM=' + sMode + #13#10'ExeParams=' + ExeParams + #13#10'VMID=' + VMID + #13#10'VMName=' + VMName + #13#10'PathToVM=' + VMPath + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'EnableCPUVirtualization=' + sEnableCPUVirtualization + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10
+            s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ModeToLoadVM=' + sMode + #13#10'ExeParams=' + ExeParams + #13#10'VMID=' + VMID + #13#10'VMName=' + VMName + #13#10'PathToVM=' + VMPath + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'UseHostIOCache=' + sUseHostCache + #13#10'EnableCPUVirtualization=' + sEnableCPUVirtualization + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10
          else
-            s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ExeParams=' + ExeParams + #13#10'VMName=' + VMName + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'InternalHDD=' + InternalHDD + #13#10'CDDVDName=' + CDROMName + #13#10'CDDVDType=' + sCDROMType + #13#10'Memory=' + IntToStr(MemorySize) + #13#10'Audio=' + sAudio + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10;
+            s := s + '[' + FId + ']'#13#10'Type=' + sType + #13#10'ExeParams=' + ExeParams + #13#10'VMName=' + VMName + #13#10'FirstDriveName=' + string(FirstDriveName) + #13#10'FirstDriveBusType=' + strFirstDriveBusType + #13#10'UseHostIOCache=' + sUseHostCache + #13#10'InternalHDD=' + InternalHDD + #13#10'CDDVDName=' + CDROMName + #13#10'CDDVDType=' + sCDROMType + #13#10'Memory=' + IntToStr(MemorySize) + #13#10'Audio=' + sAudio + #13#10'Run=' + sRun + #13#10'Priority=' + sPriority + #13#10;
       end;
       Node := vstVMs.GetNext(Node);
    end;
@@ -2190,29 +2258,29 @@ begin
    end;
    t := nil;
    while True do
-      try
-         t := TFileStream.Create(FileName, fmCreate or fmShareDenyWrite);
-         Break;
-      except
-         on E: Exception do
-         begin
-            if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantCreateOrOpen'], [FileName, E.Message], 'Could not create or open "%s" for writing !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Exit;
-         end;
+   try
+      t := TFileStream.Create(FileName, fmCreate or fmShareDenyWrite);
+      Break;
+   except
+      on E: Exception do
+      begin
+         if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantCreateOrOpen'], [FileName, E.Message], 'Could not create or open "%s" for writing !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Exit;
       end;
+   end;
    while True do
-      try
-         l := Length(s);
-         t.Size := 2 * l;
-         t.Position := 0;
-         t.WriteBuffer(Pointer(s)^, 2 * l);
-         psEntries := s;
-         Break;
-      except
-         on E: Exception do
-            if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantWrite'], [FileName, E.Message], 'Could not write into "%s" !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Exit;
-      end;
+   try
+      l := Length(s);
+      t.Size := 2 * l;
+      t.Position := 0;
+      t.WriteBuffer(Pointer(s)^, 2 * l);
+      psEntries := s;
+      Break;
+   except
+      on E: Exception do
+         if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantWrite'], [FileName, E.Message], 'Could not write into "%s" !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Exit;
+   end;
    try
       t.Free;
    except
@@ -2229,29 +2297,29 @@ begin
    Result := False;
    t := nil;
    while True do
-      try
-         t := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
-         Break;
-      except
-         on E: Exception do
-         begin
-            if CustomMessageBox(Handle, WideFormat('Could not open "%s" for reading !'#13#10#13#10'System message:', [FileName]) + ' ' + E.Message, 'Error', mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Exit;
-         end;
+   try
+      t := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+      Break;
+   except
+      on E: Exception do
+      begin
+         if CustomMessageBox(Handle, WideFormat('Could not open "%s" for reading !'#13#10#13#10'System message:', [FileName]) + ' ' + E.Message, 'Error', mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Exit;
       end;
+   end;
    l := 0;
    while True do
-      try
-         l := Min(1048576, t.Size div 2);
-         SetLength(psCFG, l);
-         t.Position := 0;
-         t.ReadBuffer(Pointer(psCFG)^, l * 2);
-         Break;
-      except
-         on E: Exception do
-            if CustomMessageBox(Handle, WideFormat('Could not read from "%s" !'#13#10#13#10'System message:', [FileName]) + ' ' + E.Message, 'Error', mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Break;
-      end;
+   try
+      l := Min(1048576, t.Size div 2);
+      SetLength(psCFG, l);
+      t.Position := 0;
+      t.ReadBuffer(Pointer(psCFG)^, l * 2);
+      Break;
+   except
+      on E: Exception do
+         if CustomMessageBox(Handle, WideFormat('Could not read from "%s" !'#13#10#13#10'System message:', [FileName]) + ' ' + E.Message, 'Error', mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Break;
+   end;
    try
       t.Free;
    except
@@ -2288,6 +2356,18 @@ begin
       l := Length(wsa[i]);
       if l < 3 then
          Continue;
+      if (pos(string('PreviousDPI='), wsa[i]) = 1) and (l > 12) then
+      begin
+         PreviousDPI := StrToIntDef(Trim(Copy(wsa[i], 13, Min(1000, l - 12))), Screen.PixelsPerInch);
+         fDPI := 1.0 * Screen.PixelsPerInch / PreviousDPI;
+         if fDPI > 1 then
+            fDPI := (fDPI - 1) * (vstVMs.Width / Width) + 1
+         else if fDPI < 1 then
+            fDPI := 1 - (1 - fDPI) * (vstVMs.Width / Width);
+         Constraints.MinWidth := Round(fDPI * Constraints.MinWidth);
+         Constraints.MinHeight := Round(fDPI * Constraints.MinHeight);
+         Continue;
+      end;
       if (pos(string('DriveMessageShowed='), wsa[i]) = 1) and (l > 19) then
       begin
          DriveMessageShowed := StrToBoolDef(Trim(Copy(wsa[i], 20, Min(100, l - 19))), DriveMessageShowed);
@@ -2300,27 +2380,27 @@ begin
       end;
       if (pos(string('Width='), wsa[i]) = 1) and (l > 6) then
       begin
-         MainWidth := Min(Max(StrToIntDef(Trim(Copy(wsa[i], 7, Min(100, l - 6))), MainWidth), Constraints.MinWidth), Screen.WorkAreaWidth);
+         MainWidth := StrToIntDef(Trim(Copy(wsa[i], 7, Min(100, l - 6))), MainWidth);
          Continue;
       end;
       if (pos(string('Height='), wsa[i]) = 1) and (l > 7) then
       begin
-         MainHeight := Min(Max(StrToIntDef(Trim(Copy(wsa[i], 8, Min(100, l - 7))), MainHeight), Constraints.MinHeight), Screen.WorkAreaHeight);
+         MainHeight := StrToIntDef(Trim(Copy(wsa[i], 8, Min(100, l - 7))), MainHeight);
          Continue;
       end;
       if (pos(string('Left='), wsa[i]) = 1) and (l > 5) then
       begin
-         MainLeft := Min(Max(Round(0.0001 * Screen.WorkAreaWidth * StrToIntDef(Trim(Copy(wsa[i], 6, Min(100, l - 5))), Round(10000.0 * (MainLeft - Screen.WorkAreaLeft) / Screen.WorkAreaWidth)) + Screen.WorkAreaLeft), Screen.WorkAreaLeft), Screen.WorkAreaWidth - MainWidth);
+         MainLeft := StrToIntDef(Trim(Copy(wsa[i], 6, Min(100, l - 5))), Round(10000.0 * (MainLeft - Screen.WorkAreaLeft) / Screen.WorkAreaWidth)) + Screen.WorkAreaLeft;
          Continue;
       end;
       if (pos(string('Top='), wsa[i]) = 1) and (l > 4) then
       begin
-         MainTop := Min(Max(Round(0.0001 * Screen.WorkAreaHeight * StrToIntDef(Trim(Copy(wsa[i], 5, Min(100, l - 4))), Round(10000.0 * (MainTop - Screen.WorkAreaTop) / Screen.WorkAreaHeight)) + Screen.WorkAreaTop), Screen.WorkAreaTop), Screen.WorkAreaHeight - MainHeight);
+         MainTop := StrToIntDef(Trim(Copy(wsa[i], 5, Min(100, l - 4))), Round(10000.0 * (MainTop - Screen.WorkAreaTop) / Screen.WorkAreaHeight)) + Screen.WorkAreaTop;
          Continue;
       end;
       if (pos(string('#ColumnWidth='), wsa[i]) = 1) and (l > 13) then
       begin
-         pmHeaders.Items[0].Tag := Min(Max(StrToIntDef(Trim(Copy(wsa[i], 14, Min(100, l - 13))), pmHeaders.Items[0].Tag), 10), MainWidth);
+         pmHeaders.Items[0].Tag := Min(Max(Round(fDPI * StrToIntDef(Trim(Copy(wsa[i], 14, Min(100, l - 13))), pmHeaders.Items[0].Tag)), 10), MainWidth);
          Continue;
       end;
       if (pos(string('#ColumnShow='), wsa[i]) = 1) and (l > 11) then
@@ -2420,9 +2500,19 @@ begin
          FontScript := Min(Max(StrToIntDef(Trim(Copy(wsa[i], 12, Min(100, l - 11))), FontScript), 0), 255);
          Continue;
       end;
+      if (pos(string('ShowTrayIcon='), wsa[i]) = 1) and (l > 13) then
+      begin
+         ShowTrayIcon := StrToBoolDef(Trim(Copy(wsa[i], 14, Min(100, l - 13))), ShowTrayIcon);
+         Continue;
+      end;
       if (pos(string('EscapeKeyClosesMain='), wsa[i]) = 1) and (l > 20) then
       begin
          EscapeKeyClosesMain := StrToBoolDef(Trim(Copy(wsa[i], 21, Min(100, l - 20))), EscapeKeyClosesMain);
+         Continue;
+      end;
+      if (pos(string('KeyCombStart='), wsa[i]) = 1) and (l > 13) then
+      begin
+         StartKeyComb := TextToShortcut(Trim(Copy(wsa[i], 14, Min(100, l - 13))));
          Continue;
       end;
       if (pos(string('CurrLanguageFile='), wsa[i]) = 1) and (l > 17) then
@@ -2476,7 +2566,7 @@ begin
          PrecacheVBFiles := StrToBoolDef(Trim(Copy(wsa[i], 17, Min(100, l - 16))), PrecacheVBFiles);
          Continue;
       end;
-      if (pos(string('PrestartExeVBFiles='), wsa[i]) = 1) and (l > 19) then
+      if (pos(string('PrestartVBExeFiles='), wsa[i]) = 1) and (l > 19) then
       begin
          PrestartVBExeFiles := StrToBoolDef(Trim(Copy(wsa[i], 20, Min(100, l - 19))), PrestartVBExeFiles);
          Continue;
@@ -2500,6 +2590,11 @@ begin
          HideConsoleWindow := StrToBoolDef(Trim(Copy(wsa[i], 19, Min(100, l - 18))), HideConsoleWindow);
          Continue;
       end;
+      if (pos(string('EmulationBusType='), wsa[i]) = 1) and (l > 17) then
+      begin
+         EmulationBusType := Min(Max(StrToIntDef(Trim(Copy(wsa[i], 18, Min(100, l - 17))), EmulationBusType), 0), 1);
+         Continue;
+      end;
       if (pos(string('QemuDefaultParameters='), wsa[i]) = 1) and (l > 22) then
       begin
          wst := Trim(Copy(wsa[i], 23, Min(20480, l - 22)));
@@ -2512,6 +2607,10 @@ begin
       if (pos(string('LastSelected='), wsa[i]) = 1) and (l > 13) then
          LastSelected := Min(Max(StrToIntDef(Trim(Copy(wsa[i], 14, Min(10, l - 13))), 0), -1), 65535);
    end;
+   MainWidth := Min(Max(Round(fDPI * MainWidth), Constraints.MinWidth), Screen.WorkAreaWidth);
+   MainHeight := Min(Max(Round(fDPI * MainHeight), Constraints.MinHeight), Screen.WorkAreaHeight);
+   MainLeft := Min(Max(Round(0.0001 * Screen.WorkAreaWidth * MainLeft), Screen.WorkAreaLeft), Screen.WorkAreaWidth - MainWidth);
+   MainTop := Min(Max(Round(0.0001 * Screen.WorkAreaHeight * MainTop), Screen.WorkAreaTop), Screen.WorkAreaHeight - MainHeight);
 end;
 
 procedure TfrmMain.SaveCFG(const FileName: string);
@@ -2535,15 +2634,16 @@ begin
          wsVMUpdate := 'Use VBoxManage.exe command line (slower)';
       2:
          wsVMUpdate := 'Directly (faster, but VB Manager must be closed)';
-   else
-      wsVMUpdate := 'Autodetect';
+      else
+         wsVMUpdate := 'Autodetect';
    end;
    if DefaultVMType = 0 then
       sDefaultVMType := 'VirtualBox'
    else
       sDefaultVMType := 'QEMU';
-   ws := ws + #13#10'WaitTimeToFlush=' + IntToStr(FlushWaitTime) + #13#10'LockTheVolumes=' + IntToStr(Integer(LockVolumes)) + #13#10'ShowSecondDriveOption=' + IntToStr(Integer(AddSecondDrive)) + #13#10'DefaultVMType=' + string(sDefaultVMType) + #13#10'ListOnlyUSBDrives=' + IntToStr(Integer(ListOnlyUSBDrives)) + #13#10'AutomaticFont=' + IntToStr(Integer(AutomaticFont)) + #13#10'FontName=' + string(FontName) + #13#10'FontSize=' + IntToStr(FontSize) + #13#10'FontBold=' + IntToStr(Integer(FontBold)) + #13#10'FontItalic=' + IntToStr(Integer(FontItalic)) + #13#10'FontUnderline=' + IntToStr(Integer(FontUnderline)) + #13#10'FontStrikeOut=' + IntToStr(Integer(FontStrikeOut)) + #13#10'FontColor=' + IntToStr(Integer(FontColor)) + #13#10'FontScript=' + IntToStr(Integer(FontScript)) + #13#10'EscapeKeyClosesMain=' + IntToStr(Integer(EscapeKeyClosesMain)) +
-      #13#10'CurrLanguageFile=' + CurrLanguageFile + #13#10'VirtualBoxPath=' + ExeVBPath + #13#10'MethodToUpdateTheVM=' + wsVMUpdate + #13#10'useLoadedFromInstalled=' + IntToStr(Integer(useLoadedFromInstalled)) + #13#10'LoadNetPortable=' + IntToStr(Integer(LoadNetPortable)) + #13#10'LoadUSBPortable=' + IntToStr(Integer(LoadUSBPortable)) + #13#10'PrecacheVBFiles=' + IntToStr(Integer(PrecacheVBFiles)) + #13#10'PrestartVBExeFiles=' + IntToStr(Integer(PrestartVBExeFiles)) + #13#10'RemoveDriveAfterClosing=' + IntToStr(Integer(RemoveDrive)) + #13#10'QemuPath=' + ExeQPath + #13#10'HideConsoleWindow=' + IntToStr(Integer(HideConsoleWindow)) + #13#10'QemuDefaultParameters=' + QEMUDefaultParameters + #13#10'LastSelected=' + IntToStr(GetItemIndex) + #13#10'DriveMessageShowed=' + IntToStr(Integer(DriveMessageShowed)) + #13#10'StartMessageShowed=' + IntToStr(Integer(StartMessageShowed));
+   ws := ws + #13#10'WaitTimeToFlush=' + IntToStr(FlushWaitTime) + #13#10'LockTheVolumes=' + IntToStr(Integer(LockVolumes)) + #13#10'ShowSecondDriveOption=' + IntToStr(Integer(AddSecondDrive)) + #13#10'DefaultVMType=' + string(sDefaultVMType) + #13#10'ListOnlyUSBDrives=' + IntToStr(Integer(ListOnlyUSBDrives)) + #13#10'AutomaticFont=' + IntToStr(Integer(AutomaticFont)) + #13#10'FontName=' + string(FontName) + #13#10'FontSize=' + IntToStr(FontSize) + #13#10'FontBold=' + IntToStr(Integer(FontBold)) + #13#10'FontItalic=' + IntToStr(Integer(FontItalic)) + #13#10'FontUnderline=' + IntToStr(Integer(FontUnderline)) + #13#10'FontStrikeOut=' + IntToStr(Integer(FontStrikeOut)) + #13#10'FontColor=' + IntToStr(Integer(FontColor)) + #13#10'FontScript=' + IntToStr(Integer(FontScript)) + #13#10'ShowTrayIcon=' + IntToStr(Integer(ShowTrayIcon)) + #13#10'EscapeKeyClosesMain=' + IntToStr(Integer(EscapeKeyClosesMain)) +
+      #13#10'KeyCombStart=' + ShortcutToText(StartKeyComb) + #13#10'CurrLanguageFile=' + CurrLanguageFile + #13#10'VirtualBoxPath=' + ExeVBPath + #13#10'MethodToUpdateTheVM=' + wsVMUpdate + #13#10'useLoadedFromInstalled=' + IntToStr(Integer(useLoadedFromInstalled)) + #13#10'LoadNetPortable=' + IntToStr(Integer(LoadNetPortable)) + #13#10'LoadUSBPortable=' + IntToStr(Integer(LoadUSBPortable)) + #13#10'PrecacheVBFiles=' + IntToStr(Integer(PrecacheVBFiles)) + #13#10'PrestartVBExeFiles=' + IntToStr(Integer(PrestartVBExeFiles)) + #13#10'RemoveDriveAfterClosing=' + IntToStr(Integer(RemoveDrive)) + #13#10'QemuPath=' + ExeQPath + #13#10'HideConsoleWindow=' + IntToStr(Integer(HideConsoleWindow)) + #13#10'EmulationBusType=' + IntToStr(EmulationBusType) + #13#10'QemuDefaultParameters=' + QEMUDefaultParameters + #13#10'LastSelected=' + IntToStr(GetItemIndex) + #13#10'DriveMessageShowed=' + IntToStr(Integer(DriveMessageShowed)) + #13#10'StartMessageShowed=' + IntToStr(Integer(StartMessageShowed));
+   ws := ws + #13#10'PreviousDPI=' + IntToStr(Screen.PixelsPerInch);
    if isInstalledVersion then
    begin
       while True do
@@ -2567,29 +2667,29 @@ begin
       Exit;
    t := nil;
    while True do
-      try
-         t := TFileStream.Create(FileName, fmCreate or fmShareDenyWrite);
-         Break;
-      except
-         on E: Exception do
-         begin
-            if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantCreateOrOpen'], [FileName, E.Message], 'Could not create or open "%s" for writing !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Exit;
-         end;
+   try
+      t := TFileStream.Create(FileName, fmCreate or fmShareDenyWrite);
+      Break;
+   except
+      on E: Exception do
+      begin
+         if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantCreateOrOpen'], [FileName, E.Message], 'Could not create or open "%s" for writing !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Exit;
       end;
+   end;
    while True do
-      try
-         l := Length(ws);
-         t.Size := 2 * l;
-         t.Position := 0;
-         t.WriteBuffer(Pointer(ws)^, 2 * l);
-         psCFG := ws;
-         Break;
-      except
-         on E: Exception do
-            if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantWrite'], [FileName, E.Message], 'Could not write into "%s" !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
-               Exit;
-      end;
+   try
+      l := Length(ws);
+      t.Size := 2 * l;
+      t.Position := 0;
+      t.WriteBuffer(Pointer(ws)^, 2 * l);
+      psCFG := ws;
+      Break;
+   except
+      on E: Exception do
+         if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CantWrite'], [FileName, E.Message], 'Could not write into "%s" !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error'), mtError, [mbRetry, mbIgnore], mbIgnore) = mrIgnore then
+            Exit;
+   end;
    try
       t.Free;
    except
@@ -2598,24 +2698,32 @@ end;
 
 procedure TfrmMain.btnExitClick(Sender: TObject);
 begin
-   Close;
+   ReallyClose := True;
+   try
+      Close;
+   finally
+      ReallyClose := False;
+   end;
    if Application.Terminated then
       Exit;
    if isBusyStartVM then
    begin
       btnStart.Down := True;
-      (Sender as TPngSpeedButton).Down := False;
+      if Assigned(Sender) and (Sender is TPngSpeedButton) and ((Sender as TPngSpeedButton).Name <> 'btnStart') then
+         (Sender as TPngSpeedButton).Down := False;
       Exit;
    end;
    if IsBusyManager then
    begin
       btnManager.Down := True;
-      (Sender as TPngSpeedButton).Down := False;
+      if Assigned(Sender) and (Sender is TPngSpeedButton) and ((Sender as TPngSpeedButton).Name <> 'btnStart') then
+         (Sender as TPngSpeedButton).Down := False;
       Exit;
    end;
    if IsBusyEjecting then
    begin
-      (Sender as TPngSpeedButton).Down := False;
+      if Assigned(Sender) and (Sender is TPngSpeedButton) and ((Sender as TPngSpeedButton).Name <> 'btnStart') then
+         (Sender as TPngSpeedButton).Down := False;
       Exit;
    end;
 end;
@@ -2714,6 +2822,7 @@ begin
                edtVMPath.Text := '';
                cmbFirstDrive.ItemIndex := 0;
                cmbSecondDrive.ItemIndex := 0;
+               cmbCache.ItemIndex := 0;
                cmbEnableCPUVirtualization.ItemIndex := 0;
                edtHDD.Text := '';
                edtMemory.Text := '512';
@@ -2722,7 +2831,6 @@ begin
                cmbPriority.ItemIndex := 1;
             end;
             Caption := GetLangTextDef(idxAddEdit, ['Caption', 'Add'], 'Add');
-            frmMain.imlBtn16.GetIcon(1, Icon);
             isEdit := False;
             if DefaultVMType = 1 then
                sbQEMU.Click;
@@ -2750,35 +2858,35 @@ begin
                      case ModeLoadVM of
                         0:
                            begin
-                              VMName := VMIDs[cmbVMName.ItemIndex - 1].Name;
-                              VMID := string(VMIDs[cmbVMName.ItemIndex - 1].ID);
+                              VMName := VMIDs[cmbVMName.ItemIndex - 2].Name;
+                              VMID := string(VMIDs[cmbVMName.ItemIndex - 2].ID);
                               FolderName := '';
                               with frmMain.xmlGen do
                               begin
                                  if Tag = 1 then
-                                    try
-                                       Active := True;
-                                       n1 := ChildNodes.IndexOf('VirtualBox');
-                                       if n1 > -1 then
+                                 try
+                                    Active := True;
+                                    n1 := ChildNodes.IndexOf('VirtualBox');
+                                    if n1 > -1 then
+                                    begin
+                                       n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                       if n2 > -1 then
                                        begin
-                                          n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                          if n2 > -1 then
+                                          n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                          if n3 > -1 then
                                           begin
-                                             n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                             if n3 > -1 then
+                                             a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                             if a > -1 then
                                              begin
-                                                a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                                if a > -1 then
-                                                begin
-                                                   FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                                                   l := Length(FolderName);
-                                                   Replacebks(FolderName, l);
-                                                end;
+                                                FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                                                l := Length(FolderName);
+                                                Replacebks(FolderName, l);
                                              end;
                                           end;
                                        end;
-                                    except
                                     end;
+                                 except
+                                 end;
                                  Active := False;
                               end;
 
@@ -2839,28 +2947,28 @@ begin
                                  with frmMain.xmlGen do
                                  begin
                                     if Tag = 1 then
-                                       try
-                                          Active := True;
-                                          n1 := ChildNodes.IndexOf('VirtualBox');
-                                          if n1 > -1 then
+                                    try
+                                       Active := True;
+                                       n1 := ChildNodes.IndexOf('VirtualBox');
+                                       if n1 > -1 then
+                                       begin
+                                          n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                          if n2 > -1 then
                                           begin
-                                             n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                             if n2 > -1 then
+                                             n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                             if n3 > -1 then
                                              begin
-                                                n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                                if n3 > -1 then
+                                                a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                                if a > -1 then
                                                 begin
-                                                   a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                                   if a > -1 then
-                                                   begin
-                                                      wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                                                      Replacebks(wst, Length(wst));
-                                                   end;
+                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                                                   Replacebks(wst, Length(wst));
                                                 end;
                                              end;
                                           end;
-                                       except
                                        end;
+                                    except
+                                    end;
                                     Active := False;
                                  end;
 
@@ -2929,29 +3037,29 @@ begin
                                        with frmMain.xmlGen do
                                        begin
                                           if Tag = 1 then
-                                             try
-                                                Active := True;
-                                                n1 := ChildNodes.IndexOf('VirtualBox');
-                                                if n1 > -1 then
+                                          try
+                                             Active := True;
+                                             n1 := ChildNodes.IndexOf('VirtualBox');
+                                             if n1 > -1 then
+                                             begin
+                                                n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                                if n2 > -1 then
                                                 begin
-                                                   n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                                   if n2 > -1 then
+                                                   n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                                   if n3 > -1 then
                                                    begin
-                                                      n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                                      if n3 > -1 then
+                                                      a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                                      if a > -1 then
                                                       begin
-                                                         a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                                         if a > -1 then
-                                                         begin
-                                                            FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                                                            l := Length(FolderName);
-                                                            Replacebks(FolderName, l);
-                                                         end;
+                                                         FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                                                         l := Length(FolderName);
+                                                         Replacebks(FolderName, l);
                                                       end;
                                                    end;
                                                 end;
-                                             except
                                              end;
+                                          except
+                                          end;
                                           Active := False;
                                        end;
 
@@ -3038,6 +3146,7 @@ begin
                         SetLength(SDMountPointsArr, 0);
                      end;
                   end;
+                  UseHostIOCache := cmbCache.ItemIndex = 1;
                   InternalHDD := Trim(edtHDD.Text);
                   if cmbCDROM.ItemIndex = 0 then
                   begin
@@ -3124,8 +3233,8 @@ begin
                            8: FFDImageIndex := 14;
                            14, 15:
                               FFDImageIndex := 8;
-                        else
-                           FFDImageIndex := 6;
+                           else
+                              FFDImageIndex := 6;
                         end;
                   end
                   else if ListOnlyUSBDrives then
@@ -3141,8 +3250,8 @@ begin
                         8: FFDImageIndex := 15;
                         14, 15:
                            FFDImageIndex := 9;
-                     else
-                        FFDImageIndex := 7;
+                        else
+                           FFDImageIndex := 7;
                      end;
 
                   if SecondDriveName = '' then
@@ -3167,8 +3276,8 @@ begin
                            8: FSDImageIndex := 14;
                            14, 15:
                               FSDImageIndex := 8;
-                        else
-                           FSDImageIndex := 6;
+                           else
+                              FSDImageIndex := 6;
                         end;
                   end
                   else if ListOnlyUSBDrives then
@@ -3184,8 +3293,8 @@ begin
                         8: FSDImageIndex := 15;
                         14, 15:
                            FSDImageIndex := 9;
-                     else
-                        FSDImageIndex := 7;
+                        else
+                           FSDImageIndex := 7;
                      end;
                end;
                vstVMs.Selected[Node] := True;
@@ -3243,14 +3352,14 @@ begin
       begin
          ModuleHandle := LoadLibrary('dwmapi.dll');
          if ModuleHandle <> 0 then
-            try
-               @DwmIsCompositionEnabledFunc := GetProcAddress(ModuleHandle, 'DwmIsCompositionEnabled');
-               if Assigned(DwmIsCompositionEnabledFunc) then
-                  if DwmIsCompositionEnabledFunc(IsEnabled) = S_OK then
-                     Result := IsEnabled;
-            finally
-               FreeLibrary(ModuleHandle);
-            end;
+         try
+            @DwmIsCompositionEnabledFunc := GetProcAddress(ModuleHandle, 'DwmIsCompositionEnabled');
+            if Assigned(DwmIsCompositionEnabledFunc) then
+               if DwmIsCompositionEnabledFunc(IsEnabled) = S_OK then
+                  Result := IsEnabled;
+         finally
+            FreeLibrary(ModuleHandle);
+         end;
       end;
    except
    end;
@@ -3266,6 +3375,13 @@ begin
       CanClose := False;
       Exit;
    end;
+   if TrayIcon.Visible and (not ReallyClose) then
+   begin
+      CanClose := False;
+      if not IsIconic(Application.Handle) then
+         SendMessage(Application.Handle, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+      Exit;
+   end;
    if isBusyStartVM or isBusyManager or IsBusyEjecting then
       if CustomMessageBox(Handle, GetLangTextDef(idxMain, ['Messages', 'SureClose'], 'Are you sure you want to close the application?'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbNo], mbNo) <> mrYes then
          CanClose := False;
@@ -3273,7 +3389,7 @@ begin
    begin
       while True do
       begin
-         GetAllWindowsList('QWidget');
+         GetAllWindowsList(VBWinClass);
          h := High(AllWindowsList);
          i := 0;
          cm := 0;
@@ -3300,7 +3416,7 @@ begin
                   begin
                      isBusyClosing := True;
                      try
-                        GetAllWindowsList('QWidget');
+                        GetAllWindowsList(VBWinClass);
                         h := High(AllWindowsList);
                         i := 0;
                         cm := 0;
@@ -3332,7 +3448,7 @@ begin
                               Wait(100);
                               if (GetTickCount - dt) > wt then
                                  Break;
-                              GetAllWindowsList('QWidget');
+                              GetAllWindowsList(VBWinClass);
                               h := High(AllWindowsList);
                               i := 0;
                               cm := 0;
@@ -3366,9 +3482,9 @@ begin
                      CanClose := True;
                      Exit;
                   end;
-            else
-               CanClose := False;
-               Exit;
+               else
+                  CanClose := False;
+                  Exit;
             end;
          end
          else
@@ -3396,12 +3512,12 @@ var
    NCM: TNonClientMetrics;
    FontHeight: Integer;
    Path: array[0..MAX_PATH - 1] of Char;
+   MySystem: TSystemInfo;
 begin
    Application.OnException := AppException;
    DragAcceptFiles(WindowHandle, True);
    FIsAeroEnabled := IsAeroEnabled;
    DoubleBuffered := not FIsAeroEnabled;
-
    try
       if FIsAeroEnabled then
       begin
@@ -3414,9 +3530,17 @@ begin
    except
    end;
 
+   GetSystemInfo(MySystem);
+   NumberOfProcessors := Max(1, MySystem.dwNumberOfProcessors);
+
    vstVMs.DoubleBuffered := DoubleBuffered;
    vstVMs.NodeDataSize := SizeOf(TData);
    pnlBackground.DoubleBuffered := DoubleBuffered;
+
+   SystemIconSize := GetSystemMetrics(SM_CXSMICON);
+   SnapResize := Round(10.0 * Screen.PixelsPerInch / 96);
+
+   mEvent := TEvent.Create(nil, True, False, '');
 
    if (TOSversion.Major < 6) or ((TOSversion.Major = 6) and (TOSversion.Minor < 2)) then
    begin
@@ -3558,8 +3682,7 @@ begin
 
    MainLeft := (Screen.WorkAreaWidth - Width) div 2 + Screen.WorkAreaLeft;
    MainTop := (Screen.WorkAreaHeight - Height) div 2 + Screen.WorkAreaTop;
-   MainWidth := Width;
-   MainHeight := Height;
+
    with vstVMs.Font do
    begin
       FontName := AnsiString(Name);
@@ -3579,7 +3702,24 @@ begin
       DefaultFontColor := Color;
       DefaultFontScript := Charset;
    end;
+
+   fDPI := 1.0 * Screen.PixelsPerInch / PreviousDPI;
+   if fDPI > 1 then
+      fDPI := (fDPI - 1) * (vstVMs.Width / Width) + 1
+   else if fDPI < 1 then
+      fDPI := 1 - (1 - fDPI) * (vstVMs.Width / Width);
+
+   MainWidth := Round(1 / fDPI * Width);
+   MainHeight := Round(1 / fDPI * Height);
+
    CFGFoundAndLoaded := FileExists(CfgFile) and LoadCFG(CfgFile);
+
+   if not CFGFoundAndLoaded then
+   begin
+      MainWidth := Round(fDPI * MainWidth);
+      MainHeight := Round(fDPI * MainHeight);
+   end;
+
    if not FileExists(ExeQManager) then
       if FileExists(ExeQPath) then
       begin
@@ -3607,6 +3747,11 @@ begin
          Charset := FontScript;
       end;
    end;
+   if not ShowTrayIcon then
+   begin
+      btnShowTrayIcon.Visible := True;
+      btnShowTrayIcon.Left := btnStart.Left;
+   end;
    with vstVMs.Header.Font do
    begin
       Name := string(FontName);
@@ -3632,10 +3777,11 @@ begin
    btnManager.Font.Size := vstVMs.Header.Font.Size;
    btnOptions.Font.Size := vstVMs.Header.Font.Size;
    btnExit.Font.Size := vstVMs.Header.Font.Size;
+   btnShowTrayIcon.Font.Size := vstVMs.Header.Font.Size;
    vstVMs.Canvas.Font.Assign(vstVMs.Font);
    FontHeight := vstVMs.Canvas.TextHeight('Hg');
    case FontHeight of
-      0..32:
+      0..23:
          begin
             if imlVST_items.Width <> 24 then
             begin
@@ -3654,7 +3800,8 @@ begin
                btnDelete.PngImage := imlBtn16.PngImages[3].PngImage;
                btnManager.PngImage := imlBtn16.PngImages[4].PngImage;
                btnOptions.PngImage := imlBtn16.PngImages[5].PngImage;
-               btnExit.PngImage := imlBtn16.PngImages[6].PngImage;
+               btnShowTrayIcon.PngImage := imlBtn16.PngImages[6].PngImage;
+               btnExit.PngImage := imlBtn16.PngImages[7].PngImage;
             end;
             if imlVST_header.Width <> 16 then
             begin
@@ -3665,40 +3812,74 @@ begin
                imlVST_header.EndUpdate(True);
             end;
          end;
-   else if imlVST_items.Width <> 32 then
-   begin
-      imlVST_items.BeginUpdate;
-      imlVST_items.SetSize(32, 32);
-      imlVST_items.PngImages.Assign(imlVST32.PngImages);
-      for i := 1 to 3 do
-         imlVST_items.PngImages.Delete(0);
-      imlVST_items.EndUpdate(True);
-   end;
-   if btnStart.PngImage.Height <> 24 then
-   begin
-      btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
-      btnAdd.PngImage := imlBtn24.PngImages[1].PngImage;
-      btnEdit.PngImage := imlBtn24.PngImages[2].PngImage;
-      btnDelete.PngImage := imlBtn24.PngImages[3].PngImage;
-      btnManager.PngImage := imlBtn24.PngImages[4].PngImage;
-      btnOptions.PngImage := imlBtn24.PngImages[5].PngImage;
-      btnExit.PngImage := imlBtn24.PngImages[6].PngImage;
-   end;
-   if imlVST_header.Width <> 24 then
-   begin
-      imlVST_header.BeginUpdate;
-      imlVST_header.SetSize(24, 24);
-      for i := 0 to 2 do
-         imlVST_header.AddPng(imlVST24.PngImages[i].PngImage);
-      imlVST_header.EndUpdate(True);
-   end;
+      24..32:
+         begin
+            if imlVST_items.Width <> 28 then
+            begin
+               imlVST_items.BeginUpdate;
+               imlVST_items.SetSize(28, 28);
+               imlVST_items.PngImages.Assign(imlVST28.PngImages);
+               for i := 1 to 3 do
+                  imlVST_items.PngImages.Delete(0);
+               imlVST_items.EndUpdate(True);
+            end;
+            if btnStart.PngImage.Height <> 20 then
+            begin
+               btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+               btnAdd.PngImage := imlBtn20.PngImages[1].PngImage;
+               btnEdit.PngImage := imlBtn20.PngImages[2].PngImage;
+               btnDelete.PngImage := imlBtn20.PngImages[3].PngImage;
+               btnManager.PngImage := imlBtn20.PngImages[4].PngImage;
+               btnOptions.PngImage := imlBtn20.PngImages[5].PngImage;
+               btnShowTrayIcon.PngImage := imlBtn20.PngImages[6].PngImage;
+               btnExit.PngImage := imlBtn20.PngImages[7].PngImage;
+            end;
+            if imlVST_header.Width <> 20 then
+            begin
+               imlVST_header.BeginUpdate;
+               imlVST_header.SetSize(20, 20);
+               for i := 0 to 2 do
+                  imlVST_header.AddPng(imlVST20.PngImages[i].PngImage);
+               imlVST_header.EndUpdate(True);
+            end;
+         end;
+      else
+         begin
+            if imlVST_items.Width <> 32 then
+            begin
+               imlVST_items.BeginUpdate;
+               imlVST_items.SetSize(32, 32);
+               imlVST_items.PngImages.Assign(imlVST32.PngImages);
+               for i := 1 to 3 do
+                  imlVST_items.PngImages.Delete(0);
+               imlVST_items.EndUpdate(True);
+            end;
+            if btnStart.PngImage.Height <> 24 then
+            begin
+               btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+               btnAdd.PngImage := imlBtn24.PngImages[1].PngImage;
+               btnEdit.PngImage := imlBtn24.PngImages[2].PngImage;
+               btnDelete.PngImage := imlBtn24.PngImages[3].PngImage;
+               btnManager.PngImage := imlBtn24.PngImages[4].PngImage;
+               btnOptions.PngImage := imlBtn24.PngImages[5].PngImage;
+               btnShowTrayIcon.PngImage := imlBtn24.PngImages[6].PngImage;
+               btnExit.PngImage := imlBtn24.PngImages[7].PngImage;
+            end;
+            if imlVST_header.Width <> 24 then
+            begin
+               imlVST_header.BeginUpdate;
+               imlVST_header.SetSize(24, 24);
+               for i := 0 to 2 do
+                  imlVST_header.AddPng(imlVST24.PngImages[i].PngImage);
+               imlVST_header.EndUpdate(True);
+            end;
+         end;
    end;
    vstVMs.DefaultNodeHeight := Round(1.1 * Max(imlVST_items.Height, FontHeight) + 1.6);
    SetThemeDependantParams;
    vstVMs.Canvas.Font.Assign(vstVMs.Header.Font);
    FontHeight := vstVMs.Canvas.TextHeight('Hg');
-   vstVMs.Header.Height := Round(1.3125 * Max(imlVST_header.Height, FontHeight));
-   // vstVMs.Header.Height := Round(1.1 * Max(imlVST_header.Height, FontHeight));
+   vstVMs.Header.Height := Round(1.5 * Max(imlVST_header.Height, FontHeight));
    vstVMs.Canvas.Font.Assign(vstVMs.Font);
    vstVMs.Header.Columns[1].Margin := vstVMs.Margin + (imlVST_items.Width - imlVST_header.Width) div 2 - 1;
    vstVMs.Header.Columns[1].Spacing := vstVMs.Margin + imlVST_items.Width - vstVMs.Header.Columns[1].Margin - imlVST_header.Width + 5;
@@ -3708,6 +3889,77 @@ begin
    vstVMs.Header.Columns[3].Spacing := vstVMs.Margin + imlVST_items.Width - vstVMs.Header.Columns[3].Margin - imlVST_header.Width + 5;
    vstVMs.Height := ClientHeight - 2 * vstVMs.Top;
    vstVMs.EndUpdate;
+   case SystemIconSize of
+      -2147483647..18:
+         begin
+            TrayIcon.Icon.SetSize(16, 16);
+            imlVST16.GetIcon(imlVST16.Count - 1, TrayIcon.Icon);
+            imlTray.BeginUpdate;
+            imlTray.SetSize(16, 16);
+            for i := AnimTrayStartCopyIndex to AnimTrayStartCopyIndex + 45 do
+               imlTray.AddPng(imlVst16.PngImages[i].PngImage);
+            imlTray.EndUpdate(True);
+            pmTray.Images := imlBtn16;
+            pmVMs.Images := imlBtn16;
+            pmManagers.Images := imlBtn16;
+         end;
+      19..22:
+         begin
+            TrayIcon.Icon.SetSize(20, 20);
+            imlVST20.GetIcon(imlVST20.Count - 1, TrayIcon.Icon);
+            imlTray.BeginUpdate;
+            imlTray.SetSize(20, 20);
+            Inc(AnimTrayStartCopyIndex, 16);
+            for i := AnimTrayStartCopyIndex to AnimTrayStartCopyIndex + 45 do
+               imlTray.AddPng(imlVst20.PngImages[i].PngImage);
+            imlTray.EndUpdate(True);
+            pmTray.Images := imlBtn20;
+            pmVMs.Images := imlBtn20;
+            pmManagers.Images := imlBtn20;
+         end;
+      23..26:
+         begin
+            TrayIcon.Icon.SetSize(24, 24);
+            imlVST24.GetIcon(imlVST24.Count - 1, TrayIcon.Icon);
+            imlTray.BeginUpdate;
+            imlTray.SetSize(24, 24);
+            Inc(AnimTrayStartCopyIndex, 16);
+            for i := AnimTrayStartCopyIndex to AnimTrayStartCopyIndex + 45 do
+               imlTray.AddPng(imlVst24.PngImages[i].PngImage);
+            imlTray.EndUpdate(True);
+            pmTray.Images := imlBtn24;
+            pmVMs.Images := imlBtn24;
+            pmManagers.Images := imlBtn24;
+         end;
+      27..30:
+         begin
+            TrayIcon.Icon.SetSize(28, 28);
+            imlVST28.GetIcon(imlVST28.Count - 1, TrayIcon.Icon);
+            imlTray.BeginUpdate;
+            imlTray.SetSize(28, 28);
+            Inc(AnimTrayStartCopyIndex, 16);
+            for i := AnimTrayStartCopyIndex to AnimTrayStartCopyIndex + 45 do
+               imlTray.AddPng(imlVst28.PngImages[i].PngImage);
+            imlTray.EndUpdate(True);
+            pmTray.Images := imlBtn24;
+            pmVMs.Images := imlBtn24;
+            pmManagers.Images := imlBtn24;
+         end;
+      31..2147483647:
+         begin
+            TrayIcon.Icon.SetSize(32, 32);
+            imlVST32.GetIcon(imlVST32.Count - 1, TrayIcon.Icon);
+            imlTray.BeginUpdate;
+            imlTray.SetSize(32, 32);
+            Inc(AnimTrayStartCopyIndex, 16);
+            for i := AnimTrayStartCopyIndex to AnimTrayStartCopyIndex + 45 do
+               imlTray.AddPng(imlVst32.PngImages[i].PngImage);
+            imlTray.EndUpdate(True);
+            pmTray.Images := imlBtn24;
+            pmVMs.Images := imlBtn24;
+            pmManagers.Images := imlBtn24;
+         end;
+   end;
    btnStart.Top := vstVMs.Top;
    ChangeCompLang;
    if Application.Terminated then
@@ -3715,7 +3967,8 @@ begin
       OnDestroy := nil;
       Exit;
    end;
-   Constraints.MinHeight := 2 * vstVMs.Top + 7 * btnStart.Height + Height - ClientHeight;
+   Constraints.MinHeight := 2 * vstVMs.Top + (7 + Integer(btnShowTrayIcon.Visible)) * btnStart.Height + Height - ClientHeight;
+   btnExit.Top := vstVMs.Top + vstVMs.Height - btnExit.Height;
    frmMain.Canvas.Font.Assign(vstVMs.Font);
    i := 8192;
    l := Canvas.TextWidth('  ') div 2;
@@ -3817,8 +4070,8 @@ begin
                         8: FFDImageIndex := 14;
                         14, 15:
                            FFDImageIndex := 8;
-                     else
-                        FFDImageIndex := 6;
+                        else
+                           FFDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -3834,8 +4087,8 @@ begin
                      8: FFDImageIndex := 15;
                      14, 15:
                         FFDImageIndex := 9;
-                  else
-                     FFDImageIndex := 7;
+                     else
+                        FFDImageIndex := 7;
                   end;
 
                if SecondDriveName = '' then
@@ -3860,8 +4113,8 @@ begin
                         8: FSDImageIndex := 14;
                         14, 15:
                            FSDImageIndex := 8;
-                     else
-                        FSDImageIndex := 6;
+                        else
+                           FSDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -3877,8 +4130,8 @@ begin
                      8: FSDImageIndex := 15;
                      14, 15:
                         FSDImageIndex := 9;
-                  else
-                     FSDImageIndex := 7;
+                     else
+                        FSDImageIndex := 7;
                   end;
             end;
             if i = LastSelected then
@@ -3902,6 +4155,7 @@ begin
    begin
       if PathIsRelative(PChar(ExeVBPath)) then
       begin
+         FillMemory(@Path[0], Length(Path), 0);
          PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + ExeVBPath));
          if string(Path) <> '' then
             ws := Path
@@ -3943,11 +4197,11 @@ begin
       begin
          ws := ws + '\.VirtualBox\VirtualBox.xml';
          if FileExists(ws) then
-            try
-               xmlGen.LoadFromFile(ws);
-            except
-               xmlGen.Active := False;
-            end;
+         try
+            xmlGen.LoadFromFile(ws);
+         except
+            xmlGen.Active := False;
+         end;
          xmlGen.Tag := Integer(xmlGen.Active);
          xmlGen.Active := False;
       end;
@@ -3964,6 +4218,8 @@ begin
    end;
    VBVMWasClosed := Now - 1;
    DriveDetect := TComponentDrive.Create(frmMain);
+   {     for i := 0 to imlVst32.Count - 1 do
+           imlVst32.PngImages[i].PngImage.SaveToFile('d:\ff\Icon ' + Format('%.3d', [i]) + '.png');}
 end;
 
 procedure TfrmMain.ChangeCompLang;
@@ -3977,6 +4233,28 @@ var
    Size: TSize;
    strTemp: AnsiString;
    wst: string;
+
+   function CompNameToCaption(const strCompName: AnsiString): AnsiString;
+   var
+      i, j, l: Integer;
+   begin
+      Result := strCompName;
+      i := 2;
+      j := 2;
+      l := Length(strCompName);
+      while i < l do
+      begin
+         if CharInSet(strCompName[i], ['A'..'Z']) and ((not CharInSet(strCompName[i - 1], ['A'..'Z'])) or
+            (not CharInSet(strCompName[i + 1], ['A'..'Z']))) then
+         begin
+            Result[j] := AnsiChar(Integer(strCompName[i]) + Ord('a') - Ord('A'));
+            Insert(' ', Result, j);
+            Inc(j);
+         end;
+         Inc(i);
+         Inc(j);
+      end;
+   end;
 
    function areDifferent(const FirstXMLnode, SecondXMLnode: IXMLNode): Boolean;
    var
@@ -4018,10 +4296,10 @@ begin
       except
       end;
       if rs <> nil then
-         try
-            rs.Free;
-         except
-         end;
+      try
+         rs.Free;
+      except
+      end;
       if not xmlLanguage.Active then
       begin
          CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
@@ -4043,10 +4321,10 @@ begin
             LastExceptionStr := E.Message;
       end;
       if tfs <> nil then
-         try
-            tfs.Free;
-         except
-         end;
+      try
+         tfs.Free;
+      except
+      end;
       if xmlLanguage.Active then
       begin
          rs := nil;
@@ -4056,10 +4334,10 @@ begin
          except
          end;
          if rs <> nil then
-            try
-               rs.Free;
-            except
-            end;
+         try
+            rs.Free;
+         except
+         end;
          if not xmlVBoxCompare.Active then
          begin
             CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
@@ -4089,10 +4367,10 @@ begin
          except
          end;
          if rs <> nil then
-            try
-               rs.Free;
-            except
-            end;
+         try
+            rs.Free;
+         except
+         end;
          if not xmlLanguage.Active then
          begin
             CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
@@ -4126,10 +4404,10 @@ begin
          except
          end;
          if rs <> nil then
-            try
-               rs.Free;
-            except
-            end;
+         try
+            rs.Free;
+         except
+         end;
       end;
       if not xmlLanguage.Active then
       begin
@@ -4140,10 +4418,10 @@ begin
          except
          end;
          if rs <> nil then
-            try
-               rs.Free;
-            except
-            end;
+         try
+            rs.Free;
+         except
+         end;
          if not xmlLanguage.Active then
          begin
             if Showing then
@@ -4168,6 +4446,7 @@ begin
    idxMessages := xmlLanguage.ChildNodes[idxInterface].ChildNodes.IndexOf('Messages');
    MaxBtnWidth := 0;
    MaxBtnHeight := 0;
+   frmMain.btnExit.Tag := 7;
    for i := 0 to ComponentCount - 1 do
       if Components[i].ClassNameIs('TPNGSpeedButton') then
       begin
@@ -4178,6 +4457,7 @@ begin
          MaxBtnWidth := Max(MaxBtnWidth, Size.Width);
          MaxBtnHeight := Max(MaxBtnHeight, Size.Height);
       end;
+   frmMain.btnExit.Tag := 6 + Integer(btnShowTrayIcon.Visible);
    frmMain.Canvas.Font.Assign(frmMain.Font);
    btnMargin := Round(sqrt(MaxBtnWidth)) + 5;
    btnSpacing := Round(0.3 * (sqrt(MaxBtnWidth) + 5)) + 3;
@@ -4188,7 +4468,7 @@ begin
    DoAlign := ColWereAligned and (vstVMs.Width <> NewWidth);
    vstVMs.Width := NewWidth;
    abl := Round(ClientWidth - 10 / 9 * MaxBtnWidth + ClientOrigin.X - Left - Margins.Right);
-   diff := 1.0 / 6 * (vstVMs.Height - MaxBtnHeight);
+   diff := 1.0 / (6 + Integer(btnShowTrayIcon.Visible)) * (vstVMs.Height - MaxBtnHeight);
    for i := 0 to ComponentCount - 1 do
       if Components[i].ClassNameIs('TPNGSpeedButton') then
       begin
@@ -4196,7 +4476,15 @@ begin
          TPNGSpeedButton(Components[i]).Spacing := btnSpacing;
          TPNGSpeedButton(Components[i]).Margin := btnMargin;
       end;
-   Constraints.MaxHeight := Height - ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + 10 * Integer(vstVMs.DefaultNodeHeight);
+   Constraints.MaxHeight := Height - ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + (11 + Integer(btnShowTrayIcon.Visible)) * Integer(vstVMs.DefaultNodeHeight);
+   for i := 0 to ComponentCount - 1 do
+      if Components[i].ClassNameIs('TMenuItem') and TMenuItem(Components[i]).Visible and
+         ((TPopupMenu(TMenuItem(Components[i]).GetParentMenu).Name = 'pmVMs') or
+         (TPopupMenu(TMenuItem(Components[i]).GetParentMenu).Name = 'pmTray')) then
+      begin
+         strTemp := AnsiString(Copy(TMenuItem(Components[i]).Name, 3, Length(TMenuItem(Components[i]).Name) - 2));
+         TMenuItem(Components[i]).Caption := GetLangTextDef(idxMain, ['List', 'Menu', strTemp], CompNameToCaption(strTemp));
+      end;
    vstVMs.Header.Columns[1].Text := GetLangTextDef(idxMain, ['List', 'Header', 'VMName'], 'VM name');
    if not AddSecondDrive then
       vstVMs.Header.Columns[2].Text := GetLangTextDef(idxMain, ['List', 'Header', 'Drive'], 'Drive')
@@ -4208,15 +4496,6 @@ begin
       mmDrive.Caption := GetLangTextDef(idxMain, ['List', 'Header', 'Drive'], 'Drive')
    else
       mmDrive.Caption := GetLangTextDef(idxMain, ['List', 'Header', 'FirstDrive'], 'First drive');
-   mmSecondDrive.Caption := GetLangTextDef(idxMain, ['List', 'Header', 'SecondDrive'], 'Second drive');
-   mmAdd.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'Add'], 'Add');
-   mmClone.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'Clone'], 'Clone');
-   mmEdit.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'Edit'], 'Edit');
-   mmDelete.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'Delete'], 'Delete');
-   mmEject.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'Eject'], 'Eject');
-   mmMoveUp.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'MoveUp'], 'Move up');
-   mmMoveDown.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'MoveDown'], 'Move down') + #9;
-   mmRefresh.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'Refresh'], 'Refresh');
    if DoAlign then
       RealignColumns(False);
    SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(True), 0);
@@ -4264,7 +4543,6 @@ begin
          with frmAddEdit do
          begin
             Caption := GetLangTextDef(idxAddEdit, ['Caption', 'Edit'], 'Edit');
-            frmMain.imlBtn16.GetIcon(2, Icon);
             isEdit := True;
             with PData(vstVMs.GetNodeData(vstVMs.GetFirstSelected))^ do
             begin
@@ -4287,12 +4565,12 @@ begin
 
                GetNamesAndIDs;
                for i := 0 to High(VMIDs) do
-                  try
-                     cmbVMName.Items.Add('"' + VMIDs[i].Name + '"');
-                  except
-                  end;
+               try
+                  cmbVMName.Items.Add('"' + VMIDs[i].Name + '"');
+               except
+               end;
 
-               i := 1;
+               i := 2;
                while i < cmbVMName.Items.Count do
                begin
                   if cmbVMName.Items[i] = '"' + VMName + '"' then
@@ -4348,6 +4626,7 @@ begin
                   else
                      cmbSecondDrive.ItemIndex := 0;
                end;
+               cmbCache.ItemIndex := Integer(UseHostIOCache);
                cmbEnableCPUVirtualization.ItemIndex := VBCPUVirtualization;
                edtHDD.Text := InternalHDD;
                if Ptype = 1 then
@@ -4389,35 +4668,35 @@ begin
                      case ModeLoadVM of
                         0:
                            begin
-                              VMName := VMIDs[cmbVMName.ItemIndex - 1].Name;
-                              VMID := string(VMIDs[cmbVMName.ItemIndex - 1].ID);
+                              VMName := VMIDs[cmbVMName.ItemIndex - 2].Name;
+                              VMID := string(VMIDs[cmbVMName.ItemIndex - 2].ID);
                               FolderName := '';
                               with frmMain.xmlGen do
                               begin
                                  if Tag = 1 then
-                                    try
-                                       Active := True;
-                                       n1 := ChildNodes.IndexOf('VirtualBox');
-                                       if n1 > -1 then
+                                 try
+                                    Active := True;
+                                    n1 := ChildNodes.IndexOf('VirtualBox');
+                                    if n1 > -1 then
+                                    begin
+                                       n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                       if n2 > -1 then
                                        begin
-                                          n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                          if n2 > -1 then
+                                          n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                          if n3 > -1 then
                                           begin
-                                             n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                             if n3 > -1 then
+                                             a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                             if a > -1 then
                                              begin
-                                                a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                                if a > -1 then
-                                                begin
-                                                   FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                                                   l := Length(FolderName);
-                                                   Replacebks(FolderName, l);
-                                                end;
+                                                FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                                                l := Length(FolderName);
+                                                Replacebks(FolderName, l);
                                              end;
                                           end;
                                        end;
-                                    except
                                     end;
+                                 except
+                                 end;
                                  Active := False;
                               end;
 
@@ -4478,28 +4757,28 @@ begin
                                  with frmMain.xmlGen do
                                  begin
                                     if Tag = 1 then
-                                       try
-                                          Active := True;
-                                          n1 := ChildNodes.IndexOf('VirtualBox');
-                                          if n1 > -1 then
+                                    try
+                                       Active := True;
+                                       n1 := ChildNodes.IndexOf('VirtualBox');
+                                       if n1 > -1 then
+                                       begin
+                                          n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                          if n2 > -1 then
                                           begin
-                                             n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                             if n2 > -1 then
+                                             n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                             if n3 > -1 then
                                              begin
-                                                n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                                if n3 > -1 then
+                                                a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                                if a > -1 then
                                                 begin
-                                                   a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                                   if a > -1 then
-                                                   begin
-                                                      wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                                                      Replacebks(wst, Length(wst));
-                                                   end;
+                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                                                   Replacebks(wst, Length(wst));
                                                 end;
                                              end;
                                           end;
-                                       except
                                        end;
+                                    except
+                                    end;
                                     Active := False;
                                  end;
 
@@ -4568,29 +4847,29 @@ begin
                                        with frmMain.xmlGen do
                                        begin
                                           if Tag = 1 then
-                                             try
-                                                Active := True;
-                                                n1 := ChildNodes.IndexOf('VirtualBox');
-                                                if n1 > -1 then
+                                          try
+                                             Active := True;
+                                             n1 := ChildNodes.IndexOf('VirtualBox');
+                                             if n1 > -1 then
+                                             begin
+                                                n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                                if n2 > -1 then
                                                 begin
-                                                   n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                                   if n2 > -1 then
+                                                   n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                                   if n3 > -1 then
                                                    begin
-                                                      n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                                      if n3 > -1 then
+                                                      a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                                      if a > -1 then
                                                       begin
-                                                         a := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                                         if a > -1 then
-                                                         begin
-                                                            FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
-                                                            l := Length(FolderName);
-                                                            Replacebks(FolderName, l);
-                                                         end;
+                                                         FolderName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a].Text;
+                                                         l := Length(FolderName);
+                                                         Replacebks(FolderName, l);
                                                       end;
                                                    end;
                                                 end;
-                                             except
                                              end;
+                                          except
+                                          end;
                                           Active := False;
                                        end;
 
@@ -4678,6 +4957,7 @@ begin
                         SecondDriveFound := False;
                      end;
                   end;
+                  UseHostIOCache := cmbCache.ItemIndex = 1;
                   VBCPUVirtualization := cmbEnableCPUVirtualization.ItemIndex;
                   InternalHDD := Trim(edtHDD.Text);
                   if cmbCDROM.ItemIndex = 0 then
@@ -4764,8 +5044,8 @@ begin
                            8: FFDImageIndex := 14;
                            14, 15:
                               FFDImageIndex := 8;
-                        else
-                           FFDImageIndex := 6;
+                           else
+                              FFDImageIndex := 6;
                         end;
                   end
                   else if ListOnlyUSBDrives then
@@ -4781,8 +5061,8 @@ begin
                         8: FFDImageIndex := 15;
                         14, 15:
                            FFDImageIndex := 9;
-                     else
-                        FFDImageIndex := 7;
+                        else
+                           FFDImageIndex := 7;
                      end;
 
                   if SecondDriveName = '' then
@@ -4807,8 +5087,8 @@ begin
                            8: FSDImageIndex := 14;
                            14, 15:
                               FSDImageIndex := 8;
-                        else
-                           FSDImageIndex := 6;
+                           else
+                              FSDImageIndex := 6;
                         end;
                   end
                   else if ListOnlyUSBDrives then
@@ -4824,8 +5104,8 @@ begin
                         8: FSDImageIndex := 15;
                         14, 15:
                            FSDImageIndex := 9;
-                     else
-                        FSDImageIndex := 7;
+                        else
+                           FSDImageIndex := 7;
                      end;
                   vstVMs.EndUpdate;
                   vstVMs.InvalidateNode(Node);
@@ -5037,6 +5317,58 @@ begin
    SaveVMentries(VMentriesFile);
 end;
 
+procedure TfrmMain.btnShowTrayIconClick(Sender: TObject);
+var
+   t: Double;
+begin
+   ShowTrayIcon := True;
+   ShowTray;
+   btnShowTrayIcon.Visible := False;
+   btnExit.Tag := 6;
+   OnResize := nil;
+   LockWindowUpdate(Handle);
+   SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(False), 0);
+   Constraints.MinHeight := 2 * vstVMs.Top + 7 * btnStart.Height + Height - ClientHeight;
+   Constraints.MaxHeight := Height - ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + 11 * Integer(vstVMs.DefaultNodeHeight);
+   t := 1.0 / 6 * (btnExit.Top - btnStart.Top);
+   btnAdd.Top := Round(t + btnStart.Top);
+   btnEdit.Top := Round(2.0 * t + btnStart.Top);
+   btnDelete.Top := Round(3.0 * t + btnStart.Top);
+   btnManager.Top := Round(4.0 * t + btnStart.Top);
+   btnOptions.Top := Round(5.0 * t + btnStart.Top);
+   SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(True), 0);
+   LockWindowUpdate(0);
+   OnResize := FormResize;
+   if ShowVMAnim or ShowFirstDriveAnim or ShowSecDriveAnim then
+      if not Visible then
+         if not TrayIcon.Animate then
+            TrayIcon.Animate := True;
+   if IsIconic(Application.Handle) then
+   begin
+      if TrayIcon.BalloonHint <> '' then
+      begin
+         TrayIcon.BalloonHint := '';
+         Application.ProcessMessages;
+      end;
+      TrayIcon.BalloonHint := 'Virtual Machine USB Boot tray icon';
+      TrayIcon.ShowBalloonHint;
+      tmCloseHint.Interval := 2500;
+      tmCloseHint.Enabled := False;
+      tmCloseHint.Enabled := True;
+   end
+   else
+      SendMessage(Application.Handle, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+end;
+
+function CombinedProcessorMask(const nProcessors: Integer): DWORD_PTR;
+var
+   ProcessorIndex: Integer;
+begin
+   Result := 0;
+   for ProcessorIndex := 0 to nProcessors - 1 do
+      Result := Result or (1 shl ProcessorIndex);
+end;
+
 procedure TfrmMain.btnStartClick(Sender: TObject);
 
    function areDifferent(const FirstXMLnode, SecondXMLnode: IXMLNode): Boolean;
@@ -5080,7 +5412,7 @@ var
    eStartupInfo, vbmStartupInfo, svcStartupInfo: TStartupInfo;
    eProcessInfo, vbmProcessInfo, svcProcessInfo: TProcessInformation;
    ExitCode: DWORD;
-   i, j, k, p, cp, l, n1, n2, n3, n4, n5, a1, a2, a3, sc: Integer;
+   i, j, k, p, cp, l, n1, n2, n3, n4, n5, a1, a2, a3, a4, sc: Integer;
    lv: Int64;
    hVolume, hVBoxSVC, hVmdk, hVbox, hDrive, hSrcVol: THandle;
    dwBytesReturned: DWORD;
@@ -5092,12 +5424,13 @@ var
    PStartFolder: PChar;
    ErrorMode: Word;
    fu, su: ShortInt;
-   AllOK, BreakCycles, isWin, isRightWin, isFUSet, isSUSet, isLastC, DoChange, useVBMU, svcAlreadyStarted, Result: Boolean;
+   AllOK, BreakCycles, isWin, isRightWin, isFUSet, isSUSet, isLastC, DoChange, useVBMU, svcAlreadyStarted, Result, AlreadyHidden: Boolean;
    vmdkids: array of array[1..2] of string;
    exvmdks: array of AnsiString;
    fv, sv, fuuid, suuid, sVbox, sVmdk: AnsiString;
    ds: Int64;
-   ahs: array of array[0..2] of Word;
+   ahs: array of array[0..5] of Smallint;
+   ahsUUID: array of string;
    sr: TSearchRec;
    tres: array[0..255] of Char;
    attr: Cardinal;
@@ -5122,10 +5455,13 @@ var
    WindowPlacement: TWindowPlacement;
    WindowState: Integer;
    Path: array[0..MAX_PATH - 1] of Char;
+   dt: Cardinal;
+   AllProcAffinityMask: DWORD_PTR;
+   useHostIOCacheCurr: Boolean;
    //  ts: array[1..4] of TTime;
 
 label
-   sid, srchvbm, srchvm, srchvbm2, juststart, justclose;
+   sid, srchvbm, srchvm, srchvbm2, juststart, justclose, TryAgainToRemove;
 begin
    if isBusyStartVM then
    begin
@@ -5160,8 +5496,10 @@ begin
    soPowerOff := False;
    WarnAboutBoot := 0;
    PrestartVBFilesAgain := False;
+   AlreadyHidden := False;
    if PathIsRelative(PChar(Mainform.ExeVBPath)) then
    begin
+      FillMemory(@Path[0], Length(Path), 0);
       PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + Mainform.ExeVBPath));
       if string(Path) <> '' then
          exeVBPath := Path
@@ -5197,6 +5535,12 @@ begin
       if Sender <> nil then
          DisableLockAndDismount := GetKeyState(VK_CONTROL) < 0;
       tmCheckCTRL.Enabled := False;
+
+      if TrayIcon.BalloonHint <> '' then
+      begin
+         TrayIcon.BalloonHint := '';
+         Application.ProcessMessages;
+      end;
 
       Data := vstVMs.GetNodeData(vstVMs.GetFirstSelected);
       if (not StartMessageShowed) and (Data^.Ptype <> 1) then
@@ -5246,28 +5590,28 @@ begin
                            with frmMain.xmlGen do
                            begin
                               if Tag = 1 then
-                                 try
-                                    Active := True;
-                                    n1 := ChildNodes.IndexOf('VirtualBox');
-                                    if n1 > -1 then
+                              try
+                                 Active := True;
+                                 n1 := ChildNodes.IndexOf('VirtualBox');
+                                 if n1 > -1 then
+                                 begin
+                                    n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                    if n2 > -1 then
                                     begin
-                                       n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                       if n2 > -1 then
+                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
+                                       if n3 > -1 then
                                        begin
-                                          n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('SystemProperties');
-                                          if n3 > -1 then
+                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
+                                          if a1 > -1 then
                                           begin
-                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes.IndexOf('defaultMachineFolder');
-                                             if a1 > -1 then
-                                             begin
-                                                wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a1].Text;
-                                                Replacebks(wst, Length(wst));
-                                             end;
+                                             wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AttributeNodes[a1].Text;
+                                             Replacebks(wst, Length(wst));
                                           end;
                                        end;
                                     end;
-                                 except
                                  end;
+                              except
+                              end;
                               Active := False;
                            end;
 
@@ -5296,66 +5640,66 @@ begin
                            AllOK := False;
                            errmsg := GetLangTextDef(idxMain, ['Messages', 'ErrorRetrievingPath'], 'error retrieving VM path from Virtualbox.xml,'#13#10'please replace the file or allow reading.');
                            if Tag = 1 then
-                              try
-                                 Active := True;
-                                 n1 := ChildNodes.IndexOf('VirtualBox');
-                                 if n1 > -1 then
+                           try
+                              Active := True;
+                              n1 := ChildNodes.IndexOf('VirtualBox');
+                              if n1 > -1 then
+                              begin
+                                 n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
+                                 if n2 > -1 then
                                  begin
-                                    n2 := ChildNodes[n1].ChildNodes.IndexOf('Global');
-                                    if n2 > -1 then
+                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MachineRegistry');
+                                    if n3 > -1 then
                                     begin
-                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MachineRegistry');
-                                       if n3 > -1 then
+                                       i := 0;
+                                       while i < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count do
                                        begin
-                                          i := 0;
-                                          while i < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count do
-                                          begin
-                                             try
-                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('src');
-                                                if a1 > -1 then
+                                          try
+                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('src');
+                                             if a1 > -1 then
+                                             begin
+                                                wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text;
+                                                l := Length(wst);
+                                                if l > 2 then
                                                 begin
-                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text;
-                                                   l := Length(wst);
-                                                   if l > 2 then
+                                                   if LowerCase(wst) = LowerCase(VMPath) then
                                                    begin
-                                                      if LowerCase(wst) = LowerCase(VMPath) then
+                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('uuid');
+                                                      if a1 > -1 then
                                                       begin
-                                                         a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('uuid');
-                                                         if a1 > -1 then
-                                                         begin
-                                                            wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text;
-                                                            VMID := Copy(wst, 2, Length(wst) - 2);
-                                                            AllOK := True;
-                                                            Break;
-                                                         end;
+                                                         wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text;
+                                                         VMID := Copy(wst, 2, Length(wst) - 2);
+                                                         AllOK := True;
+                                                         Break;
                                                       end;
                                                    end;
                                                 end;
-                                             except
                                              end;
-                                             Inc(i);
+                                          except
                                           end;
-                                          if (not AllOK) and (i >= ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count) then
-                                             errmsg := GetLangTextDef(idxMain, ['Messages', 'CouldNotFindVM'], 'could not find the VM in VirtualBox configuration files,'#13#10'please set a valid VM.');
+                                          Inc(i);
                                        end;
+                                       if (not AllOK) and (i >= ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count) then
+                                          errmsg := GetLangTextDef(idxMain, ['Messages', 'CouldNotFindVM'], 'could not find the VM in VirtualBox configuration files,'#13#10'please set a valid VM.');
                                     end;
                                  end;
-                              except
                               end;
+                           except
+                           end;
                            Active := False;
                         end;
 
                      end;
                   end;
-            else
-               begin
-
-                  sid:
-                  with xmlGen do
+               else
                   begin
-                     AllOK := False;
-                     errmsg := GetLangTextDef(idxMain, ['Messages', 'ErrorRetrievingPath'], 'error retrieving VM path from Virtualbox.xml,'#13#10'please replace the file or allow reading.');
-                     if Tag = 1 then
+
+                     sid:
+                     with xmlGen do
+                     begin
+                        AllOK := False;
+                        errmsg := GetLangTextDef(idxMain, ['Messages', 'ErrorRetrievingPath'], 'error retrieving VM path from Virtualbox.xml,'#13#10'please replace the file or allow reading.');
+                        if Tag = 1 then
                         try
                            Active := True;
                            n1 := ChildNodes.IndexOf('VirtualBox');
@@ -5409,16 +5753,26 @@ begin
                            end;
                         except
                         end;
-                     Active := False;
+                        Active := False;
+                     end;
                   end;
-               end;
             end;
-
+            if TrayIcon.Visible and ((not frmMain.Visible) or IsIconic(Application.Handle)) then
+            begin
+               if TrayIcon.BalloonHint <> '' then
+               begin
+                  TrayIcon.BalloonHint := '';
+                  Application.ProcessMessages;
+               end;
+               TrayIcon.BalloonHint := GetLangTextFormatDef(idxMain, ['Messages', 'VMStarting'], [VMName], 'Starting "%s" VM...');
+               TrayIcon.ShowBalloonHint;
+            end;
             StartVMAnimation;
+            Application.ProcessMessages;
             l := 0;
             if UpdateVM = 0 then
             begin
-               GetAllWindowsList('QWidget');
+               GetAllWindowsList(VBWinClass);
                l := Length(AllWindowsList);
                for i := 0 to l - 1 do
                   if IsWindowVisible(AllWindowsList[i].Handle) then
@@ -5434,7 +5788,7 @@ begin
             begin
                if l = 0 then
                begin
-                  GetAllWindowsList('QWidget');
+                  GetAllWindowsList(VBWinClass);
                   l := Length(AllWindowsList);
                end;
                j := 0;
@@ -5463,6 +5817,13 @@ begin
                                  if IsIconic(AllWindowsList[i].Handle) then
                                  begin
                                     SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                    dt := GetTickCount;
+                                    while isIconic(AllWindowsList[i].Handle) do
+                                    begin
+                                       Application.ProcessMessages;
+                                       if (GetTickCount - dt) > 3000 then
+                                          Break;
+                                    end;
                                     SetForegroundWindow(frmMain.Handle);
                                  end;
                                  SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
@@ -5474,8 +5835,8 @@ begin
                            TryAgain := True;
                            Exit;
                         end;
-                  else
-                     Exit;
+                     else
+                        Exit;
                   end;
                end;
             end;
@@ -5483,7 +5844,7 @@ begin
             try
                if l = 0 then
                begin
-                  GetAllWindowsList('QWidget');
+                  GetAllWindowsList(VBWinClass);
                   l := Length(AllWindowsList);
                end;
                if (UpdateVM = 2) or ((UpdateVM = 0) and (not useVBMU)) then
@@ -5498,11 +5859,19 @@ begin
                               if IsIconic(AllWindowsList[i].Handle) then
                               begin
                                  SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                 dt := GetTickCount;
+                                 while isIconic(AllWindowsList[i].Handle) do
+                                 begin
+                                    Application.ProcessMessages;
+                                    if (GetTickCount - dt) > 3000 then
+                                       Break;
+                                 end;
                                  SetForegroundWindow(frmMain.Handle);
                               end;
                               SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                               SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                               StopVMAnimation;
+                              TrayIcon.BalloonHint := '';
                               if CustomMessageBox(Handle, an, (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
                                  Exit
                               else
@@ -5526,7 +5895,7 @@ begin
                                        else
                                        begin
                                           GetClassName(AllWindowsList[i].Handle, tres, 255);
-                                          if tres <> 'QWidget' then
+                                          if tres <> VBWinClass then
                                              isRightWin := False;
                                        end;
                                     end;
@@ -5539,11 +5908,19 @@ begin
                                     if IsIconic(AllWindowsList[i].Handle) then
                                     begin
                                        SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                       dt := GetTickCount;
+                                       while isIconic(AllWindowsList[i].Handle) do
+                                       begin
+                                          Application.ProcessMessages;
+                                          if (GetTickCount - dt) > 3000 then
+                                             Break;
+                                       end;
                                        SetForegroundWindow(frmMain.Handle);
                                     end;
                                     SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                                     SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                                     StopVMAnimation;
+                                    TrayIcon.BalloonHint := '';
                                     if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CouldNotCloseVBMan'], [ReplaceStr(GetLangTextDef(idxMessages, ['Buttons', 'OK'], 'OK'), '&', '')], 'Could not close VirtualBox Manager automatically !'#13#10#13#10'Please close it manually and click on %s...  (it will take a few sec to fully close)')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
                                        Exit
                                     else
@@ -5565,7 +5942,7 @@ begin
                                              else
                                              begin
                                                 GetClassName(AllWindowsList[i].Handle, tres, 255);
-                                                if tres <> 'QWidget' then
+                                                if tres <> VBWinClass then
                                                    isRightWin := False;
                                              end;
                                           end;
@@ -5598,11 +5975,19 @@ begin
                               if IsIconic(AllWindowsList[i].Handle) then
                               begin
                                  SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                 dt := GetTickCount;
+                                 while isIconic(AllWindowsList[i].Handle) do
+                                 begin
+                                    Application.ProcessMessages;
+                                    if (GetTickCount - dt) > 3000 then
+                                       Break;
+                                 end;
                                  SetForegroundWindow(frmMain.Handle);
                               end;
                               SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                               SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                               StopVMAnimation;
+                              TrayIcon.BalloonHint := '';
                               if CustomMessageBox(Handle, Format(an, [ReplaceStr(GetLangTextDef(idxMessages, ['Buttons', 'OK'], 'OK'), '&', '')]), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
                                  Exit
                               else
@@ -5624,7 +6009,7 @@ begin
                                        else
                                        begin
                                           GetClassName(AllWindowsList[i].Handle, tres, 255);
-                                          if tres <> 'QWidget' then
+                                          if tres <> VBWinClass then
                                              isRightWin := False;
                                        end;
                                     end;
@@ -5635,12 +6020,13 @@ begin
                                  if j > 20 then
                                  begin
                                     StopVMAnimation;
+                                    TrayIcon.BalloonHint := '';
                                     CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'ErrorVBVMNotClosed'], 'Error: VirtualBox VM not closed !')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
                                     Exit;
                                  end;
                               end;
                               an := GetLangTextDef(idxMain, ['Messages', 'AnotherVBVMDetected'], 'Another VirtualBox VM was detected.'#13#10'It is highly recommended not to be used in the same time !'#13#10#13#10'Please close it and click on %s... (it will take a few sec to fully close)');
-                              GetAllWindowsList('QWidget');
+                              GetAllWindowsList(VBWinClass);
                               l := Length(AllWindowsList);
                               goto srchvm;
                            end;
@@ -5655,11 +6041,19 @@ begin
                               if IsIconic(AllWindowsList[i].Handle) then
                               begin
                                  SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                 dt := GetTickCount;
+                                 while isIconic(AllWindowsList[i].Handle) do
+                                 begin
+                                    Application.ProcessMessages;
+                                    if (GetTickCount - dt) > 3000 then
+                                       Break;
+                                 end;
                                  SetForegroundWindow(frmMain.Handle);
                               end;
                               SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                               SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                               StopVMAnimation;
+                              TrayIcon.BalloonHint := '';
                               if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'ErrorVBVMAlready'], [AnsiString(ReplaceStr(GetLangTextDef(idxMessages, ['Buttons', 'OK'], 'OK'), '&', ''))], 'The VirtualBox VM is already started so its configuration cannot be updated.'#13#10#13#10'Please close it and click on %s... (it will take a few sec to fully close)')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
                                  Exit
                               else
@@ -5681,7 +6075,7 @@ begin
                                        else
                                        begin
                                           GetClassName(AllWindowsList[i].Handle, tres, 255);
-                                          if tres <> 'QWidget' then
+                                          if tres <> VBWinClass then
                                              isRightWin := False;
                                        end;
                                     end;
@@ -5692,13 +6086,14 @@ begin
                                  if j > 20 then
                                  begin
                                     StopVMAnimation;
+                                    TrayIcon.BalloonHint := '';
                                     CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'ErrorVBVMNotClosed'], 'Error: VirtualBox VM not closed !')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
                                     Exit;
                                  end
                                  else
                                     VBVMWasClosed := Now;
                               end;
-                              GetAllWindowsList('QWidget');
+                              GetAllWindowsList(VBWinClass);
                               l := Length(AllWindowsList);
                               goto srchvm;
                            end;
@@ -5771,6 +6166,7 @@ begin
                         if i > (200 + 200 * Integer(VBSVC2x)) then
                         begin
                            StopVMAnimation;
+                           TrayIcon.BalloonHint := '';
                            if CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'OutOfTimeVBSVC'], 'Out of time waiting for "VBoxSVC.exe" (a VirtualBox component) to close...!'#13#10#13#10'Should I forcibly close it...?')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
                               Exit
                            else
@@ -5783,10 +6179,10 @@ begin
                               begin
                                  if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
                                     if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
-                                       try
-                                          TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ProcessID), 0);
-                                       except
-                                       end;
+                                    try
+                                       TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ProcessID), 0);
+                                    except
+                                    end;
                                  Inc(j);
                               end;
                               for i := 1 to 10 do
@@ -5810,6 +6206,7 @@ begin
                               if i <= 10 then
                               begin
                                  StopVMAnimation;
+                                 TrayIcon.BalloonHint := '';
                                  CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'VBSVCStillOpened'], '"VBoxSVC.exe" is still opened !'#13#10#13#10'Exiting...')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
                                  Exit;
                               end;
@@ -5822,7 +6219,7 @@ begin
                end
                else
                begin
-                  GetAllWindowsList('QWidget');
+                  GetAllWindowsList(VBWinClass);
                   l := Length(AllWindowsList);
                   if VBSVC2x then
                      sc := 11000 - Min(11000, Max(0, Round(86400000 * (Now - VBVMWasClosed))))
@@ -5851,12 +6248,12 @@ begin
                         Wait(100);
                         if Application.Terminated then
                            Exit;
-                        GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
+                        GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
                         l := Length(AllWindowsList);
                         i := 0;
                         while i < l do
                         begin
-                           if AllWindowsList[i].WClass = 'QWidget' then
+                           if AllWindowsList[i].WClass = VBWinClass then
                               if IsWindowVisible(AllWindowsList[i].Handle) then
                                  if GetFileNameFromHandle(AllWindowsList[i].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
                                     Break;
@@ -5899,14 +6296,22 @@ begin
                if IsIconic(AllWindowsList[i].Handle) then
                begin
                   SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                  dt := GetTickCount;
+                  while isIconic(AllWindowsList[i].Handle) do
+                  begin
+                     Application.ProcessMessages;
+                     if (GetTickCount - dt) > 3000 then
+                        Break;
+                  end;
                   SetForeGroundWindow(frmMain.Handle);
                end;
                SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                StopVMAnimation;
+               TrayIcon.BalloonHint := '';
                case CustomMessageBox(frmMain.Handle, (GetLangTextDef(idxMain, ['Messages', 'WarningQEMUAlready'], 'QEMU seems to be already loaded. It''s advisable to be closed'#13#10'so it wouldn''t interfere with the current QEMU session.'#13#10#13#10'Are you sure you want to continue?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
                   mrIgnore: Break;
-                  mrAbort: Exit;
+                  mrAbort, mrNone, mrCancel: Exit;
                end;
             end;
 
@@ -5950,6 +6355,7 @@ begin
                      strMess := GetLangTextFormatDef(idxMain, ['Messages', 'Drive'], [wst], 'The drive (%s) doesn''t seem'#13#10'to exist on this system or it isn''t accessible !'#13#10#13#10'You can choose to abort the VM startup,'#13#10'try again or choose another drive...');
                end;
                StopFirstDriveAnimation;
+               TrayIcon.BalloonHint := '';
                case CustomMessageBox(Handle, strMess, GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbAbort, mbRetry, mbYesToAll], mbAbort) of
                   mrYesToAll:
                      begin
@@ -5971,7 +6377,7 @@ begin
                         end;
                         Exit;
                      end;
-                  mrAbort: Exit;
+                  mrAbort, mrNone, mrCancel: Exit;
                end;
                StartFirstDriveAnimation;
             end
@@ -6010,6 +6416,7 @@ begin
                   else
                      strMess := GetLangTextFormatDef(idxMain, ['Messages', 'SecDrive'], [wst], 'The second drive (%s) doesn''t seem'#13#10'to exist on this system or it isn''t accessible !'#13#10#13#10'You can choose to abort the VM startup,'#13#10'try again or choose another drive...');
                   StopFirstDriveAnimation;
+                  TrayIcon.BalloonHint := '';
                   StopSecDriveAnimation;
                   case CustomMessageBox(Handle, strMess, GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbAbort, mbRetry, mbYesToAll], mbAbort) of
                      mrYesToAll:
@@ -6032,7 +6439,7 @@ begin
                            end;
                            Exit;
                         end;
-                     mrAbort: Exit;
+                     mrAbort, mrNone, mrCancel: Exit;
                   end;
                   StartFirstDriveAnimation;
                   StartSecDriveAnimation;
@@ -6159,8 +6566,8 @@ begin
                                     except
                                     end;
                                  end
-                           else
-                              Continue;
+                              else
+                                 Continue;
                            end;
                         except
                         end
@@ -6235,6 +6642,7 @@ begin
                      StopFirstDriveAnimation
                   else
                      StopSecDriveAnimation;
+                  TrayIcon.BalloonHint := '';
                   case FLDAreaProblem of
                      0:
                         begin
@@ -6253,8 +6661,8 @@ begin
                                        StartSecDriveAnimation;
                                     Continue;
                                  end;
-                           else
-                              Exit;
+                              else
+                                 Exit;
                            end;
                         end;
                      1:
@@ -6284,8 +6692,8 @@ begin
                                        StartSecDriveAnimation;
                                     Continue;
                                  end;
-                           else
-                              Exit;
+                              else
+                                 Exit;
                            end;
                         end;
                      2:
@@ -6317,8 +6725,8 @@ begin
                                        StartSecDriveAnimation;
                                     Continue;
                                  end;
-                           else
-                              Exit;
+                              else
+                                 Exit;
                            end;
                         end;
                   end;
@@ -6336,11 +6744,61 @@ begin
             Exit;
          if Ptype = 1 then
          begin
-            StartFolder := ExtractFilePath(ExeQPath);
-            if SecondDriveName = '' then
-               ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=ide,index=0,media=disk,format=raw,snapshot=off ' + ExeParams
+            wp := Trim(ExeParams);
+            p := pos(string('-name "'), wp);
+            l := Length(wp);
+            if (p > 0) and ((p + 7) < l) then
+            begin
+               cp := PosEx('"', wp, p + 7);
+               if cp > 0 then
+                  wp := Trim(Copy(wp, p + 7, cp - p - 7))
+               else
+                  wp := '';
+            end
             else
-               ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=ide,index=0,media=disk,format=raw,snapshot=off' + ' -drive file=\\.\PhysicalDrive' + IntToStr(su) + ',if=ide,index=1,media=disk,format=raw,snapshot=off ' + ExeParams;
+               wp := '';
+            VMName := wp;
+            if TrayIcon.Visible and ((not frmMain.Visible) or IsIconic(Application.Handle)) then
+            begin
+               if TrayIcon.BalloonHint <> '' then
+               begin
+                  TrayIcon.BalloonHint := '';
+                  Application.ProcessMessages;
+               end;
+               TrayIcon.BalloonHint := GetLangTextFormatDef(idxMain, ['Messages', 'VMStarting'], [VMName], 'Starting "%s" VM...');
+               TrayIcon.ShowBalloonHint;
+            end;
+            StartVMAnimation;
+            StartFolder := ExtractFilePath(ExeQPath);
+            if EmulationBusType = 0 then
+            begin
+               if SecondDriveName = '' then
+               begin
+                  if UseHostIOCache then
+                     ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=ide,index=0,media=disk,format=raw,snapshot=off,cache=writeback ' + ExeParams
+                  else
+                     ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=ide,index=0,media=disk,format=raw,snapshot=off,cache=none ' + ExeParams
+               end
+               else if UseHostIOCache then
+                  ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=ide,index=0,media=disk,format=raw,snapshot=off,cache=writeback ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(su) + ',if=ide,index=1,media=disk,format=raw,snapshot=off,cache=writeback ' + ExeParams
+               else
+                  ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=ide,index=0,media=disk,format=raw,snapshot=off,cache=none ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(su) + ',if=ide,index=1,media=disk,format=raw,snapshot=off,cache=none ' + ExeParams;
+            end
+            else
+            begin
+               if SecondDriveName = '' then
+               begin
+                  if UseHostIOCache then
+                     ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=scsi,index=0,media=disk,format=raw,snapshot=off,cache=writeback ' + ExeParams
+                  else
+                     ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=scsi,index=0,media=disk,format=raw,snapshot=off,cache=none ' + ExeParams
+               end
+               else if UseHostIOCache then
+                  ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=scsi,index=0,media=disk,format=raw,snapshot=off,cache=writeback ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(su) + ',if=ide,index=1,media=disk,format=raw,snapshot=off,cache=writeback ' + ExeParams
+               else
+                  ComLine := '"' + ExeQPath + '" ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(fu) + ',if=scsi,index=0,media=disk,format=raw,snapshot=off,cache=none ' + ' -drive file=\\.\PhysicalDrive' + IntToStr(su) + ',if=ide,index=1,media=disk,format=raw,snapshot=off,cache=none ' + ExeParams;
+            end;
+
             if InternalHDD <> '' then
                while True do
                begin
@@ -6357,6 +6815,7 @@ begin
                   else
                   begin
                      StopVMAnimation;
+                     TrayIcon.BalloonHint := '';
                      case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'UnableFindDevice'], [InternalHDD], 'Unable to find "%s" !'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
                         mrRetry:
                            begin
@@ -6368,8 +6827,8 @@ begin
                               StartVMAnimation;
                               Break;
                            end;
-                     else
-                        Exit;
+                        else
+                           Exit;
                      end;
                   end;
                end;
@@ -6393,6 +6852,7 @@ begin
                               if hVolume = INVALID_HANDLE_VALUE then
                               begin
                                  StopVMAnimation;
+                                 TrayIcon.BalloonHint := '';
                                  case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CannotAccessCDROM'], [CDROMName], 'Cannot access the "%s" !'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbNo) of
                                     mrRetry:
                                        begin
@@ -6404,8 +6864,8 @@ begin
                                           StartVMAnimation;
                                           Break;
                                        end;
-                                 else
-                                    Exit;
+                                    else
+                                       Exit;
                                  end;
                               end
                               else
@@ -6428,6 +6888,7 @@ begin
                                     else
                                     begin
                                        StopVMAnimation;
+                                       TrayIcon.BalloonHint := '';
                                        case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CannotAccessMedium'], [CDROMName + ',   [' + Char(UpCase(CDROMLetter)) + ':]'], 'Cannot access the medium from "%s" !'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
                                           mrRetry:
                                              begin
@@ -6443,14 +6904,14 @@ begin
                                                 end;
                                                 Break;
                                              end;
-                                       else
-                                          begin
-                                             try
-                                                CloseHandle(hVolume);
-                                             except
+                                          else
+                                             begin
+                                                try
+                                                   CloseHandle(hVolume);
+                                                except
+                                                end;
+                                                Exit;
                                              end;
-                                             Exit;
-                                          end;
                                        end;
                                     end;
                                  end;
@@ -6462,6 +6923,7 @@ begin
                         else
                         begin
                            StopVMAnimation;
+                           TrayIcon.BalloonHint := '';
                            case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CDROMDoesntExist'], [CDROMName], '"%s" doesn''t exist on this system, it is not mounted or it is not accessible !'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
                               mrRetry:
                                  begin
@@ -6473,8 +6935,8 @@ begin
                                     StartVMAnimation;
                                     Break;
                                  end;
-                           else
-                              Exit;
+                              else
+                                 Exit;
                            end;
                         end;
                         Break;
@@ -6485,6 +6947,7 @@ begin
                   else
                   begin
                      StopVMAnimation;
+                     TrayIcon.BalloonHint := '';
                      case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'UnableFindDevice'], [CDROMName], 'Unable to find "%s" !'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
                         mrRetry:
                            begin
@@ -6496,8 +6959,8 @@ begin
                               StartVMAnimation;
                               Break;
                            end;
-                     else
-                        Exit;
+                        else
+                           Exit;
                      end;
                   end;
                   Break;
@@ -6563,197 +7026,197 @@ begin
                      with xmlVBox do
                      begin
                         if Tag = 1 then
-                           try
-                              n1 := ChildNodes.IndexOf('VirtualBox');
-                              if n1 = -1 then
+                        try
+                           n1 := ChildNodes.IndexOf('VirtualBox');
+                           if n1 = -1 then
+                           begin
+                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['VirtualBox'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                              Abort;
+                           end
+                           else
+                           begin
+                              n2 := ChildNodes[n1].ChildNodes.IndexOf('Machine');
+                              if n2 = -1 then
                               begin
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['VirtualBox'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['Machine'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
                                  Abort;
                               end
                               else
                               begin
-                                 n2 := ChildNodes[n1].ChildNodes.IndexOf('Machine');
-                                 if n2 = -1 then
+                                 a1 := ChildNodes[n1].ChildNodes[n2].AttributeNodes.IndexOf('stateFile');
+                                 if a1 > -1 then
                                  begin
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['Machine'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                                    CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'SavedStateOpen'], 'It appears this VM is in a saved state so it will not be modified, only started...'#13#10#13#10'Just so you know, it is not a good idea to save the state of a VM with a real drive,'#13#10'because it will increase the risk of corrupting the data from that drive...')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk);
+                                    js := True;
+                                    Abort;
+                                 end;
+                                 n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('ExtraData');
+                                 if n3 > -1 then
+                                 begin
+                                    n4 := 0;
+                                    while n4 < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count do
+                                    begin
+                                       a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('name');
+                                       if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a1].NodeValue = 'GUI/LastCloseAction') then
+                                       begin
+                                          a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('value');
+                                          if a2 > -1 then
+                                             soPowerOff := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a2].NodeValue = 'PowerOff';
+                                          Break;
+                                       end;
+                                       Inc(n4);
+                                    end;
+                                 end;
+                                 if not soPowerOff then
+                                 begin
+                                    SetLength(vbmComm, Length(vbmComm) + 1);
+                                    vbmComm[High(vbmComm)][1] := 'setextradata ' + VMID + ' "GUI/LastCloseAction" PowerOff';
+                                    vbmComm[High(vbmComm)][2] := 'setting Power Off as the default close action';
+                                 end;
+                                 n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
+                                 if n3 = -1 then
+                                 begin
+                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
                                     Abort;
                                  end
                                  else
                                  begin
-                                    a1 := ChildNodes[n1].ChildNodes[n2].AttributeNodes.IndexOf('stateFile');
-                                    if a1 > -1 then
+                                    n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                    if n4 > -1 then
                                     begin
-                                       CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'SavedStateOpen'], 'It appears this VM is in a saved state so it will not be modified, only started...'#13#10#13#10'Just so you know, it is not a good idea to save the state of a VM with a real drive,'#13#10'because it will increase the risk of corrupting the data from that drive...')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk);
-                                       js := True;
-                                       Abort;
+                                       for i := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 downto 0 do
+                                       begin
+                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('format');
+                                          if a1 = -1 then
+                                             Continue;
+                                          if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text = 'VMDK' then
+                                          begin
+                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('location');
+                                             if a2 > -1 then
+                                             begin
+                                                wp := WideLowerCase(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text);
+                                                l := Length(wp);
+                                                if l <> 17 then
+                                                   Continue;
+                                                if pos(string('vmubdrive'), wp) <> 1 then
+                                                   Continue;
+                                                if StrToIntDef('$' + Copy(wp, 10, 3), -1) = -1 then
+                                                   Continue;
+                                                if pos(string('.vmdk'), wp) <> 13 then
+                                                   Continue;
+                                                a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
+                                                if a3 > -1 then
+                                                begin
+                                                   if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count > 0 then
+                                                   begin
+                                                      errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'DividedSnapshots'], [ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text, ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count], 'the content of "%s" is divided into %d snapshot(s).'#13#10'It is not a good idea using snapshots with real drives. But if you really want to at least do this:' + #13#10'If you created a snapshot or linked clone this VM you should of manually detached any'#13#10'VMUBDrive***.vmdk drive from the storage controller(s) before the snapshoting/cloning operation.');
+                                                      Abort;
+                                                   end;
+                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a3].Text;
+                                                   wst := Copy(wst, 2, Length(wst) - 2);
+                                                   SetLength(vmdkids, Length(vmdkids) + 1);
+                                                   vmdkids[High(vmdkids)][1] := wst;
+                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Delete(i);
+                                                   SetLength(vbmComm, Length(vbmComm) + 1);
+                                                   vbmComm[High(vbmComm)][1] := 'closemedium disk ' + wst;
+                                                   vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'RemoveDriveOp'], 'removing the drive');
+                                                end;
+                                             end;
+                                          end;
+                                       end;
+                                       for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 do
+                                       begin
+                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
+                                          if a1 > -1 then
+                                          begin
+                                             wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text;
+                                             SetLength(exvmdks, Length(exvmdks) + 1);
+                                             exvmdks[High(exvmdks)] := AnsiString(Copy(wst, 2, Length(wst) - 2));
+                                          end;
+                                       end;
                                     end;
-                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('ExtraData');
+                                 end;
+                                 if Length(vmdkids) > 0 then
+                                 begin
+                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
+                                    if n3 > -1 then
+                                       for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
+                                          for j := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Count - 1 downto 0 do
+                                          begin
+                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('name');
+                                             if a1 > -1 then
+                                                mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text
+                                             else
+                                                mCName := 'IDE';
+                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('port');
+                                             if a2 > -1 then
+                                                mPort := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a2].Text
+                                             else
+                                                mPort := '0';
+                                             a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('device');
+                                             if a3 > -1 then
+                                                mDevice := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a3].Text
+                                             else
+                                                mDevice := '0';
+                                             n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes.IndexOf('Image');
+                                             if n4 > -1 then
+                                             begin
+                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes.IndexOf('uuid');
+                                                if a1 > -1 then
+                                                begin
+                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes[a1].Text;
+                                                   wst := Copy(wst, 2, Length(wst) - 2);
+                                                   k := 0;
+                                                   while k < Length(vmdkids) do
+                                                   begin
+                                                      if vmdkids[k][1] = wst then
+                                                      begin
+                                                         WarnAboutBoot := 0;
+                                                         ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Delete(j);
+                                                         SetLength(vbmComm, Length(vbmComm) + 1);
+                                                         for p := High(vbmComm) downto 1 do
+                                                            vbmComm[p] := vbmComm[p - 1];
+
+                                                         if (a1 > -1) and (a2 > -1) and (a3 > -1) then
+                                                         begin
+                                                            vbmComm[0][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + mPort + ' --device ' + mDevice + ' --medium none';
+                                                            vbmComm[0][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
+                                                         end;
+                                                         Break;
+                                                      end;
+                                                      Inc(k);
+                                                   end;
+                                                end;
+                                             end;
+                                          end;
+
+                                 end;
+                                 if VBCPUVirtualization <> 0 then
+                                 begin
+                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('Hardware');
                                     if n3 > -1 then
                                     begin
-                                       n4 := 0;
-                                       while n4 < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count do
-                                       begin
-                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('name');
-                                          if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a1].NodeValue = 'GUI/LastCloseAction') then
-                                          begin
-                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('value');
-                                             if a2 > -1 then
-                                                soPowerOff := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a2].NodeValue = 'PowerOff';
-                                             Break;
-                                          end;
-                                          Inc(n4);
-                                       end;
-                                    end;
-                                    if not soPowerOff then
-                                    begin
-                                       SetLength(vbmComm, Length(vbmComm) + 1);
-                                       vbmComm[High(vbmComm)][1] := 'setextradata ' + VMID + ' "GUI/LastCloseAction" PowerOff';
-                                       vbmComm[High(vbmComm)][2] := 'setting Power Off as the default close action';
-                                    end;
-                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
-                                    if n3 = -1 then
-                                    begin
-                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
-                                       Abort;
-                                    end
-                                    else
-                                    begin
-                                       n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                       VBHardwareVirtualization := False;
+                                       n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('CPU');
                                        if n4 > -1 then
                                        begin
-                                          for i := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 downto 0 do
+                                          n5 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.IndexOf('HardwareVirtEx');
+                                          if n5 > -1 then
                                           begin
-                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('format');
-                                             if a1 = -1 then
-                                                Continue;
-                                             if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text = 'VMDK' then
-                                             begin
-                                                a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('location');
-                                                if a2 > -1 then
-                                                begin
-                                                   wp := WideLowerCase(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text);
-                                                   l := Length(wp);
-                                                   if l <> 17 then
-                                                      Continue;
-                                                   if pos(string('vmubdrive'), wp) <> 1 then
-                                                      Continue;
-                                                   if StrToIntDef('$' + Copy(wp, 10, 3), -1) = -1 then
-                                                      Continue;
-                                                   if pos(string('.vmdk'), wp) <> 13 then
-                                                      Continue;
-                                                   a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
-                                                   if a3 > -1 then
-                                                   begin
-                                                      if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count > 0 then
-                                                      begin
-                                                         errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'DividedSnapshots'], [ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text, ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count], 'the content of "%s" is divided into %d snapshot(s).'#13#10'It is not a good idea using snapshots with real drives. But if you really want to at least do this:' + #13#10'If you created a snapshot or linked clone this VM you should of manually detached any'#13#10'VMUBDrive***.vmdk drive from the storage controller(s) before the snapshoting/cloning operation.');
-                                                         Abort;
-                                                      end;
-                                                      wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a3].Text;
-                                                      wst := Copy(wst, 2, Length(wst) - 2);
-                                                      SetLength(vmdkids, Length(vmdkids) + 1);
-                                                      vmdkids[High(vmdkids)][1] := wst;
-                                                      ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Delete(i);
-                                                      SetLength(vbmComm, Length(vbmComm) + 1);
-                                                      vbmComm[High(vbmComm)][1] := 'closemedium disk ' + wst;
-                                                      vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'RemoveDriveOp'], 'removing the drive');
-                                                   end;
-                                                end;
-                                             end;
-                                          end;
-                                          for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 do
-                                          begin
-                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
-                                             if a1 > -1 then
-                                             begin
-                                                wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text;
-                                                SetLength(exvmdks, Length(exvmdks) + 1);
-                                                exvmdks[High(exvmdks)] := AnsiString(Copy(wst, 2, Length(wst) - 2));
-                                             end;
-                                          end;
-                                       end;
-                                    end;
-                                    if Length(vmdkids) > 0 then
-                                    begin
-                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
-                                       if n3 > -1 then
-                                          for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
-                                             for j := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Count - 1 downto 0 do
-                                             begin
-                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('name');
-                                                if a1 > -1 then
-                                                   mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text
-                                                else
-                                                   mCName := 'IDE';
-                                                a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('port');
-                                                if a2 > -1 then
-                                                   mPort := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a2].Text
-                                                else
-                                                   mPort := '0';
-                                                a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('device');
-                                                if a3 > -1 then
-                                                   mDevice := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a3].Text
-                                                else
-                                                   mDevice := '0';
-                                                n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes.IndexOf('Image');
-                                                if n4 > -1 then
-                                                begin
-                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes.IndexOf('uuid');
-                                                   if a1 > -1 then
-                                                   begin
-                                                      wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes[a1].Text;
-                                                      wst := Copy(wst, 2, Length(wst) - 2);
-                                                      k := 0;
-                                                      while k < Length(vmdkids) do
-                                                      begin
-                                                         if vmdkids[k][1] = wst then
-                                                         begin
-                                                            WarnAboutBoot := 0;
-                                                            ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Delete(j);
-                                                            SetLength(vbmComm, Length(vbmComm) + 1);
-                                                            for p := High(vbmComm) downto 1 do
-                                                               vbmComm[p] := vbmComm[p - 1];
-
-                                                            if (a1 > -1) and (a2 > -1) and (a3 > -1) then
-                                                            begin
-                                                               vbmComm[0][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + mPort + ' --device ' + mDevice + ' --medium none';
-                                                               vbmComm[0][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
-                                                            end;
-                                                            Break;
-                                                         end;
-                                                         Inc(k);
-                                                      end;
-                                                   end;
-                                                end;
-                                             end;
-
-                                    end;
-                                    if VBCPUVirtualization <> 0 then
-                                    begin
-                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('Hardware');
-                                       if n3 > -1 then
-                                       begin
-                                          VBHardwareVirtualization := False;
-                                          n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('CPU');
-                                          if n4 > -1 then
-                                          begin
-                                             n5 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.IndexOf('HardwareVirtEx');
-                                             if n5 > -1 then
-                                             begin
-                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].AttributeNodes.IndexOf('enabled');
-                                                VBHardwareVirtualization := (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].AttributeNodes[a1].Text = 'true');
-                                             end;
+                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].AttributeNodes.IndexOf('enabled');
+                                             VBHardwareVirtualization := (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].AttributeNodes[a1].Text = 'true');
                                           end;
                                        end;
                                     end;
                                  end;
                               end;
-                              AllOK := True;
-                           except
-                              if errmsg = GetLangTextDef(idxMain, ['Messages', 'UnknownError'], 'unknown error, please report it to the author'#13#10'with a complete description of what you''re doing.') then
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'BrokenXML'], [VMPath], 'error accessing xml structure from "%s",'#13#10'please repair the file or replace it with a backup copy.');
-                              AllOK := False;
                            end;
+                           AllOK := True;
+                        except
+                           if errmsg = GetLangTextDef(idxMain, ['Messages', 'UnknownError'], 'unknown error, please report it to the author'#13#10'with a complete description of what you''re doing.') then
+                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'BrokenXML'], [VMPath], 'error accessing xml structure from "%s",'#13#10'please repair the file or replace it with a backup copy.');
+                           AllOK := False;
+                        end;
 
                         if not AllOK then
                            Active := False;
@@ -7078,220 +7541,292 @@ begin
                         with xmlVBox do
                         begin
                            if Tag = 1 then
-                              try
-                                 n1 := ChildNodes.IndexOf('VirtualBox');
-                                 if n1 = -1 then
+                           try
+                              n1 := ChildNodes.IndexOf('VirtualBox');
+                              if n1 = -1 then
+                              begin
+                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['VirtualBox'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                                 Abort;
+                              end
+                              else
+                              begin
+                                 n2 := ChildNodes[n1].ChildNodes.IndexOf('Machine');
+                                 if n2 = -1 then
                                  begin
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['VirtualBox'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['Machine'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
                                     Abort;
                                  end
                                  else
                                  begin
-                                    n2 := ChildNodes[n1].ChildNodes.IndexOf('Machine');
-                                    if n2 = -1 then
+                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('ExtraData');
+                                    if n3 = -1 then
                                     begin
-                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['Machine'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                                       ChildNodes[n1].ChildNodes[n2].AddChild('ExtraData', 1);
+                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('ExtraData');
+                                    end;
+                                    if n3 > -1 then
+                                    begin
+                                       n4 := 0;
+                                       while n4 < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count do
+                                       begin
+                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('name');
+                                          if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a1].NodeValue = 'GUI/LastCloseAction') then
+                                          begin
+                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('value');
+                                             if a2 = -1 then
+                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].SetAttribute('value', 'PowerOff')
+                                             else
+                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a2].NodeValue := 'PowerOff';
+                                             Break;
+                                          end;
+                                          Inc(n4);
+                                       end;
+                                       if n4 = ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count then
+                                          with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AddChild('ExtraDataItem', 0) do
+                                          begin
+                                             SetAttribute('name', 'GUI/LastCloseAction');
+                                             SetAttribute('value', 'PowerOff');
+                                          end;
+                                    end;
+                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
+                                    if n3 = -1 then
+                                    begin
+                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
                                        Abort;
                                     end
                                     else
                                     begin
-                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('ExtraData');
-                                       if n3 = -1 then
+                                       n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                       if n4 > -1 then
                                        begin
-                                          ChildNodes[n1].ChildNodes[n2].AddChild('ExtraData', 1);
-                                          n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('ExtraData');
-                                       end;
-                                       if n3 > -1 then
-                                       begin
-                                          n4 := 0;
-                                          while n4 < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count do
-                                          begin
-                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('name');
-                                             if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a1].NodeValue = 'GUI/LastCloseAction') then
+                                          if fu >= 0 then
+                                             with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AddChild('HardDisk') do
                                              begin
-                                                a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes.IndexOf('value');
-                                                if a2 = -1 then
-                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].SetAttribute('value', 'PowerOff')
-                                                else
-                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AttributeNodes[a2].NodeValue := 'PowerOff';
+                                                SetAttribute('uuid', '{' + fuuid + '}');
+                                                SetAttribute('location', ExtractFileName(floc));
+                                                SetAttribute('format', 'VMDK');
+                                                SetAttribute('type', 'Normal');
+                                             end;
+                                          if su >= 0 then
+                                             with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AddChild('HardDisk') do
+                                             begin
+                                                SetAttribute('uuid', '{' + suuid + '}');
+                                                SetAttribute('location', ExtractFileName(sloc));
+                                                SetAttribute('format', 'VMDK');
+                                                SetAttribute('type', 'Normal');
+                                             end;
+                                       end;
+                                    end;
+                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
+                                    isFUSet := fu < 0;
+                                    isSUSet := su < 0;
+                                    if n3 > -1 then
+                                       if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count > 0 then
+                                       begin
+                                          for sc := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
+                                          begin
+                                             if isFUSet and isSUSet then
                                                 Break;
-                                             end;
-                                             Inc(n4);
-                                          end;
-                                          if n4 = ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count then
-                                             with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AddChild('ExtraDataItem', 0) do
+                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('name');
+                                             if a2 > -1 then
+                                                mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a2].Text
+                                             else
+                                                mCName := 'IDE';
+                                             a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('useHostIOCache');
+                                             if a3 > -1 then
+                                                useHostIOCacheCurr := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text = 'true'
+                                             else
                                              begin
-                                                SetAttribute('name', 'GUI/LastCloseAction');
-                                                SetAttribute('value', 'PowerOff');
+                                                useHostIOCacheCurr := False;
+                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].SetAttribute('useHostIOCache', 'false');
+                                                a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('useHostIOCache');
                                              end;
-                                       end;
-                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
-                                       if n3 = -1 then
-                                       begin
-                                          errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
-                                          Abort;
-                                       end
-                                       else
-                                       begin
-                                          n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
-                                          if n4 > -1 then
-                                          begin
-                                             if fu >= 0 then
-                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AddChild('HardDisk') do
-                                                begin
-                                                   SetAttribute('uuid', '{' + fuuid + '}');
-                                                   SetAttribute('location', ExtractFileName(floc));
-                                                   SetAttribute('format', 'VMDK');
-                                                   SetAttribute('type', 'Normal');
-                                                end;
-                                             if su >= 0 then
-                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AddChild('HardDisk') do
-                                                begin
-                                                   SetAttribute('uuid', '{' + suuid + '}');
-                                                   SetAttribute('location', ExtractFileName(sloc));
-                                                   SetAttribute('format', 'VMDK');
-                                                   SetAttribute('type', 'Normal');
-                                                end;
-                                          end;
-                                       end;
-                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
-                                       isFUSet := fu < 0;
-                                       isSUSet := su < 0;
-                                       if n3 > -1 then
-                                          if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count > 0 then
-                                          begin
-                                             for sc := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
+                                             if useHostIOCacheCurr <> useHostIOCache then
                                              begin
-                                                if isFUSet and isSUSet then
-                                                   Break;
-                                                a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('name');
-                                                if a2 > -1 then
-                                                   mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a2].Text
-                                                else
-                                                   mCName := 'IDE';
-                                                isLastC := sc = (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1);
-                                                if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count = 0 then
+                                                SetLength(vbmComm, Length(vbmComm) + 1);
+                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'setting "use host I/O cache"');
+                                                if useHostIOCache then
                                                 begin
-                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                   p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
-                                                   if (fu >= 0) and (not isFUSet) then
-                                                      if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
-                                                      begin
-                                                         if isLastC then
-                                                         begin
-                                                            if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                            else
-                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                            Abort;
-                                                         end
-                                                         else
-                                                            Continue;
-                                                      end
-                                                      else
-                                                      begin
-                                                         a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
-                                                         with xmlVBox.ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                         begin
-                                                            SetAttribute('type', 'HardDisk');
-                                                            SetAttribute('port', IntToStr(a2));
-                                                            SetAttribute('device', '0');
-                                                            with AddChild('Image') do
-                                                               SetAttribute('uuid', '{' + fuuid + '}');
-                                                         end;
-                                                         SetLength(vbmComm, Length(vbmComm) + 1);
-                                                         vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + floc + '"';
-                                                         vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                      end;
-                                                   if (su >= 0) and (not isSUSet) then
-                                                      if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
-                                                      begin
-                                                         if isLastC then
-                                                         begin
-                                                            if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                            else
-                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                            Abort;
-                                                         end
-                                                         else
-                                                            Continue;
-                                                      end
-                                                      else
-                                                      begin
-                                                         a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
-                                                         with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                         begin
-                                                            SetAttribute('type', 'HardDisk');
-                                                            SetAttribute('port', IntToStr(a2));
-                                                            SetAttribute('device', '0');
-                                                            with AddChild('Image') do
-                                                               SetAttribute('uuid', '{' + suuid + '}');
-                                                         end;
-                                                         SetLength(vbmComm, Length(vbmComm) + 1);
-                                                         vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + sloc + '"';
-                                                         vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                      end;
-                                                   Break;
+                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text := 'true';
+                                                   vbmComm[High(vbmComm)][1] := 'storagectl ' + VMID + ' --name ' + mCName + ' --hostiocache on';
                                                 end
                                                 else
                                                 begin
-                                                   SetLength(ahs, 0);
-                                                   for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count - 1 do
+                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text := 'false';
+                                                   vbmComm[High(vbmComm)][1] := 'storagectl ' + VMID + ' --name ' + mCName + ' --hostiocache off';
+                                                end;
+                                             end;
+                                             isLastC := sc = (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1);
+                                             if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count = 0 then
+                                             begin
+                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
+                                                if (fu >= 0) and (not isFUSet) then
+                                                   if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
                                                    begin
-                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('port');
-                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('device');
-                                                      a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('type');
-                                                      if (a1 > -1) and (a2 > -1) and (a3 > -1) then
+                                                      if isLastC then
                                                       begin
-                                                         SetLength(ahs, Length(ahs) + 1);
-                                                         ahs[High(ahs)][0] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a1].NodeValue;
-                                                         ahs[High(ahs)][1] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a2].NodeValue;
-                                                         ahs[High(ahs)][2] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a3].Text = 'HardDisk');
+                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                         else
+                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                         Abort;
+                                                      end
+                                                      else
+                                                         Continue;
+                                                   end
+                                                   else
+                                                   begin
+                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
+                                                      with xmlVBox.ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                      begin
+                                                         SetAttribute('type', 'HardDisk');
+                                                         SetAttribute('port', IntToStr(a2));
+                                                         SetAttribute('device', '0');
+                                                         with AddChild('Image') do
+                                                            SetAttribute('uuid', '{' + fuuid + '}');
                                                       end;
+                                                      SetLength(vbmComm, Length(vbmComm) + 1);
+                                                      vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + floc + '" --mtype normal';
+                                                      vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                    end;
-                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('type');
-                                                   if a1 > -1 then
+                                                if (su >= 0) and (not isSUSet) then
+                                                   if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
                                                    begin
-                                                      wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].Text;
-                                                      if (wst = 'PIIX3') or (wst = 'PIIX4') or (wst = 'ICH6') then
+                                                      if isLastC then
                                                       begin
-                                                         a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                         p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
-                                                         if (fu >= 0) and (not isFUSet) then
+                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                         else
+                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                         Abort;
+                                                      end
+                                                      else
+                                                         Continue;
+                                                   end
+                                                   else
+                                                   begin
+                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
+                                                      with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                      begin
+                                                         SetAttribute('type', 'HardDisk');
+                                                         SetAttribute('port', IntToStr(a2));
+                                                         SetAttribute('device', '0');
+                                                         with AddChild('Image') do
+                                                            SetAttribute('uuid', '{' + suuid + '}');
+                                                      end;
+                                                      SetLength(vbmComm, Length(vbmComm) + 1);
+                                                      vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + sloc + '" --mtype normal';
+                                                      vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                   end;
+                                                Break;
+                                             end
+                                             else
+                                             begin
+                                                SetLength(ahs, 0);
+                                                SetLength(ahsUUID, 0);
+                                                for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count - 1 do
+                                                begin
+                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('port');
+                                                   a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('device');
+                                                   a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('type');
+                                                   if (a1 > -1) and (a2 > -1) and (a3 > -1) then
+                                                   begin
+                                                      j := 0;
+                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a1].NodeValue;
+                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a2].NodeValue;
+                                                      while j <= High(ahs) do
+                                                      begin
+                                                         if ahs[j][0] > a1 then
+                                                            Break
+                                                         else if ahs[j][0] = a1 then
+                                                            if ahs[j][1] > a2 then
+                                                               Break;
+                                                         Inc(j);
+                                                      end;
+                                                      SetLength(ahs, Length(ahs) + 1);
+                                                      SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                      for k := High(ahs) downto j + 1 do
+                                                      begin
+                                                         ahs[k] := ahs[k - 1];
+                                                         ahsUUID[k] := ahsUUID[k - 1];
+                                                      end;
+                                                      ahs[j][0] := a1;
+                                                      ahs[j][1] := a2;
+                                                      ahs[j][2] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a3].Text = 'HardDisk');
+                                                      a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('passthrough');
+                                                      if a4 > -1 then
+                                                         ahs[j][3] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
+                                                      else
+                                                         ahs[j][3] := 0;
+                                                      a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('nonrotational');
+                                                      if a4 > -1 then
+                                                         ahs[j][4] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
+                                                      else
+                                                         ahs[j][4] := 0;
+                                                      a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('hotpluggable');
+                                                      if a4 > -1 then
+                                                         ahs[j][5] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
+                                                      else
+                                                         ahs[j][5] := 0;
+                                                      ahsUUID[j] := '';
+                                                      if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes.Count = 1 then
+                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].NodeName = 'Image' then
                                                          begin
-                                                            if Length(ahs) < (2 * p) then
+                                                            a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes.IndexOf('uuid');
+                                                            if a1 >= 0 then
+                                                               ahsUUID[j] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes[a1].Text;
+                                                         end
+                                                         else if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].NodeName = 'HostDrive' then
+                                                         begin
+                                                            a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes.IndexOf('src');
+                                                            if a1 >= 0 then
+                                                               ahsUUID[j] := 'host:' + ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes[a1].Text;
+                                                         end;
+                                                   end;
+                                                end;
+                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('type');
+                                                if a1 > -1 then
+                                                begin
+                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].Text;
+                                                   if (wst = 'PIIX3') or (wst = 'PIIX4') or (wst = 'ICH6') then
+                                                   begin
+                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                      p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
+                                                      if (fu >= 0) and (not isFUSet) then
+                                                      begin
+                                                         if Length(ahs) < (2 * p) then
+                                                         begin
+                                                            i := 0;
+                                                            j := 0;
+                                                            BreakCycles := False;
+                                                            while i < p do
                                                             begin
-                                                               i := 0;
                                                                j := 0;
-                                                               BreakCycles := False;
-                                                               while i < p do
+                                                               while j < p do
                                                                begin
-                                                                  j := 0;
-                                                                  while j < p do
+                                                                  k := 0;
+                                                                  while k < Length(ahs) do
                                                                   begin
-                                                                     k := 0;
-                                                                     while k < Length(ahs) do
-                                                                     begin
-                                                                        if (ahs[k][0] = i) and (ahs[k][1] = j) then
-                                                                           Break;
-                                                                        Inc(k);
-                                                                     end;
-                                                                     if k >= Length(ahs) then
-                                                                     begin
-                                                                        BreakCycles := True;
+                                                                     if (ahs[k][0] = i) and (ahs[k][1] = j) then
                                                                         Break;
-                                                                     end
-                                                                     else if WarnAboutBoot = 1 then
-                                                                        if ahs[k][2] = 1 then
-                                                                           WarnAboutBoot := 2;
-                                                                     Inc(j);
+                                                                     Inc(k);
                                                                   end;
-                                                                  if BreakCycles then
+                                                                  if k >= Length(ahs) then
+                                                                  begin
+                                                                     BreakCycles := True;
                                                                      Break;
-                                                                  Inc(i);
+                                                                  end
+                                                                  else if WarnAboutBoot = 1 then
+                                                                     WarnAboutBoot := 2;
+                                                                  Inc(j);
                                                                end;
-
+                                                               if BreakCycles then
+                                                                  Break;
+                                                               Inc(i);
+                                                            end;
+                                                            if (WarnAboutBoot <> 2) or (sc <> 0) then
+                                                            begin
                                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                begin
                                                                   SetAttribute('type', 'HardDisk');
@@ -7305,123 +7840,251 @@ begin
                                                                   isFUSet := True;
                                                                end;
                                                                SetLength(vbmComm, Length(vbmComm) + 1);
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + floc + '"';
+                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + floc + '" --mtype normal';
                                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                             end
                                                             else
                                                             begin
-                                                               if isLastC then
-                                                               begin
-                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
-                                                                  else
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                                  Abort;
-                                                               end
-                                                               else
-                                                                  Continue;
-                                                            end;
-                                                         end;
-                                                         if (su >= 0) and (not isSUSet) then
-                                                         begin
-                                                            if Length(ahs) < (2 * p) then
-                                                            begin
+                                                               WarnAboutBoot := 1;
                                                                i := 0;
-                                                               j := 0;
-                                                               BreakCycles := False;
-                                                               while i < p do
+                                                               while i <= High(ahs) do
                                                                begin
-                                                                  j := 0;
-                                                                  while j < p do
-                                                                  begin
-                                                                     k := 0;
-                                                                     while k < Length(ahs) do
-                                                                     begin
-                                                                        if (ahs[k][0] = i) and (ahs[k][1] = j) then
-                                                                           Break;
-                                                                        Inc(k);
-                                                                     end;
-                                                                     if k >= Length(ahs) then
-                                                                     begin
-                                                                        BreakCycles := True;
-                                                                        Break;
-                                                                     end;
-                                                                     Inc(j);
-                                                                  end;
-                                                                  if BreakCycles then
+                                                                  if (ahs[i][0] <> (i div 2)) or (ahs[i][1] <> (i mod 2)) then
                                                                      Break;
                                                                   Inc(i);
+                                                               end;
+                                                               Dec(i);
+                                                               StopVMAnimation;
+                                                               TrayIcon.BalloonHint := '';
+                                                               case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages',
+                                                                  'WarnChangeBootDriveAndOther'], [FirstDriveName], 'In order to boot the VM from the "%s" drive,'#13#10 +
+                                                                     'it must be set as the first internal hard disk, but the first position is currently taken by another drive.' +
+                                                                  #13#10#13#10'Click on Yes to automatically shift up the other drives in subsequent positions'#13#10'or do it manually and click on Retry'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbRetry, mbCancel], mbYes) of
+                                                                  mrNone, mrCancel:
+                                                                     Exit;
+                                                                  mrRetry:
+                                                                     begin
+                                                                        TryAgain := True;
+                                                                        Exit;
+                                                                     end;
+                                                               end;
+                                                               StartVMANimation;
+                                                               j := 0;
+                                                               while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
+                                                               begin
+                                                                  a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
+                                                                  a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('device');
+                                                                  a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue;
+                                                                  a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue;
+                                                                  if (a3 <> 1) or (a4 <> 1) then
+                                                                     if (a3 < ahs[i][0]) or ((a3 = ahs[i][0]) and (a4 <= ahs[i][1])) then
+                                                                     begin
+                                                                        if a3 = 0 then
+                                                                        begin
+                                                                           if a4 = 0 then
+                                                                           begin
+                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 1;
+                                                                           end
+                                                                           else
+                                                                           begin
+                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue := 1;
+                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 0;
+                                                                           end;
+                                                                        end
+                                                                        else
+                                                                        begin
+                                                                           ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 1;
+                                                                        end;
+                                                                     end;
+                                                                  Inc(j);
+                                                               end;
+                                                               j := Length(vbmComm);
+                                                               SetLength(vbmComm, 2 * (i + 1) + j + 1);
+                                                               while i >= 0 do
+                                                               begin
+                                                                  if (ahs[i][0] <> 1) or (ahs[i][1] <> 1) then
+                                                                  begin
+                                                                     vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0]) + ' --device ' + IntToStr(ahs[i][1]) + ' --medium none';
+                                                                     vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
+                                                                     Inc(j);
+                                                                     vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName;
+                                                                     if ahs[i][0] = 0 then
+                                                                     begin
+                                                                        if ahs[i][1] = 0 then
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --port 0 --device 1'
+                                                                        else
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 0';
+                                                                     end
+                                                                     else
+                                                                     begin
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 1';
+                                                                     end;
+                                                                     if ahs[i][2] = 1 then
+                                                                     begin
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --type hdd';
+                                                                        if ahs[i][4] = 1 then
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on'
+                                                                        else
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational off';
+                                                                        {                            if ahs[i][5] = 1 then
+                                                                                                       vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                                                    else
+                                                                                                       vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                     end
+                                                                     else
+                                                                     begin
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --type dvddrive';
+                                                                        if ahs[i][3] = 1 then
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --passthrough on'
+                                                                        else
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --passthrough off';
+                                                                        { if ahs[i][5] = 1 then
+                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                         else
+                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                     end;
+                                                                     if ahsUUID[i] <> '' then
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --medium "' + ahsUUId[i] + '"'
+                                                                     else
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --medium emptydrive';
+                                                                     vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                                  end;
+                                                                  Inc(j);
+                                                                  Dec(i);
                                                                end;
                                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                begin
                                                                   SetAttribute('type', 'HardDisk');
-                                                                  SetAttribute('port', IntToStr(i));
-                                                                  SetAttribute('device', IntToStr(j));
+                                                                  SetAttribute('port', 0);
+                                                                  SetAttribute('device', 0);
                                                                   with AddChild('Image') do
-                                                                     SetAttribute('uuid', '{' + suuid + '}');
-                                                                  isSUSet := True;
+                                                                     SetAttribute('uuid', '{' + fuuid + '}');
+                                                                  SetLength(ahs, Length(ahs) + 1);
+                                                                  ahs[High(ahs)][0] := 0;
+                                                                  ahs[High(ahs)][1] := 0;
+                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                  ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                  isFUSet := True;
                                                                end;
-                                                               SetLength(vbmComm, Length(vbmComm) + 1);
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + sloc + '"';
+                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
                                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                            end;
+                                                         end
+                                                         else
+                                                         begin
+                                                            if isLastC then
+                                                            begin
+                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
+                                                               else
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                               Abort;
                                                             end
                                                             else
-                                                            begin
-                                                               if isLastC then
-                                                               begin
-                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
-                                                                  else
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                                  Abort;
-                                                               end
-                                                               else
-                                                                  Continue;
-                                                            end;
+                                                               Continue;
                                                          end;
-                                                      end
-                                                      else
+                                                      end;
+                                                      if (su >= 0) and (not isSUSet) then
                                                       begin
-                                                         a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                         p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
-
-                                                         if (fu >= 0) and (not isFUSet) then
+                                                         if Length(ahs) < (2 * p) then
                                                          begin
                                                             i := 0;
+                                                            j := 0;
                                                             BreakCycles := False;
                                                             while i < p do
                                                             begin
                                                                j := 0;
-                                                               while j < Length(ahs) do
+                                                               while j < p do
                                                                begin
-                                                                  if ahs[j][0] = i then
+                                                                  k := 0;
+                                                                  while k < Length(ahs) do
+                                                                  begin
+                                                                     if (ahs[k][0] = i) and (ahs[k][1] = j) then
+                                                                        Break;
+                                                                     Inc(k);
+                                                                  end;
+                                                                  if k >= Length(ahs) then
+                                                                  begin
+                                                                     BreakCycles := True;
                                                                      Break;
+                                                                  end;
                                                                   Inc(j);
                                                                end;
-                                                               if j >= Length(ahs) then
-                                                               begin
-                                                                  BreakCycles := True;
+                                                               if BreakCycles then
                                                                   Break;
-                                                               end
-                                                               else if WarnAboutBoot = 1 then
-                                                                  if ahs[j][2] = 1 then
-                                                                     WarnAboutBoot := 2;
                                                                Inc(i);
                                                             end;
-                                                            if not BreakCycles then
+                                                            with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                             begin
-                                                               if isLastC then
-                                                               begin
-                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                                  else
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                                  Abort;
-                                                               end
+                                                               SetAttribute('type', 'HardDisk');
+                                                               SetAttribute('port', IntToStr(i));
+                                                               SetAttribute('device', IntToStr(j));
+                                                               with AddChild('Image') do
+                                                                  SetAttribute('uuid', '{' + suuid + '}');
+                                                               isSUSet := True;
+                                                            end;
+                                                            SetLength(vbmComm, Length(vbmComm) + 1);
+                                                            vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + sloc + '" --mtype normal';
+                                                            vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                         end
+                                                         else
+                                                         begin
+                                                            if isLastC then
+                                                            begin
+                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
                                                                else
-                                                                  Continue;
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                               Abort;
                                                             end
                                                             else
+                                                               Continue;
+                                                         end;
+                                                      end;
+                                                   end
+                                                   else if mCName <> 'Floppy' then
+                                                   begin
+                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                      p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
+
+                                                      if (fu >= 0) and (not isFUSet) then
+                                                      begin
+                                                         i := 0;
+                                                         BreakCycles := False;
+                                                         while i < p do
+                                                         begin
+                                                            j := 0;
+                                                            while j < Length(ahs) do
+                                                            begin
+                                                               if ahs[j][0] = i then
+                                                                  Break;
+                                                               Inc(j);
+                                                            end;
+                                                            if j >= Length(ahs) then
+                                                            begin
+                                                               BreakCycles := True;
+                                                               Break;
+                                                            end
+                                                            else if WarnAboutBoot = 1 then
+                                                               WarnAboutBoot := 2;
+                                                            Inc(i);
+                                                         end;
+                                                         if (not BreakCycles) and (sc <> 0) then
+                                                         begin
+                                                            if isLastC then
+                                                            begin
+                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                               else
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                               Abort;
+                                                            end
+                                                            else
+                                                               Continue;
+                                                         end
+                                                         else
+                                                         begin
+                                                            if (WarnAboutBoot <> 2) or (sc <> 0) then
                                                             begin
                                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                begin
@@ -7431,113 +8094,216 @@ begin
                                                                   with AddChild('Image') do
                                                                      SetAttribute('uuid', '{' + fuuid + '}');
                                                                   SetLength(ahs, Length(ahs) + 1);
+                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
                                                                   ahs[High(ahs)][0] := i;
                                                                   ahs[High(ahs)][1] := 0;
+                                                                  ahsUUID[High(ahsUUID)] := string(fuuid);
                                                                   isFUSet := True;
                                                                end;
                                                                SetLength(vbmComm, Length(vbmComm) + 1);
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + floc + '"';
+                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + floc + '" --mtype normal';
                                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                            end;
-                                                         end;
-
-                                                         if (su >= 0) and (not isSUSet) then
-                                                         begin
-                                                            i := 0;
-                                                            BreakCycles := False;
-                                                            while i < p do
-                                                            begin
-                                                               j := 0;
-                                                               while j < Length(ahs) do
-                                                               begin
-                                                                  if ahs[j][0] = i then
-                                                                     Break;
-                                                                  Inc(j);
-                                                               end;
-                                                               if j >= Length(ahs) then
-                                                               begin
-                                                                  BreakCycles := True;
-                                                                  Break;
-                                                               end;
-                                                               Inc(i);
-                                                            end;
-                                                            if not BreakCycles then
-                                                            begin
-                                                               if isLastC then
-                                                               begin
-                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                                  else
-                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                                  Abort;
-                                                               end
-                                                               else
-                                                                  Continue;
                                                             end
                                                             else
                                                             begin
+                                                               WarnAboutBoot := 1;
+                                                               if not BreakCycles then
+                                                               begin
+                                                                  a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                                  ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue :=
+                                                                     ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue + 1;
+                                                               end;
+                                                               i := 0;
+                                                               while i <= High(ahs) do
+                                                               begin
+                                                                  if ahs[i][0] <> i then
+                                                                     Break;
+                                                                  Inc(i);
+                                                               end;
+                                                               Dec(i);
+
+                                                               StopVMAnimation;
+                                                               TrayIcon.BalloonHint := '';
+                                                               case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages',
+                                                                  'WarnChangeBootDriveAndOther'], [FirstDriveName], 'In order to boot the VM from the "%s" drive,'#13#10 +
+                                                                     'it must be set as the first internal hard disk, but the first position is currently taken by another drive.' +
+                                                                  #13#10#13#10'Click on Yes to automatically shift up the other drives in subsequent positions'#13#10'or do it manually and click on Retry'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbRetry, mbCancel], mbYes) of
+                                                                  mrNone, mrCancel:
+                                                                     Exit;
+                                                                  mrRetry:
+                                                                     begin
+                                                                        TryAgain := True;
+                                                                        Exit;
+                                                                     end;
+                                                               end;
+                                                               StartVMANimation;
+                                                               j := 0;
+                                                               while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
+                                                               begin
+                                                                  a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
+                                                                  if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue <= ahs[i][0]) then
+                                                                     ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue :=
+                                                                        ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue + 1;
+                                                                  Inc(j);
+                                                               end;
+                                                               j := Length(vbmComm);
+                                                               SetLength(vbmComm, 2 * (i + 1) + j + 1);
+                                                               while i >= 0 do
+                                                               begin
+                                                                  vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0]) + ' --device 0 --medium none';
+                                                                  vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
+                                                                  Inc(j);
+                                                                  vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0] + 1) + ' --device 0';
+                                                                  if ahs[i][2] = 1 then
+                                                                  begin
+                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --type hdd';
+                                                                     if ahs[i][4] = 1 then
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on'
+                                                                     else
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational off';
+                                                                     if mCName = 'SATA' then
+                                                                        if ahs[i][5] = 1 then
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                        else
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';
+                                                                  end
+                                                                  else
+                                                                  begin
+                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --type dvddrive';
+                                                                     if ahs[i][3] = 1 then
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --passthrough on'
+                                                                     else
+                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --passthrough off';
+                                                                     if mCName = 'SATA' then
+                                                                        if ahs[i][5] = 1 then
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                        else
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';
+                                                                  end;
+                                                                  if ahsUUID[i] <> '' then
+                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --medium "' + ahsUUId[i] + '"'
+                                                                  else
+                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --medium emptydrive';
+                                                                  Inc(j);
+                                                                  Dec(i);
+                                                               end;
                                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                begin
                                                                   SetAttribute('type', 'HardDisk');
-                                                                  SetAttribute('port', IntToStr(i));
+                                                                  SetAttribute('port', 0);
                                                                   SetAttribute('device', '0');
                                                                   with AddChild('Image') do
-                                                                     SetAttribute('uuid', '{' + suuid + '}');
-                                                                  isSUSet := True;
+                                                                     SetAttribute('uuid', '{' + fuuid + '}');
+                                                                  SetLength(ahs, Length(ahs) + 1);
+                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                  ahs[High(ahs)][0] := 0;
+                                                                  ahs[High(ahs)][1] := 0;
+                                                                  ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                  isFUSet := True;
                                                                end;
-                                                               SetLength(vbmComm, Length(vbmComm) + 1);
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + sloc + '"';
+                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
                                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                             end;
                                                          end;
                                                       end;
+
+                                                      if (su >= 0) and (not isSUSet) then
+                                                      begin
+                                                         i := 0;
+                                                         BreakCycles := False;
+                                                         while i < p do
+                                                         begin
+                                                            j := 0;
+                                                            while j < Length(ahs) do
+                                                            begin
+                                                               if ahs[j][0] = i then
+                                                                  Break;
+                                                               Inc(j);
+                                                            end;
+                                                            if j >= Length(ahs) then
+                                                            begin
+                                                               BreakCycles := True;
+                                                               Break;
+                                                            end;
+                                                            Inc(i);
+                                                         end;
+                                                         if not BreakCycles then
+                                                         begin
+                                                            if isLastC then
+                                                            begin
+                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                               else
+                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                               Abort;
+                                                            end
+                                                            else
+                                                               Continue;
+                                                         end
+                                                         else
+                                                         begin
+                                                            with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                            begin
+                                                               SetAttribute('type', 'HardDisk');
+                                                               SetAttribute('port', IntToStr(i));
+                                                               SetAttribute('device', '0');
+                                                               with AddChild('Image') do
+                                                                  SetAttribute('uuid', '{' + suuid + '}');
+                                                               isSUSet := True;
+                                                            end;
+                                                            SetLength(vbmComm, Length(vbmComm) + 1);
+                                                            vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + sloc + '" --mtype normal';
+                                                            vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                         end;
+                                                      end;
                                                    end;
                                                 end;
+                                             end;
 
-                                             end;
-                                          end
-                                          else
-                                          begin
-                                             errmsg := GetLangTextDef(idxMain, ['Messages', 'NoStorageAdvice'], 'unable to find a storage controller in the VirtualBox VM,'#13#10'please add one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and adding a storage controller.');
-                                             Abort;
                                           end;
-                                       if (VBCPUVirtualization <> 0) and ((UpdateVM = 2) or ((UpdateVM = 0) and (not useVBMU))) then
+                                       end
+                                       else
                                        begin
-                                          n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('Hardware');
-                                          if n3 > -1 then
+                                          errmsg := GetLangTextDef(idxMain, ['Messages', 'NoStorageAdvice'], 'unable to find a storage controller in the VirtualBox VM,'#13#10'please add one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and adding a storage controller.');
+                                          Abort;
+                                       end;
+                                    if (VBCPUVirtualization <> 0) and ((UpdateVM = 2) or ((UpdateVM = 0) and (not useVBMU))) then
+                                    begin
+                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('Hardware');
+                                       if n3 > -1 then
+                                       begin
+                                          n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('CPU');
+                                          if n4 = -1 then
                                           begin
-                                             n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('CPU');
-                                             if n4 = -1 then
-                                             begin
-                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AddChild('CPU');
-                                                n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1;
-                                             end;
-                                             n5 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.IndexOf('HardwareVirtEx');
-                                             if n5 = -1 then
-                                             begin
-                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AddChild('HardwareVirtEx');
-                                                n5 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1;
-                                             end;
-                                             if ((VBCPUVirtualization = 1) and (not VBHardwareVirtualization)) or ((VBCPUVirtualization = 3) and (not VBHardwareVirtualization)) then
-                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].SetAttribute('enabled', 'true')
-                                             else if ((VBCPUVirtualization = 2) and VBHardwareVirtualization) or ((VBCPUVirtualization = 3) and VBHardwareVirtualization) then
-                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].SetAttribute('enabled', 'false');
+                                             ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AddChild('CPU');
+                                             n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1;
                                           end;
+                                          n5 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.IndexOf('HardwareVirtEx');
+                                          if n5 = -1 then
+                                          begin
+                                             ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].AddChild('HardwareVirtEx');
+                                             n5 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1;
+                                          end;
+                                          if ((VBCPUVirtualization = 1) and (not VBHardwareVirtualization)) or ((VBCPUVirtualization = 3) and (not VBHardwareVirtualization)) then
+                                             ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].SetAttribute('enabled', 'true')
+                                          else if ((VBCPUVirtualization = 2) and VBHardwareVirtualization) or ((VBCPUVirtualization = 3) and VBHardwareVirtualization) then
+                                             ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].SetAttribute('enabled', 'false');
                                        end;
                                     end;
                                  end;
-
-                                 AllOK := True;
-                              except
-                                 AllOK := False;
                               end;
+
+                              AllOK := True;
+                           except
+                              AllOK := False;
+                           end;
 
                            if AllOK then
                               if WarnAboutBoot = 2 then
                                  if AddSecondDrive then
                                  begin
                                     case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'WarnBootFirstDrive'], [FirstDriveName], 'It seems this VM won''t be able to boot from the first drive (%s)'#13#10'because other drive(s) is/are attached to the storage controller in prior position(s).'#13#10#13#10'My advice is to free a port in the storage controller before the other drive(s).' + #13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and moving the other drive(s) into subsequent port(s) in the storage controller.'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
-                                       mrAbort:
+                                       mrAbort, mrNone, mrCancel:
                                           Exit;
                                        mrRetry:
                                           begin
@@ -7547,8 +8313,9 @@ begin
                                     end;
                                  end
                                  else
+                                 begin
                                     case CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'WarnBootDrive'], [FirstDriveName], 'It seems this VM won''t be able to boot from the drive (%s)'#13#10'because other drive(s) is/are attached to the storage controller in prior position(s).'#13#10#13#10'My advice is to free a port in the storage controller before the other drive(s).' + #13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and moving the other drive(s) into subsequent port(s) in the storage controller.'#13#10#13#10'Are you sure you want to continue...?')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
-                                       mrAbort:
+                                       mrAbort, mrNone, mrCancel:
                                           Exit;
                                        mrRetry:
                                           begin
@@ -7556,6 +8323,7 @@ begin
                                              Exit;
                                           end;
                                     end;
+                                 end;
 
                            if not AllOK then
                               Active := False
@@ -7579,7 +8347,7 @@ begin
                                     if WaitForVBSVC then
                                     begin
                                        try
-                                          GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
+                                          GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
                                           j := 0;
                                           l := Length(AllWindowsList);
                                           while j < l do
@@ -7595,7 +8363,7 @@ begin
                                              j := 0;
                                              while j < l do
                                              begin
-                                                if AllWindowsList[j].WClass = 'QWidget' then
+                                                if AllWindowsList[j].WClass = VBWinClass then
                                                    if IsWindowVisible(AllWindowsList[j].Handle) then
                                                       if GetFileNameFromHandle(AllWindowsList[j].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
                                                          Break;
@@ -7655,39 +8423,39 @@ begin
                                        end;
                                        AlreadyWaitedForVBSVC := True;
                                        if FileExists(svcPath) then
-                                          try
-                                             GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
-                                             j := 0;
-                                             l := Length(AllWindowsList);
-                                             while j < l do
-                                             begin
-                                                if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
-                                                   if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                                      if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
-                                                         Break;
-                                                if AllWindowsList[j].WClass = 'QWidget' then
-                                                   if IsWindowVisible(AllWindowsList[j].Handle) then
-                                                      if GetFileNameFromHandle(AllWindowsList[j].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
-                                                         Break;
-                                                Inc(j);
-                                             end;
-                                             if j >= l then
-                                             begin
-                                                FillChar(svcStartupInfo, SizeOf(svcStartupInfo), #0);
-                                                svcStartupInfo.cb := SizeOf(svcStartupInfo);
-                                                svcStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
-                                                svcStartupInfo.wShowWindow := SW_HIDE;
-                                                StartFolder := ExtractFilePath(ExeVBPath);
-                                                if StartFolder <> '' then
-                                                   PStartFolder := PChar(StartFolder)
-                                                else
-                                                   PStartFolder := nil;
-                                                UniqueString(svcPath);
-                                                if CreateProcess(nil, PChar(svcPath), nil, nil, False, DETACHED_PROCESS or NORMAL_PRIORITY_CLASS, nil, PStartFolder, svcStartupInfo, svcProcessInfo) then
-                                                   svcAlreadyStarted := True;
-                                             end;
-                                          except
+                                       try
+                                          GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
+                                          j := 0;
+                                          l := Length(AllWindowsList);
+                                          while j < l do
+                                          begin
+                                             if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
+                                                if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
+                                                   if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
+                                                      Break;
+                                             if AllWindowsList[j].WClass = VBWinClass then
+                                                if IsWindowVisible(AllWindowsList[j].Handle) then
+                                                   if GetFileNameFromHandle(AllWindowsList[j].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
+                                                      Break;
+                                             Inc(j);
                                           end;
+                                          if j >= l then
+                                          begin
+                                             FillChar(svcStartupInfo, SizeOf(svcStartupInfo), #0);
+                                             svcStartupInfo.cb := SizeOf(svcStartupInfo);
+                                             svcStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
+                                             svcStartupInfo.wShowWindow := SW_HIDE;
+                                             StartFolder := ExtractFilePath(ExeVBPath);
+                                             if StartFolder <> '' then
+                                                PStartFolder := PChar(StartFolder)
+                                             else
+                                                PStartFolder := nil;
+                                             UniqueString(svcPath);
+                                             if CreateProcess(nil, PChar(svcPath), nil, nil, False, DETACHED_PROCESS or NORMAL_PRIORITY_CLASS, nil, PStartFolder, svcStartupInfo, svcProcessInfo) then
+                                                svcAlreadyStarted := True;
+                                          end;
+                                       except
+                                       end;
                                     end;
                                     if VBHardwareVirtualization then
                                        sJob := 'modifyvm ' + VMID + ' --hwvirtex on'
@@ -7827,7 +8595,7 @@ begin
                                        if not AlreadyWaitedForVBSVC then
                                        begin
                                           try
-                                             GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
+                                             GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
                                              j := 0;
                                              l := Length(AllWindowsList);
                                              while j < l do
@@ -7843,7 +8611,7 @@ begin
                                                 k := 0;
                                                 while k < l do
                                                 begin
-                                                   if AllWindowsList[k].WClass = 'QWidget' then
+                                                   if AllWindowsList[k].WClass = VBWinClass then
                                                       if IsWindowVisible(AllWindowsList[k].Handle) then
                                                          if GetFileNameFromHandle(AllWindowsList[k].Handle) = LowerCase(ExtractFileName(ExeVBPath)) then
                                                             Break;
@@ -7903,38 +8671,38 @@ begin
                                           end;
                                        end;
                                        if (Length(vbmComm) > 0) and FileExists(svcPath) and (not svcAlreadyStarted) then
-                                          try
-                                             GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
-                                             j := 0;
-                                             l := Length(AllWindowsList);
-                                             while j < l do
-                                             begin
-                                                if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
-                                                   if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                                      if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
-                                                         Break;
-                                                if AllWindowsList[j].WClass = 'QWidget' then
-                                                   if IsWindowVisible(AllWindowsList[j].Handle) then
-                                                      if GetFileNameFromHandle(AllWindowsList[j].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
-                                                         Break;
-                                                Inc(j);
-                                             end;
-                                             if j >= l then
-                                             begin
-                                                FillChar(svcStartupInfo, SizeOf(svcStartupInfo), #0);
-                                                svcStartupInfo.cb := SizeOf(svcStartupInfo);
-                                                svcStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
-                                                svcStartupInfo.wShowWindow := SW_HIDE;
-                                                StartFolder := ExtractFilePath(ExeVBPath);
-                                                if StartFolder <> '' then
-                                                   PStartFolder := PChar(StartFolder)
-                                                else
-                                                   PStartFolder := nil;
-                                                UniqueString(svcPath);
-                                                CreateProcess(nil, PChar(svcPath), nil, nil, False, DETACHED_PROCESS or NORMAL_PRIORITY_CLASS, nil, PStartFolder, svcStartupInfo, svcProcessInfo);
-                                             end;
-                                          except
+                                       try
+                                          GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
+                                          j := 0;
+                                          l := Length(AllWindowsList);
+                                          while j < l do
+                                          begin
+                                             if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
+                                                if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
+                                                   if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
+                                                      Break;
+                                             if AllWindowsList[j].WClass = VBWinClass then
+                                                if IsWindowVisible(AllWindowsList[j].Handle) then
+                                                   if GetFileNameFromHandle(AllWindowsList[j].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
+                                                      Break;
+                                             Inc(j);
                                           end;
+                                          if j >= l then
+                                          begin
+                                             FillChar(svcStartupInfo, SizeOf(svcStartupInfo), #0);
+                                             svcStartupInfo.cb := SizeOf(svcStartupInfo);
+                                             svcStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
+                                             svcStartupInfo.wShowWindow := SW_HIDE;
+                                             StartFolder := ExtractFilePath(ExeVBPath);
+                                             if StartFolder <> '' then
+                                                PStartFolder := PChar(StartFolder)
+                                             else
+                                                PStartFolder := nil;
+                                             UniqueString(svcPath);
+                                             CreateProcess(nil, PChar(svcPath), nil, nil, False, DETACHED_PROCESS or NORMAL_PRIORITY_CLASS, nil, PStartFolder, svcStartupInfo, svcProcessInfo);
+                                          end;
+                                       except
+                                       end;
                                     end;
                                     i := 0;
                                     StartVMAnimation;
@@ -8008,6 +8776,7 @@ begin
                if not AllOK then
                begin
                   StopVMAnimation;
+                  TrayIcon.BalloonHint := '';
                   l := Length(errmsg);
                   i := l;
                   while i > 0 do
@@ -8024,8 +8793,7 @@ begin
                      TryAgain := True;
                      Exit;
                   end;
-               end
-                  ;
+               end;
             end;
 
             juststart:
@@ -8039,8 +8807,8 @@ begin
                   ComLine := ExeVBPath + ' --startvm "' + VMPath + '"' + sf;
                2:
                   ComLine := ExeVBPath + ' ' + ExeParams + sf;
-            else
-               ComLine := ExeVBPath + ' --startvm "' + VMID + '"' + sf;
+               else
+                  ComLine := ExeVBPath + ' --startvm "' + VMID + '"' + sf;
             end;
          end;
          FillChar(eStartupInfo, SizeOf(eStartupInfo), #0);
@@ -8064,8 +8832,8 @@ begin
                cp := $000008000;
             3:
                cp := $000000080;
-         else
-            cp := $000000020;
+            else
+               cp := $000000020;
          end;
          if StartFolder <> '' then
             PStartFolder := PChar(StartFolder)
@@ -8074,7 +8842,7 @@ begin
          if Ptype <> 1 then
          begin
             SetLength(AlreadyLoaded, 0);
-            GetAllWindowsList('QWidget');
+            GetAllWindowsList(VBWinClass);
             l := Length(AllWindowsList);
             j := 0;
             while j < l do
@@ -8118,7 +8886,7 @@ begin
                      Exit;
                   if WaitForSingleObject(eProcessInfo.hProcess, 20) <> WAIT_TIMEOUT then
                      Break;
-                  GetAllWindowsList('QWidget');
+                  GetAllWindowsList(VBWinClass);
                   l := Length(AllWindowsList);
                   j := 0;
                   while j < l do
@@ -8137,11 +8905,32 @@ begin
                               if k < Length(AlreadyLoaded) then
                                  Continue;
                               if IsIconic(frmMain.Handle) then
+                              begin
                                  Application.Restore;
+                                 dt := GetTickCount;
+                                 while isIconic(Application.Handle) do
+                                 begin
+                                    Application.ProcessMessages;
+                                    if (GetTickCount - dt) > 3000 then
+                                       Break;
+                                 end;
+                              end;
                               //ts[3] := Now - ts[3];
+                              VMisOff := False;
+                              if TrayIcon.Visible then
+                                 TrayIcon.Hint := VMName + ' [Running] - Virtual Machine USB Boot';
                               StopVMAnimation;
-                              frmMain.Hide;
-                              WaitForSingleObject(eProcessInfo.hProcess, INFINITE);
+                              TrayIcon.BalloonHint := '';
+                              if frmMain.Visible and (not IsIconic(Application.Handle)) then
+                                 frmMain.Hide
+                              else
+                                 AlreadyHidden := True;
+                              while WaitForSingleObject(eProcessInfo.hProcess, 100) = WAIT_TIMEOUT do
+                              begin
+                                 Application.ProcessMessages;
+                                 if Application.Terminated then
+                                    Exit;
+                              end;
                               Break;
                            end;
                      Inc(j);
@@ -8168,9 +8957,10 @@ begin
             else
             begin
                LastError := GetLastError;
-               if frmMain.Showing then
+               if frmMain.Showing or TrayIcon.Visible then
                begin
                   StopVMAnimation;
+                  TrayIcon.BalloonHint := '';
                   Application.ProcessMessages;
                end;
                Application.ProcessMessages;
@@ -8183,17 +8973,25 @@ begin
                CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'VBUnableLaunch'], [an], 'Unable to launch VirtualBox.exe !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
             end;
 
-            if frmMain.Showing then
-               StopVMAnimation
-            else
-               frmMain.Show;
-            if GetForegroundWindow <> frmMain.Handle then
+            VMisOff := True;
+            if TrayIcon.Visible then
+               TrayIcon.Hint := 'Virtual Machine USB Boot';
+            if frmMain.Showing or TrayIcon.Visible then
             begin
-               ZeroMemory(@Input, SizeOf(Input));
-               SendInput(1, Input, SizeOf(Input));
-               SetForegroundWindow(frmMain.Handle);
+               StopVMAnimation;
+               TrayIcon.BalloonHint := '';
             end;
-            frmMain.Refresh;
+            if (not frmMain.Showing) and (not AlreadyHidden) then
+            begin
+               frmMain.Show;
+               if GetForegroundWindow <> frmMain.Handle then
+               begin
+                  ZeroMemory(@Input, SizeOf(Input));
+                  SendInput(1, Input, SizeOf(Input));
+                  SetForegroundWindow(frmMain.Handle);
+               end;
+               frmMain.Refresh;
+            end;
             Application.ProcessMessages;
             if Application.Terminated then
                Exit;
@@ -8208,12 +9006,12 @@ begin
                      useVBMU := True
                   else
                   begin
-                     GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
+                     GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
                      l := Length(AllWindowsList);
                      i := 0;
                      while i < l do
                      begin
-                        if AllWindowsList[i].WClass = 'QWidget' then
+                        if AllWindowsList[i].WClass = VBWinClass then
                            if IsWindowVisible(AllWindowsList[i].Handle) then
                               if GetFileNameFromHandle(AllWindowsList[i].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
                               begin
@@ -8244,16 +9042,25 @@ begin
                begin
                   an := GetLangTextDef(idxMain, ['Messages', 'VBManDetected'], 'VirtualBox Manager was detected.'#13#10'It is highly recommended not to be used in the same time !'#13#10#13#10'Should I close it...? (it will take a few sec to fully close)');
                   srchvbm2:
-                  GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
+                  GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
                   l := Length(AllWindowsList);
                   for i := 0 to l - 1 do
-                     if AllWindowsList[i].WClass = 'QWidget' then
+                     if AllWindowsList[i].WClass = VBWinClass then
                         if Pos('Oracle VM VirtualBox ', AllWindowsList[i].WCaption) = 1 then
                            if GetFileNameFromHandle(AllWindowsList[i].Handle) = WideLowerCase(ExtractFileName(ExeVBPath)) then
                               if IsWindowVisible(AllWindowsList[i].Handle) then
                               begin
                                  if IsIconic(AllWindowsList[i].Handle) then
+                                 begin
                                     SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                    dt := GetTickCount;
+                                    while isIconic(AllWindowsList[i].Handle) do
+                                    begin
+                                       Application.ProcessMessages;
+                                       if (GetTickCount - dt) > 3000 then
+                                          Break;
+                                    end;
+                                 end;
                                  SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                                  SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                                  if CustomMessageBox(Handle, an, (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
@@ -8279,7 +9086,7 @@ begin
                                           else
                                           begin
                                              GetClassName(AllWindowsList[i].Handle, tres, 255);
-                                             if tres <> 'QWidget' then
+                                             if tres <> VBWinClass then
                                                 isRightWin := False;
                                           end;
                                        end;
@@ -8290,7 +9097,16 @@ begin
                                     if j > 20 then
                                     begin
                                        if IsIconic(AllWindowsList[i].Handle) then
+                                       begin
                                           SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                                          dt := GetTickCount;
+                                          while isIconic(AllWindowsList[i].Handle) do
+                                          begin
+                                             Application.ProcessMessages;
+                                             if (GetTickCount - dt) > 3000 then
+                                                Break;
+                                          end;
+                                       end;
                                        SetWindowPos(AllWindowsList[i].Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                                        SetWindowPos(AllWindowsList[i].Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_SHOWWINDOW);
                                        if CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'CouldNotCloseVBMan'], [ReplaceStr(GetLangTextDef(idxMessages, ['Buttons', 'OK'], 'OK'), '&', '')], 'Could not close VirtualBox Manager automatically !'#13#10#13#10'Please close it manually and click on %s...  (it will take a few sec to fully close)')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
@@ -8313,7 +9129,7 @@ begin
                                                 else
                                                 begin
                                                    GetClassName(AllWindowsList[i].Handle, tres, 255);
-                                                   if tres <> 'QWidget' then
+                                                   if tres <> VBWinClass then
                                                       isRightWin := False;
                                                 end;
                                              end;
@@ -8333,46 +9149,95 @@ begin
                                  goto srchvbm2;
                               end;
                   if WaitForVBSVC then
-                     try
-                        GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
-                        j := 0;
-                        l := Length(AllWindowsList);
-                        while j < l do
+                  try
+                     GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
+                     j := 0;
+                     l := Length(AllWindowsList);
+                     while j < l do
+                     begin
+                        if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
+                           if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
+                              if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
+                                 Break;
+                        Inc(j);
+                     end;
+                     if j < l then
+                     begin
+                        hVBoxSVC := AllWindowsList[j].Handle;
+                        StartVMAnimation;
+                        i := 1;
+                        while i <= (200 + 200 * Integer(VBSVC2x)) do
                         begin
-                           if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
-                              if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                 if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
-                                    Break;
-                           Inc(j);
-                        end;
-                        if j < l then
-                        begin
-                           hVBoxSVC := AllWindowsList[j].Handle;
-                           StartVMAnimation;
-                           i := 1;
-                           while i <= (200 + 200 * Integer(VBSVC2x)) do
+                           Wait(35);
+                           if Application.Terminated then
+                              Exit;
+                           isRightWin := True;
+                           isWin := isWindow(hVBoxSVC);
+                           if isWin then
                            begin
-                              Wait(35);
-                              if Application.Terminated then
-                                 Exit;
-                              isRightWin := True;
-                              isWin := isWindow(hVBoxSVC);
-                              if isWin then
+                              GetWindowText(hVBoxSVC, tres, 255);
+                              if tres <> 'VBoxPowerNotifyClass' then
+                                 isRightWin := False
+                              else
                               begin
-                                 GetWindowText(hVBoxSVC, tres, 255);
+                                 GetClassName(hVBoxSVC, tres, 255);
                                  if tres <> 'VBoxPowerNotifyClass' then
-                                    isRightWin := False
-                                 else
-                                 begin
-                                    GetClassName(hVBoxSVC, tres, 255);
-                                    if tres <> 'VBoxPowerNotifyClass' then
-                                       isRightWin := False;
-                                 end;
+                                    isRightWin := False;
                               end;
-                              if (not isWin) or (not isRightWin) then
+                           end;
+                           if (not isWin) or (not isRightWin) then
+                           begin
+                              GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
+                              j := 0;
+                              l := Length(AllWindowsList);
+                              while j < l do
                               begin
-                                 GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
+                                 if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
+                                    if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
+                                       if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
+                                          Break;
+                                 Inc(j);
+                              end;
+                              if j < l then
+                                 hVBoxSVC := AllWindowsList[j].Handle
+                              else
+                              begin
+                                 Wait(100);
+                                 if Application.Terminated then
+                                    Exit;
+                                 Break;
+                              end;
+                           end;
+                           Inc(i);
+                        end;
+                        if i > (200 + 200 * Integer(VBSVC2x)) then
+                        begin
+                           if CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'OutOfTimeVBSVC'], 'Out of time waiting for "VBoxSVC.exe" (a VirtualBox component) to close...!'#13#10#13#10'Should I forcibly close it...?')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
+                              Exit
+                           else
+                           begin
+                              j := 0;
+                              GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
+                              l := Length(AllWindowsList);
+                              while j < l do
+                              begin
+                                 if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
+                                    if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
+                                       if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
+                                       try
+                                          TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ProcessID), 0);
+                                       except
+                                       end;
+                                 Inc(j);
+                              end;
+                              StartVMAnimation;
+                              for i := 1 to 10 do
+                              begin
+                                 Wait(200);
+                                 if Application.Terminated then
+                                    Exit;
                                  j := 0;
+                                 GetAllWindowsList('VBoxPowerNotifyClass', VBWinClass);
                                  l := Length(AllWindowsList);
                                  while j < l do
                                  begin
@@ -8382,69 +9247,20 @@ begin
                                              Break;
                                     Inc(j);
                                  end;
-                                 if j < l then
-                                    hVBoxSVC := AllWindowsList[j].Handle
-                                 else
-                                 begin
-                                    Wait(100);
-                                    if Application.Terminated then
-                                       Exit;
+                                 if j >= l then
                                     Break;
-                                 end;
                               end;
-                              Inc(i);
-                           end;
-                           if i > (200 + 200 * Integer(VBSVC2x)) then
-                           begin
-                              if CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'OutOfTimeVBSVC'], 'Out of time waiting for "VBoxSVC.exe" (a VirtualBox component) to close...!'#13#10#13#10'Should I forcibly close it...?')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtWarning, [mbOk, mbCancel], mbOk) <> mrOk then
-                                 Exit
-                              else
+                              if i <= 10 then
                               begin
-                                 j := 0;
-                                 GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
-                                 l := Length(AllWindowsList);
-                                 while j < l do
-                                 begin
-                                    if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
-                                       if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                          if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
-                                             try
-                                                TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ProcessID), 0);
-                                             except
-                                             end;
-                                    Inc(j);
-                                 end;
-                                 StartVMAnimation;
-                                 for i := 1 to 10 do
-                                 begin
-                                    Wait(200);
-                                    if Application.Terminated then
-                                       Exit;
-                                    j := 0;
-                                    GetAllWindowsList('VBoxPowerNotifyClass', 'QWidget');
-                                    l := Length(AllWindowsList);
-                                    while j < l do
-                                    begin
-                                       if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
-                                          if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                             if GetFileNameFromHandle(AllWindowsList[j].Handle) = 'vboxsvc.exe' then
-                                                Break;
-                                       Inc(j);
-                                    end;
-                                    if j >= l then
-                                       Break;
-                                 end;
-                                 if i <= 10 then
-                                 begin
-                                    CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'VBSVCStillOpened'], '"VBoxSVC.exe" is still opened !'#13#10#13#10'Exiting...')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
-                                    Exit;
-                                 end;
+                                 CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'VBSVCStillOpened'], '"VBoxSVC.exe" is still opened !'#13#10#13#10'Exiting...')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
+                                 Exit;
                               end;
                            end;
                         end;
-
-                     except
                      end;
+
+                  except
+                  end;
                end;
 
                try
@@ -8467,155 +9283,155 @@ begin
                   with xmlVBox do
                   begin
                      if Tag = 1 then
-                        try
-                           n1 := ChildNodes.IndexOf('VirtualBox');
-                           if n1 = -1 then
+                     try
+                        n1 := ChildNodes.IndexOf('VirtualBox');
+                        if n1 = -1 then
+                        begin
+                           errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['VirtualBox'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                           Abort;
+                        end
+                        else
+                        begin
+                           n2 := ChildNodes[n1].ChildNodes.IndexOf('Machine');
+                           if n2 = -1 then
                            begin
-                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['VirtualBox'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['Machine'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
                               Abort;
                            end
                            else
                            begin
-                              n2 := ChildNodes[n1].ChildNodes.IndexOf('Machine');
-                              if n2 = -1 then
+                              a1 := ChildNodes[n1].ChildNodes[n2].AttributeNodes.IndexOf('stateFile');
+                              if a1 > -1 then
                               begin
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['Machine'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
+                                 CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'SavedStateClose'], 'It appears this VM is in a saved state so it will not be modified, only closed...'#13#10#13#10'Just so you know, it is not a good idea to save the state of a VM with a real drive,'#13#10'because it will increase the risk of corrupting the data from that drive...')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk);
+                                 jc := True;
+                                 Abort;
+                              end;
+                              n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
+                              if n3 = -1 then
+                              begin
+                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
                                  Abort;
                               end
                               else
                               begin
-                                 a1 := ChildNodes[n1].ChildNodes[n2].AttributeNodes.IndexOf('stateFile');
-                                 if a1 > -1 then
+                                 n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                 if n4 > -1 then
                                  begin
-                                    CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'SavedStateClose'], 'It appears this VM is in a saved state so it will not be modified, only closed...'#13#10#13#10'Just so you know, it is not a good idea to save the state of a VM with a real drive,'#13#10'because it will increase the risk of corrupting the data from that drive...')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk);
-                                    jc := True;
-                                    Abort;
-                                 end;
-                                 n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
-                                 if n3 = -1 then
-                                 begin
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
-                                    Abort;
-                                 end
-                                 else
-                                 begin
-                                    n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
-                                    if n4 > -1 then
+                                    for i := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 downto 0 do
                                     begin
-                                       for i := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 downto 0 do
+                                       a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('format');
+                                       if a1 = -1 then
+                                          Continue;
+                                       if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text = 'VMDK' then
                                        begin
-                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('format');
-                                          if a1 = -1 then
-                                             Continue;
-                                          if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text = 'VMDK' then
+                                          a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('location');
+                                          if a2 > -1 then
                                           begin
-                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('location');
-                                             if a2 > -1 then
+                                             wp := LowerCase(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text);
+                                             l := Length(wp);
+                                             if l <> 17 then
+                                                Continue;
+                                             if pos(string('vmubdrive'), wp) <> 1 then
+                                                Continue;
+                                             if StrToIntDef('$' + Copy(wp, 10, 3), -1) = -1 then
+                                                Continue;
+                                             if pos(string('.vmdk'), wp) <> 13 then
+                                                Continue;
+                                             a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
+                                             if a3 > -1 then
                                              begin
-                                                wp := LowerCase(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text);
-                                                l := Length(wp);
-                                                if l <> 17 then
-                                                   Continue;
-                                                if pos(string('vmubdrive'), wp) <> 1 then
-                                                   Continue;
-                                                if StrToIntDef('$' + Copy(wp, 10, 3), -1) = -1 then
-                                                   Continue;
-                                                if pos(string('.vmdk'), wp) <> 13 then
-                                                   Continue;
-                                                a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
-                                                if a3 > -1 then
+                                                if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count > 0 then
                                                 begin
-                                                   if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count > 0 then
-                                                   begin
-                                                      errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'DividedSnapshots'], [ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text, ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count], 'the content of "%s" is divided into %d snapshot(s).'#13#10'It is not a good idea using snapshots with real drives. But if you really want to at least do this:' + #13#10'If you created a snapshot or linked clone this VM you should of manually detached any'#13#10'VMUBDrive***.vmdk drive from the storage controller(s) before the snapshoting/cloning operation.');
-                                                      Abort;
-                                                   end;
-                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a3].Text;
-                                                   SetLength(vmdkids, Length(vmdkids) + 1);
-                                                   vmdkids[High(vmdkids)][1] := Copy(wst, 2, Length(wst) - 2);
-                                                   vmdkids[High(vmdkids)][2] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text;
-                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Delete(i);
-                                                   SetLength(vbmComm, Length(vbmComm) + 1);
-                                                   vbmComm[High(vbmComm)][1] := 'closemedium disk ' + Copy(wst, 2, Length(wst) - 2);
-                                                   vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'RemoveDriveOp'], 'removing the drive');
+                                                   errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'DividedSnapshots'], [ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text, ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].ChildNodes.Count], 'the content of "%s" is divided into %d snapshot(s).'#13#10'It is not a good idea using snapshots with real drives. But if you really want to at least do this:' + #13#10'If you created a snapshot or linked clone this VM you should of manually detached any'#13#10'VMUBDrive***.vmdk drive from the storage controller(s) before the snapshoting/cloning operation.');
+                                                   Abort;
                                                 end;
+                                                wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a3].Text;
+                                                SetLength(vmdkids, Length(vmdkids) + 1);
+                                                vmdkids[High(vmdkids)][1] := Copy(wst, 2, Length(wst) - 2);
+                                                vmdkids[High(vmdkids)][2] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a2].Text;
+                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Delete(i);
+                                                SetLength(vbmComm, Length(vbmComm) + 1);
+                                                vbmComm[High(vbmComm)][1] := 'closemedium disk ' + Copy(wst, 2, Length(wst) - 2);
+                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'RemoveDriveOp'], 'removing the drive');
                                              end;
-                                          end;
-                                       end;
-                                       for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 do
-                                       begin
-                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
-                                          if a1 > -1 then
-                                          begin
-                                             wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text;
-                                             SetLength(exvmdks, Length(exvmdks) + 1);
-                                             exvmdks[High(exvmdks)] := AnsiString(Copy(wst, 2, Length(wst) - 2));
                                           end;
                                        end;
                                     end;
+                                    for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 do
+                                    begin
+                                       a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes.IndexOf('uuid');
+                                       if a1 > -1 then
+                                       begin
+                                          wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[i].AttributeNodes[a1].Text;
+                                          SetLength(exvmdks, Length(exvmdks) + 1);
+                                          exvmdks[High(exvmdks)] := AnsiString(Copy(wst, 2, Length(wst) - 2));
+                                       end;
+                                    end;
                                  end;
-                                 if Length(vmdkids) > 0 then
-                                 begin
-                                    n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
-                                    if n3 > -1 then
-                                       for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
-                                          for j := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Count - 1 downto 0 do
+                              end;
+                              if Length(vmdkids) > 0 then
+                              begin
+                                 n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
+                                 if n3 > -1 then
+                                    for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
+                                       for j := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Count - 1 downto 0 do
+                                       begin
+                                          a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('name');
+                                          if a1 > -1 then
+                                             mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text
+                                          else
+                                             mCName := 'IDE';
+                                          a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('port');
+                                          if a2 > -1 then
+                                             mPort := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a2].Text
+                                          else
+                                             mPort := '0';
+                                          a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('device');
+                                          if a3 > -1 then
+                                             mDevice := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a3].Text
+                                          else
+                                             mDevice := '0';
+                                          n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes.IndexOf('Image');
+                                          if n4 > -1 then
                                           begin
-                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes.IndexOf('name');
+                                             a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes.IndexOf('uuid');
                                              if a1 > -1 then
-                                                mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].AttributeNodes[a1].Text
-                                             else
-                                                mCName := 'IDE';
-                                             a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('port');
-                                             if a2 > -1 then
-                                                mPort := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a2].Text
-                                             else
-                                                mPort := '0';
-                                             a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes.IndexOf('device');
-                                             if a3 > -1 then
-                                                mDevice := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].AttributeNodes[a3].Text
-                                             else
-                                                mDevice := '0';
-                                             n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes.IndexOf('Image');
-                                             if n4 > -1 then
                                              begin
-                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes.IndexOf('uuid');
-                                                if a1 > -1 then
+                                                wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes[a1].Text;
+                                                wst := Copy(wst, 2, Length(wst) - 2);
+                                                k := 0;
+                                                while k < Length(vmdkids) do
                                                 begin
-                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes[j].ChildNodes[n4].AttributeNodes[a1].Text;
-                                                   wst := Copy(wst, 2, Length(wst) - 2);
-                                                   k := 0;
-                                                   while k < Length(vmdkids) do
+                                                   if vmdkids[k][1] = wst then
                                                    begin
-                                                      if vmdkids[k][1] = wst then
-                                                      begin
-                                                         ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Delete(j);
-                                                         SetLength(vbmComm, Length(vbmComm) + 1);
-                                                         for p := High(vbmComm) downto 1 do
-                                                            vbmComm[p] := vbmComm[p - 1];
+                                                      ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[i].ChildNodes.Delete(j);
+                                                      SetLength(vbmComm, Length(vbmComm) + 1);
+                                                      for p := High(vbmComm) downto 1 do
+                                                         vbmComm[p] := vbmComm[p - 1];
 
-                                                         if (a1 > -1) and (a2 > -1) and (a3 > -1) then
-                                                         begin
-                                                            vbmComm[0][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + mPort + ' --device ' + mDevice + ' --medium none';
-                                                            vbmComm[0][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
-                                                         end;
-                                                         Break;
+                                                      if (a1 > -1) and (a2 > -1) and (a3 > -1) then
+                                                      begin
+                                                         vbmComm[0][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + mPort + ' --device ' + mDevice + ' --medium none';
+                                                         vbmComm[0][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
                                                       end;
-                                                      Inc(k);
+                                                      Break;
                                                    end;
+                                                   Inc(k);
                                                 end;
                                              end;
                                           end;
+                                       end;
 
-                                 end;
                               end;
                            end;
-                           AllOK := True;
-                        except
-                           if errmsg = GetLangTextDef(idxMain, ['Messages', 'UnknownError'], 'unknown error, please report it to the author'#13#10'with a complete description of what you''re doing.') then
-                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'BrokenXML'], [VMPath], 'error accessing xml structure from "%s",'#13#10'please repair the file or replace it with a backup copy.');
-                           AllOK := False;
                         end;
+                        AllOK := True;
+                     except
+                        if errmsg = GetLangTextDef(idxMain, ['Messages', 'UnknownError'], 'unknown error, please report it to the author'#13#10'with a complete description of what you''re doing.') then
+                           errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'BrokenXML'], [VMPath], 'error accessing xml structure from "%s",'#13#10'please repair the file or replace it with a backup copy.');
+                        AllOK := False;
+                     end;
 
                      if jc then
                         goto justclose;
@@ -8624,46 +9440,46 @@ begin
                      begin
                         hVbox := 0;
                         if AllOK then
-                           try
-                              sVbox := AnsiString(Xml.Text);
-                              hVbox := CreateFile(PChar(FileName), GENERIC_WRITE, 0, nil, CREATE_ALWAYS, FILE_FLAG_WRITE_THROUGH, 0);
-                              if hVbox <> INVALID_HANDLE_VALUE then
-                              begin
-                                 if not WriteFile(hVbox, Pointer(sVbox)^, Length(sVbox), dwBytesReturned, nil) then
-                                 begin
-                                    LastError := GetLastError;
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteProtection'], [FileName, SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please remove the write protection.'#13#10#13#10'System message: %s');
-                                    AllOK := False;
-                                 end
-                                 else
-                                 begin
-                                    try
-                                       FlushFileBuffers(hVbox);
-                                    except
-                                    end;
-                                    if Cardinal(Length(sVbox)) <> dwBytesReturned then
-                                    begin
-                                       LastError := GetLastError;
-                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorSpaceVolume'], [FileName, ExtractFileDrive(FileName), SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please free some space or check the volume ''%s'' for errors.'#13#10#13#10'System message: %s');
-                                       AllOK := False;
-                                    end
-                                    else
-                                       AllOK := True;
-                                 end;
-                              end
-                              else
+                        try
+                           sVbox := AnsiString(Xml.Text);
+                           hVbox := CreateFile(PChar(FileName), GENERIC_WRITE, 0, nil, CREATE_ALWAYS, FILE_FLAG_WRITE_THROUGH, 0);
+                           if hVbox <> INVALID_HANDLE_VALUE then
+                           begin
+                              if not WriteFile(hVbox, Pointer(sVbox)^, Length(sVbox), dwBytesReturned, nil) then
                               begin
                                  LastError := GetLastError;
                                  errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteProtection'], [FileName, SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please remove the write protection.'#13#10#13#10'System message: %s');
                                  AllOK := False;
-                              end;
-                           except
-                              on E: Exception do
+                              end
+                              else
                               begin
-                                 AllOK := False;
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteVolume'], [FileName, ExtractFileDrive(FileName), E.Message], 'error writing in "%s",'#13#10'please remove the write protection or check the volume ''%s'' for errors.'#13#10'System message: %s');
+                                 try
+                                    FlushFileBuffers(hVbox);
+                                 except
+                                 end;
+                                 if Cardinal(Length(sVbox)) <> dwBytesReturned then
+                                 begin
+                                    LastError := GetLastError;
+                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorSpaceVolume'], [FileName, ExtractFileDrive(FileName), SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please free some space or check the volume ''%s'' for errors.'#13#10#13#10'System message: %s');
+                                    AllOK := False;
+                                 end
+                                 else
+                                    AllOK := True;
                               end;
+                           end
+                           else
+                           begin
+                              LastError := GetLastError;
+                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteProtection'], [FileName, SysErrorMessage(LastError)], 'error writing in "%s",'#13#10'please remove the write protection.'#13#10#13#10'System message: %s');
+                              AllOK := False;
                            end;
+                        except
+                           on E: Exception do
+                           begin
+                              AllOK := False;
+                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorWriteVolume'], [FileName, ExtractFileDrive(FileName), E.Message], 'error writing in "%s",'#13#10'please remove the write protection or check the volume ''%s'' for errors.'#13#10'System message: %s');
+                           end;
+                        end;
                         try
                            if hVbox <> INVALID_HANDLE_VALUE then
                               CloseHandle(hVbox);
@@ -8689,6 +9505,8 @@ begin
                            else
                               PStartFolder := nil;
                            UniqueString(ComLine);
+                           dt := GetTickCount;
+                           TryAgainToRemove:
                            if CreateProcess(nil, PChar(ComLine), nil, nil, False, DETACHED_PROCESS or HIGH_PRIORITY_CLASS, nil, PStartFolder, vbmStartupInfo, vbmProcessInfo) then
                            begin
                               PrestartVBFilesAgain := True;
@@ -8717,9 +9535,17 @@ begin
                               begin
                                  AllOK := False;
                                  if ExitCode <> 9999 then
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManErrorCode'], [ExitCode, vbmComm[i][2], vbmComm[i][1]], 'VBoxManage.exe returned error code %d for the current job (%s) !'#13#10#13#10'Job = %s')
+                                 begin
+                                    if (GetTickCount - dt) < 3000 then
+                                    begin
+                                       AllOK := True;
+                                       goto TryAgainToRemove;
+                                    end;
+                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManErrorCode'], [ExitCode, vbmComm[i][2], vbmComm[i][1]], 'VBoxManage.exe returned error code %d for the current job (%s) !'#13#10#13#10'Job = %s');
+                                 end
                                  else
                                     errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManExitError'], [vbmComm[i][2], vbmComm[i][1]], 'Error getting the exit code for the current VBoxManage job (%s) !'#13#10#13#10'Job = %s');
+                                 Clipboard.AsText := ComLine;
                                  Break;
                               end;
                            end
@@ -8749,6 +9575,7 @@ begin
 
                end;
                StopVMAnimation;
+               TrayIcon.BalloonHint := '';
                if not AllOK then
                begin
                   l := Length(errmsg);
@@ -8792,10 +9619,18 @@ begin
                   LastExceptionStr := E.Message;
                end;
             end;
+            if TrayIcon.BalloonHint <> '' then
+            begin
+               TrayIcon.BalloonHint := '';
+               Application.ProcessMessages;
+            end;
+
             if Result then
             begin
+               AllProcAffinityMask := CombinedProcessorMask(NumberOfProcessors);
                while WaitForInputIdle(eProcessInfo.hProcess, 20) = WAIT_TIMEOUT do
                begin
+                  mEvent.WaitFor(1);
                   Application.ProcessMessages;
                   if Application.Terminated then
                      Exit;
@@ -8830,9 +9665,25 @@ begin
                                     end;
                                  end;
                                  if IsIconic(frmMain.Handle) then
+                                 begin
                                     Application.Restore;
+                                    dt := GetTickCount;
+                                    while isIconic(Application.Handle) do
+                                    begin
+                                       Application.ProcessMessages;
+                                       if (GetTickCount - dt) > 3000 then
+                                          Break;
+                                    end;
+                                 end;
+                                 VMisOff := False;
+                                 if TrayIcon.Visible then
+                                    TrayIcon.Hint := VMName + ' [Running] - Virtual Machine USB Boot';
+                                 SetProcessAffinityMask(eProcessInfo.hProcess, AllProcAffinityMask);
                                  StopVMAnimation;
-                                 frmMain.Hide;
+                                 if frmMain.Visible and (not IsIconic(Application.Handle)) then
+                                    frmMain.Hide
+                                 else
+                                    AlreadyHidden := True;
                                  if RunAs <> WindowState then
                                     case WindowState of
                                        1:
@@ -8846,16 +9697,21 @@ begin
                                           else if RunAs = 1 then
                                              SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_MINIMIZE, 0);
                                        3:
-                                    else
-                                       if RunAs = 1 then
-                                          SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_MINIMIZE, 0)
-                                       else if RunAs = 2 then
-                                       begin
-                                          Sleep(500);
-                                          PostMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-                                       end;
+                                       else
+                                          if RunAs = 1 then
+                                             SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_MINIMIZE, 0)
+                                          else if RunAs = 2 then
+                                          begin
+                                             mEvent.WaitFor(500);
+                                             PostMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+                                          end;
                                     end;
-                                 WaitForSingleObject(eProcessInfo.hProcess, INFINITE);
+                                 while WaitForSingleObject(eProcessInfo.hProcess, 100) = WAIT_TIMEOUT do
+                                 begin
+                                    Application.ProcessMessages;
+                                    if Application.Terminated then
+                                       Exit;
+                                 end;
                                  Break;
                               end;
                      Inc(j);
@@ -8863,6 +9719,9 @@ begin
                   if j < l then
                      Break;
                end;
+               VMisOff := True;
+               if TrayIcon.Visible then
+                  TrayIcon.Hint := 'Virtual Machine USB Boot';
                try
                   PeekNamedPipe(StdErrRead, @Buffer, 1024, @BytesRead, @BytesAvail, nil);
                   if BytesRead <> 0 then
@@ -8899,10 +9758,10 @@ begin
                         except
                         end;
                         if fsStdErr <> nil then
-                           try
-                              fsStdErr.Free;
-                           except
-                           end;
+                        try
+                           fsStdErr.Free;
+                        except
+                        end;
                      end;
                   end;
                   if strStdErr <> '' then
@@ -8921,11 +9780,13 @@ begin
                   if (ExitCode <> 3221225786) or (strStdErr <> '') then
                   begin
                      Clipboard.AsText := ComLine + #13#10'pause';
-                     if frmMain.Showing then
+                     if frmMain.Showing or TrayIcon.Visible then
                      begin
+                        TrayIcon.BalloonHint := '';
                         StopVMAnimation;
-                        CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'QEMUError'], [strStdErr], 'QEMU returned error !'#13#10#13#10'StdErr output: %s'#13#10#13#10'Tip: you should check the command line parameters'#13#10'to see if any are missing or spelled wrong.' + #13#10'If you are using the default parameters'#13#10'you should adapt them to your QEMU version.'#13#10#13#10'To get more informations the command line was copied into clipboard.' + #13#10'Create a new bat/cmd file, paste from clipboard and start it (as an administrator).')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk);
-                     end
+                     end;
+                     if frmMain.Showing then
+                        CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'QEMUError'], [strStdErr], 'QEMU returned error !'#13#10#13#10'StdErr output: %s'#13#10#13#10'Tip: you should check the command line parameters'#13#10'to see if any are missing or spelled wrong.' + #13#10'If you are using the default parameters'#13#10'you should adapt them to your QEMU version.'#13#10#13#10'To get more informations the command line was copied into clipboard.' + #13#10'Create a new bat/cmd file, paste from clipboard and start it (as an administrator).')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk)
                      else
                         CustomMessageBox(0, (GetLangTextFormatDef(idxMain, ['Messages', 'QEMUError'], [strStdErr], 'QEMU returned error !'#13#10#13#10'StdErr output: %s'#13#10#13#10'Tip: you should check the command line parameters'#13#10'to see if any are missing or spelled wrong.' + #13#10'If you are using the default parameters'#13#10'you should adapt them to your QEMU version.'#13#10#13#10'To get more informations the command line was copied into clipboard.' + #13#10'Create a new bat/cmd file, paste from clipboard and start it (as an administrator).')), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbOk], mbOk);
                   end;
@@ -8935,9 +9796,10 @@ begin
             end
             else
             begin
-               if frmMain.Showing then
+               if frmMain.Showing or TrayIcon.Visible then
                begin
                   StopVMAnimation;
+                  TrayIcon.BalloonHint := '';
                   Application.ProcessMessages;
                end;
                if LastError > 0 then
@@ -8948,17 +9810,22 @@ begin
                   an := 'Unknown error';
                CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'QEMUStartError'], [an], 'Unable to launch QEMU !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
             end;
-            if frmMain.Showing then
-               StopVMAnimation
-            else
-               frmMain.Show;
-            if GetForegroundWindow <> frmMain.Handle then
+            if frmMain.Showing or TrayIcon.Visible then
             begin
-               ZeroMemory(@Input, SizeOf(Input));
-               SendInput(1, Input, SizeOf(Input));
-               SetForegroundWindow(frmMain.Handle);
+               StopVMAnimation;
+               TrayIcon.BalloonHint := '';
             end;
-            frmMain.Refresh;
+            if (not frmMain.Showing) and (not AlreadyHidden) then
+            begin
+               frmMain.Show;
+               if GetForegroundWindow <> frmMain.Handle then
+               begin
+                  ZeroMemory(@Input, SizeOf(Input));
+                  SendInput(1, Input, SizeOf(Input));
+                  SetForegroundWindow(frmMain.Handle);
+               end;
+               frmMain.Refresh;
+            end;
             Application.ProcessMessages;
             if Application.Terminated then
                Exit;
@@ -8966,15 +9833,18 @@ begin
       end;
       justclose:
    finally
+      VMisOff := True;
+      TrayIcon.Hint := 'Virtual Machine USB Boot';
       StopVMAnimation;
+      TrayIcon.BalloonHint := '';
       StartFirstDriveAnimation;
       StartSecDriveAnimation;
       for i := 0 to High(VolumesInfo) do
-         try
-            if VolumesInfo[i].Handle <> INVALID_HANDLE_VALUE then
-               CloseHandle(VolumesInfo[i].Handle);
-         except
-         end;
+      try
+         if VolumesInfo[i].Handle <> INVALID_HANDLE_VALUE then
+            CloseHandle(VolumesInfo[i].Handle);
+      except
+      end;
       if wereDismounted then
       begin
          if fu > 0 then
@@ -8984,8 +9854,9 @@ begin
       end;
       StopFirstDriveAnimation;
       StopSecDriveAnimation;
+      TrayIcon.BalloonHint := '';
       SetErrorMode(ErrorMode);
-      if not frmMain.Showing then
+      if (not frmMain.Showing) and (not AlreadyHidden) then
       begin
          frmMain.Show;
          if GetForegroundWindow <> frmMain.Handle then
@@ -9016,15 +9887,22 @@ begin
             TryAgain := False;
             btnStartClick(nil);
          end;
-      if btnStart.PngImage.Width = 16 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
-      end
-      else if btnStart.PngImage.Width = 24 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+            end;
       end;
       if PrestartVBFilesAgain then
       begin
@@ -9082,11 +9960,11 @@ begin
          end;
       end
       else
-         try
-            TerminateThread(FPCThread.Handle, 0);
-            FPCThread := nil;
-         except
-         end;
+      try
+         TerminateThread(FPCThread.Handle, 0);
+         FPCThread := nil;
+      except
+      end;
    end;
    if FPSThread <> nil then
    begin
@@ -9101,11 +9979,11 @@ begin
          end;
       end
       else
-         try
-            TerminateThread(FPSThread.Handle, 0);
-            FPSThread := nil;
-         except
-         end;
+      try
+         TerminateThread(FPSThread.Handle, 0);
+         FPSThread := nil;
+      except
+      end;
    end;
    if FRegThread <> nil then
    begin
@@ -9120,15 +9998,17 @@ begin
          end;
       end
       else
-         try
-            TerminateThread(FRegThread.Handle, 0);
-            FRegThread := nil;
-         except
-         end;
+      try
+         TerminateThread(FRegThread.Handle, 0);
+         FRegThread := nil;
+      except
+      end;
    end;
    DragAcceptFiles(WindowHandle, False);
    SaveVMentries(VMentriesFile);
    SaveCFG(CfgFile);
+   UnregisterHotKey(frmMain.Handle, Hotkey_id);
+   GlobalDeleteAtom(Hotkey_id);
    if PrestartVBExeFiles and FPSJobDone then
    begin
       try
@@ -9185,12 +10065,13 @@ begin
          end;
       end
       else
-         try
-            TerminateThread(FUnregThread.Handle, 0);
-            FUnregThread := nil;
-         except
-         end;
+      try
+         TerminateThread(FUnregThread.Handle, 0);
+         FUnregThread := nil;
+      except
+      end;
    end;
+   mEvent.Free;
 end;
 
 procedure TfrmMain.vstVMsDblClick(Sender: TObject);
@@ -9222,8 +10103,8 @@ begin
          attMode := amInsertBefore;
       dmOnNode, dmBelow:
          attMode := amInsertAfter;
-   else
-      attMode := amNoWhere;
+      else
+         attMode := amNoWhere;
    end;
 
    if pTarget = nil then
@@ -9345,7 +10226,7 @@ begin
             end
             else
                mmOpen.Caption := Format(strTemp, ['''' + PathsToOpen[i] + '''']);
-            imlBtn16.GetBitmap(10, mmOpen.Bitmap);
+            mmOpen.ImageIndex := 11;
             mmOpen.OnClick := mmOpenInEXplorerClick;
             pmVMs.Items.Insert(4, mmOpen);
          end;
@@ -9355,24 +10236,30 @@ begin
             if (Data^.Ptype = 0) and (imlBtn16.PngImages[0].PngImage.Pixels[8, 8] <> imlReg16.PngImages[2].PngImage.Pixels[8, 8]) then
             begin
                imlBtn16.PngImages[0].PngImage := imlReg16.PngImages[2].PngImage;
-               imlBtn16.PngImages[9].PngImage := imlReg16.PngImages[2].PngImage;
+               imlBtn16.PngImages[10].PngImage := imlReg16.PngImages[2].PngImage;
+               imlBtn20.PngImages[0].PngImage := imlReg20.PngImages[2].PngImage;
+               imlBtn20.PngImages[10].PngImage := imlReg20.PngImages[2].PngImage;
                imlBtn24.PngImages[0].PngImage := imlReg24.PngImages[2].PngImage;
-               imlBtn24.PngImages[7].PngImage := imlReg24.PngImages[2].PngImage;
-               if frmMain.btnStart.PngImage.Width = 16 then
-                  btnStart.PngImage := imlReg16.PngImages[2].PngImage
-               else
-                  btnStart.PngImage := imlReg24.PngImages[2].PngImage;
+               imlBtn24.PngImages[10].PngImage := imlReg24.PngImages[2].PngImage;
+               case frmMain.btnStart.PngImage.Width of
+                  16: btnStart.PngImage := imlReg16.PngImages[2].PngImage;
+                  20: btnStart.PngImage := imlReg20.PngImages[2].PngImage;
+                  24: btnStart.PngImage := imlReg24.PngImages[2].PngImage;
+               end;
             end
             else if (Data^.Ptype = 1) and (imlBtn16.PngImages[0].PngImage.Pixels[8, 8] <> imlReg16.PngImages[0].PngImage.Pixels[8, 8]) then
             begin
                imlBtn16.PngImages[0].PngImage := imlReg16.PngImages[0].PngImage;
-               imlBtn16.PngImages[9].PngImage := imlReg16.PngImages[1].PngImage;
+               imlBtn16.PngImages[10].PngImage := imlReg16.PngImages[1].PngImage;
+               imlBtn20.PngImages[0].PngImage := imlReg20.PngImages[0].PngImage;
+               imlBtn20.PngImages[10].PngImage := imlReg20.PngImages[1].PngImage;
                imlBtn24.PngImages[0].PngImage := imlReg24.PngImages[0].PngImage;
-               imlBtn24.PngImages[7].PngImage := imlReg24.PngImages[1].PngImage;
-               if frmMain.btnStart.PngImage.Width = 16 then
-                  btnStart.PngImage := imlReg16.PngImages[0].PngImage
-               else
-                  btnStart.PngImage := imlReg24.PngImages[0].PngImage;
+               imlBtn24.PngImages[10].PngImage := imlReg24.PngImages[1].PngImage;
+               case frmMain.btnStart.PngImage.Width of
+                  16: btnStart.PngImage := imlReg16.PngImages[2].PngImage;
+                  20: btnStart.PngImage := imlReg20.PngImages[2].PngImage;
+                  24: btnStart.PngImage := imlReg24.PngImages[2].PngImage;
+               end;
             end;
          end;
       end;
@@ -9381,28 +10268,38 @@ begin
    try
       if vstVMs.GetFirstSelected = nil then
       begin
-         if btnManager.PngImage.Width = 16 then
-         begin
-            if btnManager.PngImage.Canvas.Pixels[8, 8] <> imlVST16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-               btnManager.PngImage := imlVST16.PngImages[0].PngImage;
-         end
-         else
-         begin
-            if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlVST24.PngImages[0].PngImage.Canvas.Pixels[12, 12] then
-               btnManager.PngImage := imlVST24.PngImages[0].PngImage;
+         case btnManager.PngImage.Width of
+            16:
+               begin
+                  if btnManager.PngImage.Canvas.Pixels[8, 8] <> imlVST16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                     btnManager.PngImage := imlVST16.PngImages[0].PngImage;
+               end;
+            20:
+               begin
+                  if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlVST20.PngImages[0].PngImage.Canvas.Pixels[12, 12] then
+                     btnManager.PngImage := imlVST20.PngImages[0].PngImage;
+               end;
+            24:
+               begin
+                  if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlVST24.PngImages[0].PngImage.Canvas.Pixels[12, 12] then
+                     btnManager.PngImage := imlVST24.PngImages[0].PngImage;
+               end;
          end;
          if isVBPortable and ((not FRegJobDone) or (not FUnregJobDone)) then
          begin
             if imlBtn16.PngImages[0].PngImage.Pixels[8, 8] <> imlReg16.PngImages[2].PngImage.Pixels[8, 8] then
             begin
                imlBtn16.PngImages[0].PngImage := imlReg16.PngImages[2].PngImage;
-               imlBtn16.PngImages[9].PngImage := imlReg16.PngImages[2].PngImage;
+               imlBtn16.PngImages[10].PngImage := imlReg16.PngImages[2].PngImage;
+               imlBtn20.PngImages[0].PngImage := imlReg20.PngImages[2].PngImage;
+               imlBtn20.PngImages[10].PngImage := imlReg20.PngImages[2].PngImage;
                imlBtn24.PngImages[0].PngImage := imlReg24.PngImages[2].PngImage;
-               imlBtn24.PngImages[7].PngImage := imlReg24.PngImages[2].PngImage;
-               if frmMain.btnStart.PngImage.Width = 16 then
-                  btnStart.PngImage := imlReg16.PngImages[2].PngImage
-               else
-                  btnStart.PngImage := imlReg24.PngImages[2].PngImage;
+               imlBtn24.PngImages[10].PngImage := imlReg24.PngImages[2].PngImage;
+               case frmMain.btnStart.PngImage.Width of
+                  16: btnStart.PngImage := imlReg16.PngImages[2].PngImage;
+                  20: btnStart.PngImage := imlReg20.PngImages[2].PngImage;
+                  24: btnStart.PngImage := imlReg24.PngImages[2].PngImage;
+               end;
             end;
          end;
       end
@@ -9411,28 +10308,42 @@ begin
          Data := vstVMs.GetNodeData(vstVMs.GetFirstSelected);
          if Data^.Ptype = 0 then
          begin
-            if btnManager.PngImage.Width = 16 then
-            begin
-               if btnManager.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[4].PngImage.Canvas.Pixels[8, 8] then
-                  btnManager.PngImage := imlBtn16.PngImages[4].PngImage;
-            end
-            else
-            begin
-               if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlBtn24.PngImages[9].PngImage.Canvas.Pixels[12, 12] then
-                  btnManager.PngImage := imlBtn24.PngImages[9].PngImage;
+            case btnManager.PngImage.Width of
+               16:
+                  begin
+                     if btnManager.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[8].PngImage.Canvas.Pixels[8, 8] then
+                        btnManager.PngImage := imlBtn16.PngImages[8].PngImage;
+                  end;
+               20:
+                  begin
+                     if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlBtn20.PngImages[8].PngImage.Canvas.Pixels[12, 12] then
+                        btnManager.PngImage := imlBtn20.PngImages[8].PngImage;
+                  end;
+               24:
+                  begin
+                     if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlBtn24.PngImages[8].PngImage.Canvas.Pixels[12, 12] then
+                        btnManager.PngImage := imlBtn24.PngImages[8].PngImage;
+                  end;
             end;
          end
          else
          begin
-            if btnManager.PngImage.Width = 16 then
-            begin
-               if btnManager.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[11].PngImage.Canvas.Pixels[8, 8] then
-                  btnManager.PngImage := imlBtn16.PngImages[11].PngImage;
-            end
-            else
-            begin
-               if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlBtn24.PngImages[8].PngImage.Canvas.Pixels[12, 12] then
-                  btnManager.PngImage := imlBtn24.PngImages[8].PngImage;
+            case btnManager.PngImage.Width of
+               16:
+                  begin
+                     if btnManager.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[12].PngImage.Canvas.Pixels[8, 8] then
+                        btnManager.PngImage := imlBtn16.PngImages[12].PngImage;
+                  end;
+               20:
+                  begin
+                     if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlBtn20.PngImages[12].PngImage.Canvas.Pixels[12, 12] then
+                        btnManager.PngImage := imlBtn20.PngImages[12].PngImage;
+                  end;
+               24:
+                  begin
+                     if btnManager.PngImage.Canvas.Pixels[12, 12] <> imlBtn24.PngImages[12].PngImage.Canvas.Pixels[12, 12] then
+                        btnManager.PngImage := imlBtn24.PngImages[12].PngImage;
+                  end;
             end;
          end;
       end;
@@ -9593,7 +10504,7 @@ begin
                                     WM_USER + 2:
                                        OpenInternetHelp(Self.Handle, ['http://reboot.pro/user/17818-steve6375/', 'http://reboot.pro/index.php?showuser=17818']);}
                   WM_USER + 3:
-                     OpenInternetHelp(Self.Handle, ['http://reboot.pro/files/file/339-virtual-machine-usb-boot/', 'http://reboot.pro/index.php?s=e6a62f6faf7bc2a4ed6d16b703166a34&app=downloads&showfile=339']);
+                     OpenInternetHelp(Self.Handle, ['https://github.com/DavidBrenner3/VMUB', 'http://reboot.pro/index.php?s=e6a62f6faf7bc2a4ed6d16b703166a34&app=downloads&showfile=339']);
                   WM_USER + 4:
                      OpenInternetHelp(Self.Handle, DefSiteHelp);
                end;
@@ -9629,11 +10540,11 @@ begin
                            end;
                         end
                         else
-                           try
-                              TerminateThread(FRegThread.Handle, 0);
-                              FRegThread := nil;
-                           except
-                           end;
+                        try
+                           TerminateThread(FRegThread.Handle, 0);
+                           FRegThread := nil;
+                        except
+                        end;
                      end;
                      FRegJobDone := False;
                      FRegThread := TRegisterThread.Create;
@@ -9653,12 +10564,25 @@ begin
    SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(False), 0);
    if ColWereAligned then
       RealignColumns;
-   t := 1.0 / 6 * (btnExit.Top - btnStart.Top);
-   btnAdd.Top := Round(t + btnStart.Top);
-   btnEdit.Top := Round(2.0 * t + btnStart.Top);
-   btnDelete.Top := Round(3.0 * t + btnStart.Top);
-   btnManager.Top := Round(4.0 * t + btnStart.Top);
-   btnOptions.Top := Round(5.0 * t + btnStart.Top);
+   if not btnShowTrayIcon.Visible then
+   begin
+      t := 1.0 / 6 * (btnExit.Top - btnStart.Top);
+      btnAdd.Top := Round(t + btnStart.Top);
+      btnEdit.Top := Round(2.0 * t + btnStart.Top);
+      btnDelete.Top := Round(3.0 * t + btnStart.Top);
+      btnManager.Top := Round(4.0 * t + btnStart.Top);
+      btnOptions.Top := Round(5.0 * t + btnStart.Top);
+   end
+   else
+   begin
+      t := 1.0 / 7 * (btnExit.Top - btnStart.Top);
+      btnAdd.Top := Round(t + btnStart.Top);
+      btnEdit.Top := Round(2.0 * t + btnStart.Top);
+      btnDelete.Top := Round(3.0 * t + btnStart.Top);
+      btnManager.Top := Round(4.0 * t + btnStart.Top);
+      btnOptions.Top := Round(5.0 * t + btnStart.Top);
+      btnShowTrayIcon.Top := Round(6.0 * t + btnStart.Top);
+   end;
    SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(True), 0);
    LockWindowUpdate(0);
 end;
@@ -9698,8 +10622,8 @@ begin
                      Inc(nres);
                      lvc := i;
                   end;
-            else
-               Inc(l, vstVMs.Header.Columns[i].Width);
+               else
+                  Inc(l, vstVMs.Header.Columns[i].Width);
             end;
          Inc(i);
       end;
@@ -9747,6 +10671,8 @@ var
    i, h, r, cm, cvm, p: Integer;
    dt, wt: Cardinal;
    DoNotRegister: Boolean;
+   Key: Word;
+   Modifiers: Uint;
 begin
    if AlreadyRuned then
       Exit;
@@ -9756,6 +10682,16 @@ begin
       if StartupInfo.wShowWindow in [SW_MAXIMIZE, SW_SHOWMAXIMIZED] then
          SendMessage(Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
    HideAutoSustainScrollbars;
+   if ShowTrayIcon then
+   begin
+      ShowTray;
+      tmCloseHint.Interval := 7000;
+      tmCloseHint.Enabled := False;
+      tmCloseHint.Enabled := True;
+      TrayIcon.BalloonHint := GetLangTextFormatDef(idxMain, ['Messages', 'AppStartedWithTray'], ['Virtual Machine USB Boot'],
+         '%s tray icon is now active...');
+      TrayIcon.ShowBalloonHint;
+   end;
    if PrecacheVBFiles then
    begin
       FPCJobDone := False;
@@ -9766,7 +10702,7 @@ begin
       DoNotRegister := False;
       while True do
       begin
-         GetAllWindowsList('QWidget');
+         GetAllWindowsList(VBWinClass);
          h := High(AllWindowsList);
          i := 0;
          cm := 0;
@@ -9794,7 +10730,7 @@ begin
                   begin
                      isBusyClosing := True;
                      try
-                        GetAllWindowsList('QWidget');
+                        GetAllWindowsList(VBWinClass);
                         h := High(AllWindowsList);
                         i := 0;
                         cm := 0;
@@ -9826,7 +10762,7 @@ begin
                               Wait(100);
                               if (GetTickCount - dt) > wt then
                                  Break;
-                              GetAllWindowsList('QWidget');
+                              GetAllWindowsList(VBWinClass);
                               h := High(AllWindowsList);
                               i := 0;
                               cm := 0;
@@ -9856,13 +10792,13 @@ begin
                      DoNotRegister := True;
                      Break;
                   end;
-            else
-               OnCloseQuery := nil;
-               DoNotUnregister := True;
-               Application.ShowMainForm := False;
-               Application.Terminate;
-               Close;
-               Exit;
+               else
+                  OnCloseQuery := nil;
+                  DoNotUnregister := True;
+                  Application.ShowMainForm := False;
+                  Application.Terminate;
+                  Close;
+                  Exit;
             end;
          end;
          if (cm + cvm) = 0 then
@@ -9888,6 +10824,9 @@ begin
          FPSThread := TPrestartThread.Create;
       end;
    end;
+   ShortCutToHotKey(StartKeyComb, Key, Modifiers);
+   Hotkey_id := GlobalAddAtom('hkVMUbStart');
+   RegisterHotKey(frmMain.Handle, Hotkey_id, Modifiers, Key);
 end;
 
 procedure TfrmMain.HideAutoSustainScrollbars;
@@ -9916,11 +10855,54 @@ var
    i: Integer;
 begin
    for i := 0 to vstVMs.Header.Columns.Count - 1 do
-      try
-         if pmHeaders.Items[i].Visible then
-            pmHeaders.Items[i].Checked := coVisible in vstVMs.Header.Columns[i].Options;
-      except
+   try
+      if pmHeaders.Items[i].Visible then
+         pmHeaders.Items[i].Checked := coVisible in vstVMs.Header.Columns[i].Options;
+   except
+   end;
+end;
+
+procedure TfrmMain.pmTrayPopup(Sender: TObject);
+var
+   strTemp: string;
+   p1, p2, l: Integer;
+begin
+   strTemp := GetLangTextDef(idxMain, ['List', 'Menu', 'ShowHideMainWindow'], 'Show hide main window');
+   l := Length(strTemp);
+   p1 := PosEx(' ', strTemp, 2);
+   p2 := PosEx(' ', strTemp, p1 + 2);
+   if (p1 = 0) or (p2 = 0) then
+   begin
+      if Showing and (not IsIconic(Application.Handle)) then
+      begin
+         mmShowHideMainWindow.Caption := 'Hide main window';
+         mmShowHideMainWindow.Enabled := not ((Assigned(frmOptions) and frmOptions.Showing) or
+            (Assigned(frmAddEdit) and frmAddEdit.Showing));
+         mmShowHideMainWindow.ImageIndex := 22;
+      end
+      else
+      begin
+         mmShowHideMainWindow.Caption := 'Show main window';
+         mmShowHideMainWindow.ImageIndex := 21;
       end;
+   end
+   else
+   begin
+      if Showing and (not IsIconic(Application.Handle)) then
+      begin
+         strTemp := Copy(strTemp, p1 + 1, l - p1);
+         strTemp[1] := UpCase(strTemp[1]);
+         mmShowHideMainWindow.Caption := strTemp;
+         mmShowHideMainWindow.Enabled := not ((Assigned(frmOptions) and frmOptions.Showing) or
+            (Assigned(frmAddEdit) and frmAddEdit.Showing));
+         mmShowHideMainWindow.ImageIndex := 22;
+      end
+      else
+      begin
+         mmShowHideMainWindow.Caption := Copy(strTemp, 1, p1 - 1) + Copy(strTemp, p2, l - p2 + 1);
+         mmShowHideMainWindow.ImageIndex := 21;
+      end;
+   end;
 end;
 
 procedure TfrmMain.pnlBackgroundMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -10029,8 +11011,8 @@ begin
                      firstStr := firstData^.SDDisplayName;
                      secStr := secData^.SDDisplayName;
                   end;
-            else
-               Continue;
+               else
+                  Continue;
             end;
 
             case CompareString((LOCALE_USER_DEFAULT or (SUBLANG_DEFAULT shl 10)) or (SORT_DEFAULT shl 16), NORM_IGNORECASE, PChar(firstStr), Length(firstStr), PChar(secStr), Length(secStr)) - 2 of
@@ -10086,8 +11068,8 @@ begin
                         8: FFDImageIndex := 14;
                         14, 15:
                            FFDImageIndex := 8;
-                     else
-                        FFDImageIndex := 6;
+                        else
+                           FFDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -10103,8 +11085,8 @@ begin
                      8: FFDImageIndex := 15;
                      14, 15:
                         FFDImageIndex := 9;
-                  else
-                     FFDImageIndex := 7;
+                     else
+                        FFDImageIndex := 7;
                   end;
 
                if SecondDriveName = '' then
@@ -10129,8 +11111,8 @@ begin
                         8: FSDImageIndex := 14;
                         14, 15:
                            FSDImageIndex := 8;
-                     else
-                        FSDImageIndex := 6;
+                        else
+                           FSDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -10146,8 +11128,8 @@ begin
                      8: FSDImageIndex := 15;
                      14, 15:
                         FSDImageIndex := 9;
-                  else
-                     FSDImageIndex := 7;
+                     else
+                        FSDImageIndex := 7;
                   end;
             end;
 
@@ -10196,7 +11178,8 @@ begin
       R := vstVMs.GetDisplayRect(vstVMs.GetFirstSelected, 1, False, False, False);
       R.Left := R.Left + vstVMs.Margin - 1;
       R.Right := R.Left + imlVST_items.Width;
-      InvalidateRect(vstVms.Handle, &R, False);
+      if Visible then
+         InvalidateRect(vstVms.Handle, &R, False);
    end;
    if ShowFirstDriveAnim and (coVisible in vstVMs.Header.Columns[2].Options) then
    begin
@@ -10206,7 +11189,8 @@ begin
       R := vstVMs.GetDisplayRect(vstVMs.GetFirstSelected, 2, False, False, False);
       R.Left := R.Left + vstVMs.Margin - 1;
       R.Right := R.Left + imlVST_items.Width;
-      InvalidateRect(vstVms.Handle, &R, False);
+      if Visible then
+         InvalidateRect(vstVms.Handle, &R, False);
    end;
    if ShowSecDriveAnim and (coVisible in vstVMs.Header.Columns[3].Options) then
    begin
@@ -10216,7 +11200,8 @@ begin
       R := vstVMs.GetDisplayRect(vstVMs.GetFirstSelected, 3, False, False, False);
       R.Left := R.Left + vstVMs.Margin - 1;
       R.Right := R.Left + imlVST_items.Width;
-      InvalidateRect(vstVms.Handle, &R, False);
+      if Visible then
+         InvalidateRect(vstVms.Handle, &R, False);
    end;
 end;
 
@@ -10230,16 +11215,65 @@ begin
    if GetKeyState(VK_CONTROL) >= 0 then
    begin
       tmCheckCTRL.Enabled := False;
-      if btnStart.PngImage.Width = 16 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
-      end
-      else if btnStart.PngImage.Width = 24 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+            end;
       end;
+   end;
+end;
+
+procedure TfrmMain.tmCloseHintTimer(Sender: TObject);
+begin
+   tmCloseHint.Enabled := False;
+   TrayIcon.BalloonHint := '';
+end;
+
+procedure TfrmMain.TrayIconBalloonClick(Sender: TObject);
+begin
+   tmCloseHintTimer(Self);
+end;
+
+procedure TfrmMain.TrayIconMouseDown(Sender: TObject; Button: TMouseButton;
+   Shift: TShiftState; X, Y: Integer);
+var
+   dt: Cardinal;
+begin
+   if (Button = mbLeft) and (Shift = [ssLeft]) then
+   begin
+      if IsIconic(Application.Handle) then
+      begin
+         SendMessage(Application.Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+         dt := GetTickCount;
+         while isIconic(Application.Handle) do
+         begin
+            Application.ProcessMessages;
+            if (GetTickCount - dt) > 3000 then
+               Break;
+         end;
+         if isOnModal then
+            SetForegroundWindow(Application.Handle)
+         else
+            SetForegroundWindow(Handle);
+      end
+      else if not Showing then
+         Show
+      else if isOnModal then
+         SetForegroundWindow(Application.Handle)
+      else
+         SetForegroundWindow(Handle);
    end;
 end;
 
@@ -10306,7 +11340,7 @@ begin
    if ColTotalWidth = vstVMs.ClientWidth then
       Exit;
    DiffWidth := vstVMs.ClientWidth - ColTotalWidth;
-   if Abs(DiffWidth) > 5 then
+   if Abs(DiffWidth) > SnapResize then
       Exit;
    Sender.Columns[Column].Width := Sender.Columns[Column].Width + DiffWidth;
 end;
@@ -10530,8 +11564,8 @@ begin
             end
             else
                mmOpen.Caption := Format(strTemp, ['''' + PathsToOpen[i] + '''']);
-            imlBtn16.GetBitmap(10, mmOpen.Bitmap);
             mmOpen.OnClick := mmOpenInEXplorerClick;
+            mmOpen.ImageIndex := 11;
             pmVMs.Items.Insert(4, mmOpen);
          end;
       end;
@@ -10581,17 +11615,22 @@ end;
 
 procedure TfrmMain.ModEnd(Sender: TObject);
 begin
-   if not Showing then
-      Exit;
-   if not (toHideFocusRect in vstVMs.TreeOptions.PaintOptions) then
-      vstVMs.TreeOptions.PaintOptions := vstVMs.TreeOptions.PaintOptions + [toHideFocusRect];
-   vstVMs.Invalidate;
-   Application.OnActivate := AppAct;
-   Application.OnDeactivate := AppDeact;
+   try
+      if not Showing then
+         Exit;
+      if not (toHideFocusRect in vstVMs.TreeOptions.PaintOptions) then
+         vstVMs.TreeOptions.PaintOptions := vstVMs.TreeOptions.PaintOptions + [toHideFocusRect];
+      vstVMs.Invalidate;
+      Application.OnActivate := AppAct;
+      Application.OnDeactivate := AppDeact;
+   finally
+      isOnModal := False;
+   end;
 end;
 
 procedure TfrmMain.ModBeg(Sender: TObject);
 begin
+   isOnModal := True;
    if not Showing then
       Exit;
    if vstVMs.GetFirstSelected <> nil then
@@ -10772,15 +11811,22 @@ begin
       vstVMs.SelectionLocked := True;
       CurSelNode := vstVMs.GetFirstSelected.Index;
       tmCheckCTRL.Enabled := False;
-      if btnStart.PngImage.Width = 16 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
-      end
-      else if btnStart.PngImage.Width = 24 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+            end;
       end;
       DevInst := GetDrivesDevInstByDeviceNumber(mmEject.Tag mod 256);
       if DevInst = 0 then
@@ -10860,7 +11906,13 @@ end;
 
 procedure TfrmMain.mmEscClick(Sender: TObject);
 begin
-   btnExit.Click;
+   if TrayIcon.Visible then
+   begin
+      if not IsIconic(Application.Handle) then
+         SendMessage(Application.Handle, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+   end
+   else
+      btnExit.Click;
 end;
 
 procedure TfrmMain.mmNumPlusClick(Sender: TObject);
@@ -10881,10 +11933,10 @@ begin
    except
    end;
    if rs <> nil then
-      try
-         rs.Free;
-      except
-      end;
+   try
+      rs.Free;
+   except
+   end;
    if frmOptions.xmlTemp.Active then
    begin
       try
@@ -10943,6 +11995,8 @@ var
    dt: Cardinal;
    ssStatus: TServiceStatus;
    resCP, Result, DoNotRegister: Boolean;
+   Key: Word;
+   Modifiers: Uint;
 begin
    if isBusyStartVM then
    begin
@@ -10995,7 +12049,9 @@ begin
                Color := FontColor;
                Charset := FontScript;
             end;
-            cbEscapeKeyClosesMain.Checked := EscapeKeyClosesMain;
+            hkStart.HotKey := StartKeyComb;
+            UnregisterHotKey(frmMain.Handle, Hotkey_id);
+            GlobalDeleteAtom(Hotkey_id);
             if FindFirst(LngFolder + '\*.lng', faAnyFile - faDirectory, sr) = 0 then
             begin
                repeat
@@ -11076,6 +12132,7 @@ begin
                cmbExeVersion.ItemIndex := 0;
             end;
             cbHideConsoleWindow.Checked := HideConsoleWindow;
+            cbEmulationBusType.ItemIndex := EmulationBusType;
             edtDefaultParameters.Text := QEMUDefaultParameters;
             ColWereAligned := frmMain.vstVMs.Header.Columns.TotalWidth = frmMain.vstVMs.ClientWidth;
             NrRes := 0;
@@ -11196,8 +12253,8 @@ begin
                                  8: FFDImageIndex := 14;
                                  14, 15:
                                     FFDImageIndex := 8;
-                              else
-                                 FFDImageIndex := 6;
+                                 else
+                                    FFDImageIndex := 6;
                               end;
                         end
                         else if ListOnlyUSBDrives then
@@ -11213,8 +12270,8 @@ begin
                               8: FFDImageIndex := 15;
                               14, 15:
                                  FFDImageIndex := 9;
-                           else
-                              FFDImageIndex := 7;
+                              else
+                                 FFDImageIndex := 7;
                            end;
 
                         if SecondDriveName = '' then
@@ -11239,8 +12296,8 @@ begin
                                  8: FSDImageIndex := 14;
                                  14, 15:
                                     FSDImageIndex := 8;
-                              else
-                                 FSDImageIndex := 6;
+                                 else
+                                    FSDImageIndex := 6;
                               end;
                         end
                         else if ListOnlyUSBDrives then
@@ -11256,8 +12313,8 @@ begin
                               8: FSDImageIndex := 15;
                               14, 15:
                                  FSDImageIndex := 9;
-                           else
-                              FSDImageIndex := 7;
+                              else
+                                 FSDImageIndex := 7;
                            end;
                      end;
                      Node := vstVMs.GetNext(Node);
@@ -11359,7 +12416,7 @@ begin
                   end;
                   FontHeight := vstVMs.Canvas.TextHeight('Hg');
                   case FontHeight of
-                     0..32:
+                     0..23:
                         begin
                            if imlVST_items.Width <> 24 then
                            begin
@@ -11370,6 +12427,17 @@ begin
                                  imlVST_items.PngImages.Delete(0);
                               imlVST_items.EndUpdate(True);
                            end;
+                           if btnStart.PngImage.Height <> 16 then
+                           begin
+                              btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+                              btnAdd.PngImage := imlBtn16.PngImages[1].PngImage;
+                              btnEdit.PngImage := imlBtn16.PngImages[2].PngImage;
+                              btnDelete.PngImage := imlBtn16.PngImages[3].PngImage;
+                              btnManager.PngImage := imlBtn16.PngImages[4].PngImage;
+                              btnOptions.PngImage := imlBtn16.PngImages[5].PngImage;
+                              btnShowTrayIcon.PngImage := imlBtn16.PngImages[6].PngImage;
+                              btnExit.PngImage := imlBtn16.PngImages[7].PngImage;
+                           end;
                            if imlVST_header.Width <> 16 then
                            begin
                               imlVST_header.BeginUpdate;
@@ -11379,23 +12447,68 @@ begin
                               imlVST_header.EndUpdate(True);
                            end;
                         end;
-                  else if imlVST_items.Width <> 32 then
-                  begin
-                     imlVST_items.BeginUpdate;
-                     imlVST_items.SetSize(32, 32);
-                     imlVST_items.PngImages.Assign(imlVST32.PngImages);
-                     for i := 1 to 3 do
-                        imlVST_items.PngImages.Delete(0);
-                     imlVST_items.EndUpdate(True);
-                  end;
-                  if imlVST_header.Width <> 24 then
-                  begin
-                     imlVST_header.BeginUpdate;
-                     imlVST_header.SetSize(24, 24);
-                     for i := 0 to 2 do
-                        imlVST_header.AddPng(imlVST24.PngImages[i].PngImage);
-                     imlVST_header.EndUpdate(True);
-                  end;
+                     24..32:
+                        begin
+                           if imlVST_items.Width <> 28 then
+                           begin
+                              imlVST_items.BeginUpdate;
+                              imlVST_items.SetSize(28, 28);
+                              imlVST_items.PngImages.Assign(imlVST28.PngImages);
+                              for i := 1 to 3 do
+                                 imlVST_items.PngImages.Delete(0);
+                              imlVST_items.EndUpdate(True);
+                           end;
+                           if btnStart.PngImage.Height <> 20 then
+                           begin
+                              btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+                              btnAdd.PngImage := imlBtn20.PngImages[1].PngImage;
+                              btnEdit.PngImage := imlBtn20.PngImages[2].PngImage;
+                              btnDelete.PngImage := imlBtn20.PngImages[3].PngImage;
+                              btnManager.PngImage := imlBtn20.PngImages[4].PngImage;
+                              btnOptions.PngImage := imlBtn20.PngImages[5].PngImage;
+                              btnShowTrayIcon.PngImage := imlBtn20.PngImages[6].PngImage;
+                              btnExit.PngImage := imlBtn20.PngImages[7].PngImage;
+                           end;
+                           if imlVST_header.Width <> 20 then
+                           begin
+                              imlVST_header.BeginUpdate;
+                              imlVST_header.SetSize(20, 20);
+                              for i := 0 to 2 do
+                                 imlVST_header.AddPng(imlVST20.PngImages[i].PngImage);
+                              imlVST_header.EndUpdate(True);
+                           end;
+                        end;
+                     else
+                        begin
+                           if imlVST_items.Width <> 32 then
+                           begin
+                              imlVST_items.BeginUpdate;
+                              imlVST_items.SetSize(32, 32);
+                              imlVST_items.PngImages.Assign(imlVST32.PngImages);
+                              for i := 1 to 3 do
+                                 imlVST_items.PngImages.Delete(0);
+                              imlVST_items.EndUpdate(True);
+                           end;
+                           if btnStart.PngImage.Height <> 24 then
+                           begin
+                              btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+                              btnAdd.PngImage := imlBtn24.PngImages[1].PngImage;
+                              btnEdit.PngImage := imlBtn24.PngImages[2].PngImage;
+                              btnDelete.PngImage := imlBtn24.PngImages[3].PngImage;
+                              btnManager.PngImage := imlBtn24.PngImages[4].PngImage;
+                              btnOptions.PngImage := imlBtn24.PngImages[5].PngImage;
+                              btnShowTrayIcon.PngImage := imlBtn24.PngImages[6].PngImage;
+                              btnExit.PngImage := imlBtn24.PngImages[7].PngImage;
+                           end;
+                           if imlVST_header.Width <> 24 then
+                           begin
+                              imlVST_header.BeginUpdate;
+                              imlVST_header.SetSize(24, 24);
+                              for i := 0 to 2 do
+                                 imlVST_header.AddPng(imlVST24.PngImages[i].PngImage);
+                              imlVST_header.EndUpdate(True);
+                           end;
+                        end;
                   end;
                   vstVMs.DefaultNodeHeight := Round(1.1 * Max(imlVST_items.Height, FontHeight) + 1.6);
                   l := frmMain.Canvas.TextWidth('  ') div 2;
@@ -11451,8 +12564,7 @@ begin
                   SetThemeDependantParams;
                   vstVMs.Canvas.Font.Assign(vstVMs.Header.Font);
                   FontHeight := vstVMs.Canvas.TextHeight('Hg');
-                  vstVMs.Header.Height := Round(1.3125 * Max(imlVST_header.Height, FontHeight));
-                  //               vstVMs.Header.Height := Round(1.1 * Max(imlVST_header.Height, FontHeight));
+                  vstVMs.Header.Height := Round(1.5 * Max(imlVST_header.Height, FontHeight));
                   vstVMs.Canvas.Font.Assign(vstVMs.Font);
                   vstVMs.Header.Columns[1].Margin := vstVMs.Margin + (imlVST_items.Width - imlVST_header.Width) div 2 - 1;
                   vstVMs.Header.Columns[1].Spacing := vstVMs.Margin + imlVST_items.Width - vstVMs.Header.Columns[1].Margin - imlVST_header.Width + 5;
@@ -11491,17 +12603,29 @@ begin
                            MaxBtnHeight := Max(MaxBtnHeight, Size.Height);
                         end;
                      frmMain.Canvas.Font.Assign(frmMain.Font);
+                     frmMain.btnExit.Tag := 7;
                      for i := 0 to frmMain.ComponentCount - 1 do
                         if frmMain.Components[i].ClassNameIs('TPNGSpeedButton') then
                         begin
-                           if imlVST_header.Height >= 20 then
-                           begin
-                              if TPNGSpeedButton(frmMain.Components[i]).PngImage.Height <> 24 then
-                                 TPNGSpeedButton(frmMain.Components[i]).PngImage := imlBtn24.PngImages[TPNGSpeedButton(frmMain.Components[i]).Tag].PngImage;
-                           end
-                           else if TPNGSpeedButton(frmMain.Components[i]).PngImage.Height <> 16 then
-                              TPNGSpeedButton(frmMain.Components[i]).PngImage := imlBtn16.PngImages[TPNGSpeedButton(frmMain.Components[i]).Tag].PngImage;
+                           case imlVST_header.Height of
+                              16:
+                                 begin
+                                    if TPNGSpeedButton(frmMain.Components[i]).PngImage.Height <> 16 then
+                                       TPNGSpeedButton(frmMain.Components[i]).PngImage := imlBtn16.PngImages[TPNGSpeedButton(frmMain.Components[i]).Tag].PngImage;
+                                 end;
+                              20:
+                                 begin
+                                    if TPNGSpeedButton(frmMain.Components[i]).PngImage.Height <> 20 then
+                                       TPNGSpeedButton(frmMain.Components[i]).PngImage := imlBtn20.PngImages[TPNGSpeedButton(frmMain.Components[i]).Tag].PngImage;
+                                 end;
+                              24:
+                                 begin
+                                    if TPNGSpeedButton(frmMain.Components[i]).PngImage.Height <> 24 then
+                                       TPNGSpeedButton(frmMain.Components[i]).PngImage := imlBtn24.PngImages[TPNGSpeedButton(frmMain.Components[i]).Tag].PngImage;
+                                 end;
+                           end;
                         end;
+                     frmMain.btnExit.Tag := 6 + Integer(btnShowTrayIcon.Visible);
                      btnMargin := Round(sqrt(MaxBtnWidth)) + 5;
                      btnSpacing := Round(0.3 * (sqrt(MaxBtnWidth) + 5)) + 3;
                      MaxBtnWidth := 2 * btnStart.Margin + btnStart.PngImage.Width + btnStart.Spacing + MaxBtnWidth;
@@ -11509,7 +12633,7 @@ begin
                      abl := Round(frmMain.ClientWidth - 10 / 9 * MaxBtnWidth + frmMain.ClientOrigin.X - frmMain.Left - frmMain.Margins.Right);
                      vstVMs.Width := Round(frmMain.ClientWidth - 11 / 9 * MaxBtnWidth - vstVMs.Left + frmMain.ClientOrigin.X - frmMain.Left);
                      DoAlign := ColWereAligned;
-                     diff := 1.0 / 6 * (vstVMs.Height - MaxBtnHeight);
+                     diff := 1.0 / (6 + Integer(btnShowTrayIcon.Visible)) * (vstVMs.Height - MaxBtnHeight);
                      for i := 0 to frmMain.ComponentCount - 1 do
                         if frmMain.Components[i].ClassNameIs('TPNGSpeedButton') then
                            TPNGSpeedButton(frmMain.Components[i]).SetBounds(abl, Round(diff * TPNGSpeedButton(frmMain.Components[i]).Tag + btnStart.Top), MaxBtnWidth, MaxBtnHeight);
@@ -11517,14 +12641,16 @@ begin
                      frmMain.pnlBackground.Invalidate;
                   end;
                end;
-               frmMain.Constraints.MinHeight := 2 * vstVMs.Top + 7 * (btnStart.Height + 1) + frmMain.Height - frmMain.ClientHeight;
-               frmMain.Constraints.MaxHeight := frmMain.Height - frmMain.ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + 10 * Integer(vstVMs.DefaultNodeHeight);
-               if cbEscapeKeyClosesMain.Checked <> EscapeKeyClosesMain then
-                  if cbEscapeKeyClosesMain.Checked then
-                     mmEsc.ShortCut := ShortCut(VK_ESCAPE, [])
-                  else
-                     mmEsc.ShortCut := 0;
-               EscapeKeyClosesMain := cbEscapeKeyClosesMain.Checked;
+               if not btnShowTrayIcon.Visible then
+               begin
+                  frmMain.Constraints.MinHeight := 2 * vstVMs.Top + 7 * (btnStart.Height + 1) + frmMain.Height - frmMain.ClientHeight;
+                  frmMain.Constraints.MaxHeight := frmMain.Height - frmMain.ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + 11 * Integer(vstVMs.DefaultNodeHeight);
+               end
+               else
+               begin
+                  frmMain.Constraints.MinHeight := 2 * vstVMs.Top + 8 * (btnStart.Height + 1) + frmMain.Height - frmMain.ClientHeight;
+                  frmMain.Constraints.MaxHeight := frmMain.Height - frmMain.ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + 12 * Integer(vstVMs.DefaultNodeHeight);
+               end;
                if (CurrLanguageFile <> TMyObj(cmbLanguage.Items.Objects[cmbLanguage.ItemIndex]).Text) or ((xmlLanguage.ChildNodes[idxInterface].ChildNodes.FindNode('Language').ChildNodes.FindNode('Name').Text + ', translated by ' + xmlLanguage.ChildNodes[idxInterface].ChildNodes.FindNode('Language').ChildNodes.FindNode('Author').Text) <> cmbLanguage.Items[cmbLanguage.ItemIndex]) then
                begin
                   CurrLanguageFile := TMyObj(cmbLanguage.Items.Objects[cmbLanguage.ItemIndex]).Text;
@@ -11537,7 +12663,7 @@ begin
                      DoNotRegister := False;
                      while True do
                      begin
-                        GetAllWindowsList('QWidget');
+                        GetAllWindowsList(VBWinClass);
                         h := High(AllWindowsList);
                         i := 0;
                         cm := 0;
@@ -11564,7 +12690,7 @@ begin
                                  begin
                                     isBusyClosing := True;
                                     try
-                                       GetAllWindowsList('QWidget');
+                                       GetAllWindowsList(VBWinClass);
                                        h := High(AllWindowsList);
                                        i := 0;
                                        cm := 0;
@@ -11596,7 +12722,7 @@ begin
                                              Wait(100);
                                              if (GetTickCount - dt) > wt then
                                                 Break;
-                                             GetAllWindowsList('QWidget');
+                                             GetAllWindowsList(VBWinClass);
                                              h := High(AllWindowsList);
                                              i := 0;
                                              cm := 0;
@@ -11622,9 +12748,9 @@ begin
                                     end;
                                  end;
                               mrIgnore: Break;
-                           else
-                              DoNotRegister := True;
-                              Break;
+                              else
+                                 DoNotRegister := True;
+                                 Break;
                            end;
                         end;
                         if (cm + cvm) = 0 then
@@ -11656,6 +12782,7 @@ begin
                         end;
                         if PathIsRelative(PChar(ExeVBPath)) then
                         begin
+                           FillMemory(@Path[0], Length(Path), 0);
                            PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + ExeVBPath));
                            if string(Path) <> '' then
                               exeVBPathAbs := Path
@@ -11679,11 +12806,11 @@ begin
                                  end;
                               end
                               else
-                                 try
-                                    TerminateThread(FRegThread.Handle, 0);
-                                    FRegThread := nil;
-                                 except
-                                 end;
+                              try
+                                 TerminateThread(FRegThread.Handle, 0);
+                                 FRegThread := nil;
+                              except
+                              end;
                            end;
                            if FUnregThread <> nil then
                            begin
@@ -11698,11 +12825,11 @@ begin
                                  end;
                               end
                               else
-                                 try
-                                    TerminateThread(FRegThread.Handle, 0);
-                                    FRegThread := nil;
-                                 except
-                                 end;
+                              try
+                                 TerminateThread(FRegThread.Handle, 0);
+                                 FRegThread := nil;
+                              except
+                              end;
                            end;
                            ExeVBPathTemp := Trim(edtVBExePath.Text);
                            LoadNetPortableTemp := cbLoadNetPortable.Checked;
@@ -11971,101 +13098,101 @@ begin
                                  exeRegsvr32Path := exeRegsvr32Path + 'regsvr32.exe';
 
                                  if Result and (TOSVersion.Major < 6) then
+                                 try
+                                    if exeRegsvr32Path <> '' then
+                                    begin
+                                       strTemp := '"' + exeRegsvr32Path + '" /S /u "' + IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll"';
+                                       UniqueString(strTemp);
+                                       PexeRegsvr32 := PChar(strTemp);
+                                    end
+                                    else
+                                       PexeRegsvr32 := nil;
+                                    if ExtractFilePath(exeRegsvr32Path) <> '' then
+                                       PexeRegsvr32Path := PChar(ExtractFilePath(exeRegsvr32Path))
+                                    else
+                                       PexeRegsvr32Path := nil;
+                                    ResetLastError;
                                     try
-                                       if exeRegsvr32Path <> '' then
+                                       Result := CreateProcess(nil, PexeRegsvr32, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeRegsvr32Path, eStartupInfo, eProcessInfo);
+                                       LastError := GetLastError;
+                                    except
+                                       on E: Exception do
                                        begin
-                                          strTemp := '"' + exeRegsvr32Path + '" /S /u "' + IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll"';
-                                          UniqueString(strTemp);
-                                          PexeRegsvr32 := PChar(strTemp);
-                                       end
-                                       else
-                                          PexeRegsvr32 := nil;
-                                       if ExtractFilePath(exeRegsvr32Path) <> '' then
-                                          PexeRegsvr32Path := PChar(ExtractFilePath(exeRegsvr32Path))
-                                       else
-                                          PexeRegsvr32Path := nil;
-                                       ResetLastError;
-                                       try
-                                          Result := CreateProcess(nil, PexeRegsvr32, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeRegsvr32Path, eStartupInfo, eProcessInfo);
-                                          LastError := GetLastError;
-                                       except
-                                          on E: Exception do
-                                          begin
-                                             Result := False;
-                                             LastExceptionStr := E.Message;
-                                          end;
+                                          Result := False;
+                                          LastExceptionStr := E.Message;
                                        end;
-                                       if Result then
+                                    end;
+                                    if Result then
+                                    begin
+                                       dt := GetTickCount;
+                                       while (GetTickCount - dt) <= 3000 do
                                        begin
-                                          dt := GetTickCount;
-                                          while (GetTickCount - dt) <= 3000 do
+                                          if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                             Break;
+                                       end;
+                                       dt := GetTickCount;
+                                       while (GetTickCount - dt) <= 5000 do
+                                       begin
+                                          if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                             Break;
+                                       end;
+                                       try
+                                          GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                          if ExitCode = Still_Active then
                                           begin
-                                             if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                Break;
-                                          end;
-                                          dt := GetTickCount;
-                                          while (GetTickCount - dt) <= 5000 do
-                                          begin
-                                             if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                Break;
-                                          end;
-                                          try
+                                             uExitCode := 0;
+                                             RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                                             bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                                             if GetExitCodeProcess(hProcessDup, dwCode) then
+                                             begin
+                                                hKernel := GetModuleHandle('Kernel32');
+                                                FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                                                hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                                                if hrt = 0 then
+                                                   TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                                                else
+                                                   CloseHandle(hRT);
+                                             end
+                                             else
+                                                TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                                             if (bDup) then
+                                                CloseHandle(hProcessDup);
                                              GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                             if ExitCode = Still_Active then
-                                             begin
-                                                uExitCode := 0;
-                                                RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                                                bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                                                if GetExitCodeProcess(hProcessDup, dwCode) then
-                                                begin
-                                                   hKernel := GetModuleHandle('Kernel32');
-                                                   FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                                                   hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                                                   if hrt = 0 then
-                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                                                   else
-                                                      CloseHandle(hRT);
-                                                end
-                                                else
-                                                   TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                                                if (bDup) then
-                                                   CloseHandle(hProcessDup);
-                                                GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                             end;
-                                             if (ExitCode <> Still_Active) and (ExitCode <> 0) then
-                                             begin
-                                                if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
-                                                   strRegErrMsg := 'file not found'
-                                                else
-                                                   case ExitCode of
-                                                      1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
-                                                      2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
-                                                      3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
-                                                      4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
-                                                      5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
+                                          end;
+                                          if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                                          begin
+                                             if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
+                                                strRegErrMsg := 'file not found'
+                                             else
+                                                case ExitCode of
+                                                   1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
+                                                   2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
+                                                   3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
+                                                   4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
+                                                   5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
                                                    else
                                                       strTemp := '';
-                                                   end;
-                                                strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxNetFltNobj.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
-                                                Result := False;
-                                             end;
-                                             CloseHandle(eProcessInfo.hProcess);
-                                             CloseHandle(eProcessInfo.hThread);
-                                          except
+                                                end;
+                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxNetFltNobj.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                             Result := False;
                                           end;
-                                       end
-                                       else
-                                       begin
-                                          if not FileExists(exeRegSvr32Path) then
-                                             strRegErrMsg := 'file not found'
-                                          else if LastError > 0 then
-                                             strRegErrMsg := SysErrorMessage(LastError)
-                                          else if LastExceptionStr <> '' then
-                                             strRegErrMsg := LastExceptionStr;
-                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['regsvr32.exe'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                          CloseHandle(eProcessInfo.hProcess);
+                                          CloseHandle(eProcessInfo.hThread);
+                                       except
                                        end;
-                                    finally
+                                    end
+                                    else
+                                    begin
+                                       if not FileExists(exeRegSvr32Path) then
+                                          strRegErrMsg := 'file not found'
+                                       else if LastError > 0 then
+                                          strRegErrMsg := SysErrorMessage(LastError)
+                                       else if LastExceptionStr <> '' then
+                                          strRegErrMsg := LastExceptionStr;
+                                       strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['regsvr32.exe'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                     end;
+                                 finally
+                                 end;
 
                                  if Result then
                                  begin
@@ -12244,7 +13371,7 @@ begin
                                     i := 0;
                                     while True do
                                     begin
-                                       Sleep(500);
+                                       mEvent.WaitFor(500);
                                        Result := ServiceStart('VBoxNetAdp');
                                        if Result then
                                           Break;
@@ -12342,92 +13469,92 @@ begin
                                  begin
                                     ssStatus := ServiceStatus('VBoxNet' + strNetBrdg1);
                                     if (((TOSVersion.Major < 6) and (CheckInstalledInf(strNetBrdg2 + '_VBoxNet' + strNetBrdg1) < 1)) or ((TOSVersion.Major >= 6) and False)) or (ssStatus.dwCurrentState = 0) then
+                                    try
+                                       strTemp := '"' + exeSnetCfgPath + '" -v -l "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf" -m "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf" -c s -i ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
+                                       l := (Length(strTemp) + 1) * SizeOf(Char);
+                                       SetLength(CommLine, l);
+                                       Move(strTemp[1], CommLine[0], l);
+                                       if ExtractFilePath(exeVBPathAbs) <> '' then
+                                          PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
+                                       else
+                                          PexeSnetCfgPath := nil;
+                                       ResetLastError;
                                        try
-                                          strTemp := '"' + exeSnetCfgPath + '" -v -l "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf" -m "drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf" -c s -i ' + strNetBrdg2 + '_VBoxNet' + strNetBrdg1;
-                                          l := (Length(strTemp) + 1) * SizeOf(Char);
-                                          SetLength(CommLine, l);
-                                          Move(strTemp[1], CommLine[0], l);
-                                          if ExtractFilePath(exeVBPathAbs) <> '' then
-                                             PexeSnetCfgPath := PChar(ExtractFilePath(exeVBPathAbs))
-                                          else
-                                             PexeSnetCfgPath := nil;
-                                          ResetLastError;
-                                          try
-                                             Result := CreateProcess(nil, @CommLine[0], nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
-                                             LastError := GetLastError;
-                                          except
-                                             on E: Exception do
-                                             begin
-                                                Result := False;
-                                                LastExceptionStr := E.Message;
-                                             end;
-                                          end;
-                                          if Result then
+                                          Result := CreateProcess(nil, @CommLine[0], nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeSnetCfgPath, eStartupInfo, eProcessInfo);
+                                          LastError := GetLastError;
+                                       except
+                                          on E: Exception do
                                           begin
-                                             dt := GetTickCount;
-                                             while (GetTickCount - dt) <= 5000 do
-                                             begin
-                                                if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                   Break;
-                                             end;
-                                             dt := GetTickCount;
-                                             while (GetTickCount - dt) <= 12000 do
-                                             begin
-                                                if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                   Break;
-                                             end;
-                                             try
-                                                GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                                if ExitCode = Still_Active then
-                                                begin
-                                                   uExitCode := 0;
-                                                   RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                                                   bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                                                   if GetExitCodeProcess(hProcessDup, dwCode) then
-                                                   begin
-                                                      hKernel := GetModuleHandle('Kernel32');
-                                                      FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                                                      hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                                                      if hrt = 0 then
-                                                         TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                                                      else
-                                                         CloseHandle(hRT);
-                                                   end
-                                                   else
-                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                                                   if (bDup) then
-                                                      CloseHandle(hProcessDup);
-                                                   GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                                end;
-                                                if (ExitCode <> Still_Active) and (ExitCode <> 0) then
-                                                begin
-                                                   if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf') then
-                                                      strRegErrMsg := 'VBoxNet' + strNetBrdg1 + '.inf not found'
-                                                   else if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf') then
-                                                      strRegErrMsg := 'VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf not found'
-                                                   else
-                                                      strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');
-                                                   strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxNet' + strNetBrdg1], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
-                                                   Result := False;
-                                                end;
-                                                CloseHandle(eProcessInfo.hProcess);
-                                                CloseHandle(eProcessInfo.hThread);
-                                             except
-                                             end;
-                                          end
-                                          else
-                                          begin
-                                             if not FileExists(exeSnetCfgPath) then
-                                                strRegErrMsg := 'file not found'
-                                             else if LastError > 0 then
-                                                strRegErrMsg := SysErrorMessage(LastError)
-                                             else if LastExceptionStr <> '' then
-                                                strRegErrMsg := LastExceptionStr;
-                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                             Result := False;
+                                             LastExceptionStr := E.Message;
                                           end;
-
-                                       finally
                                        end;
+                                       if Result then
+                                       begin
+                                          dt := GetTickCount;
+                                          while (GetTickCount - dt) <= 5000 do
+                                          begin
+                                             if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                                Break;
+                                          end;
+                                          dt := GetTickCount;
+                                          while (GetTickCount - dt) <= 12000 do
+                                          begin
+                                             if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                                Break;
+                                          end;
+                                          try
+                                             GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                             if ExitCode = Still_Active then
+                                             begin
+                                                uExitCode := 0;
+                                                RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                                                bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                                                if GetExitCodeProcess(hProcessDup, dwCode) then
+                                                begin
+                                                   hKernel := GetModuleHandle('Kernel32');
+                                                   FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                                                   hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                                                   if hrt = 0 then
+                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                                                   else
+                                                      CloseHandle(hRT);
+                                                end
+                                                else
+                                                   TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                                                if (bDup) then
+                                                   CloseHandle(hProcessDup);
+                                                GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                             end;
+                                             if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                                             begin
+                                                if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + '.inf') then
+                                                   strRegErrMsg := 'VBoxNet' + strNetBrdg1 + '.inf not found'
+                                                else if not FileExists('drivers\network\net' + strNetBrdg1 + '\VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf') then
+                                                   strRegErrMsg := 'VBoxNet' + strNetBrdg1 + strNetBrdg3 + '.inf not found'
+                                                else
+                                                   strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorCode'], [IntToStr(ExitCode), 'snetcfg'], '%s error code from %s');
+                                                strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemInstalling'], ['VBoxNet' + strNetBrdg1], 'problem installing %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                                Result := False;
+                                             end;
+                                             CloseHandle(eProcessInfo.hProcess);
+                                             CloseHandle(eProcessInfo.hThread);
+                                          except
+                                          end;
+                                       end
+                                       else
+                                       begin
+                                          if not FileExists(exeSnetCfgPath) then
+                                             strRegErrMsg := 'file not found'
+                                          else if LastError > 0 then
+                                             strRegErrMsg := SysErrorMessage(LastError)
+                                          else if LastExceptionStr <> '' then
+                                             strRegErrMsg := LastExceptionStr;
+                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['snetcfg'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                       end;
+
+                                    finally
+                                    end;
                                  end;
 
                                  SetCurrentDir(curDir);
@@ -12463,101 +13590,101 @@ begin
                                     end;
 
                                     if Result then
+                                    try
+                                       if exeRegsvr32Path <> '' then
+                                       begin
+                                          strTemp := '"' + exeRegsvr32Path + '" /S "' + IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll"';
+                                          UniqueString(strTemp);
+                                          PexeRegsvr32 := PChar(strTemp);
+                                       end
+                                       else
+                                          PexeRegsvr32 := nil;
+                                       if ExtractFilePath(exeRegsvr32Path) <> '' then
+                                          PexeRegsvr32Path := PChar(ExtractFilePath(exeRegsvr32Path))
+                                       else
+                                          PexeRegsvr32Path := nil;
+                                       ResetLastError;
                                        try
-                                          if exeRegsvr32Path <> '' then
+                                          Result := CreateProcess(nil, PexeRegsvr32, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeRegsvr32Path, eStartupInfo, eProcessInfo);
+                                          LastError := GetLastError;
+                                       except
+                                          on E: Exception do
                                           begin
-                                             strTemp := '"' + exeRegsvr32Path + '" /S "' + IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll"';
-                                             UniqueString(strTemp);
-                                             PexeRegsvr32 := PChar(strTemp);
-                                          end
-                                          else
-                                             PexeRegsvr32 := nil;
-                                          if ExtractFilePath(exeRegsvr32Path) <> '' then
-                                             PexeRegsvr32Path := PChar(ExtractFilePath(exeRegsvr32Path))
-                                          else
-                                             PexeRegsvr32Path := nil;
-                                          ResetLastError;
-                                          try
-                                             Result := CreateProcess(nil, PexeRegsvr32, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PexeRegsvr32Path, eStartupInfo, eProcessInfo);
-                                             LastError := GetLastError;
-                                          except
-                                             on E: Exception do
-                                             begin
-                                                Result := False;
-                                                LastExceptionStr := E.Message;
-                                             end;
+                                             Result := False;
+                                             LastExceptionStr := E.Message;
                                           end;
-                                          if Result then
+                                       end;
+                                       if Result then
+                                       begin
+                                          dt := GetTickCount;
+                                          while (GetTickCount - dt) <= 3000 do
                                           begin
-                                             dt := GetTickCount;
-                                             while (GetTickCount - dt) <= 3000 do
+                                             if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                                Break;
+                                          end;
+                                          dt := GetTickCount;
+                                          while (GetTickCount - dt) <= 5000 do
+                                          begin
+                                             if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
+                                                Break;
+                                          end;
+                                          try
+                                             GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
+                                             if ExitCode = Still_Active then
                                              begin
-                                                if WaitForInputIdle(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                   Break;
-                                             end;
-                                             dt := GetTickCount;
-                                             while (GetTickCount - dt) <= 5000 do
-                                             begin
-                                                if WaitForSingleObject(eProcessInfo.hProcess, 50) <> WAIT_TIMEOUT then
-                                                   Break;
-                                             end;
-                                             try
+                                                uExitCode := 0;
+                                                RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
+                                                bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
+                                                if GetExitCodeProcess(hProcessDup, dwCode) then
+                                                begin
+                                                   hKernel := GetModuleHandle('Kernel32');
+                                                   FARPROC := GetProcAddress(hKernel, 'ExitProcess');
+                                                   hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
+                                                   if hrt = 0 then
+                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
+                                                   else
+                                                      CloseHandle(hRT);
+                                                end
+                                                else
+                                                   TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
+                                                if (bDup) then
+                                                   CloseHandle(hProcessDup);
                                                 GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                                if ExitCode = Still_Active then
-                                                begin
-                                                   uExitCode := 0;
-                                                   RemoteProcHandle := GetProcessHandleFromID(eProcessInfo.dwProcessId);
-                                                   bDup := DuplicateHandle(GetCurrentProcess(), RemoteProcHandle, GetCurrentProcess(), @hProcessDup, PROCESS_ALL_ACCESS, False, 0);
-                                                   if GetExitCodeProcess(hProcessDup, dwCode) then
-                                                   begin
-                                                      hKernel := GetModuleHandle('Kernel32');
-                                                      FARPROC := GetProcAddress(hKernel, 'ExitProcess');
-                                                      hRT := CreateRemoteThread(hProcessDup, nil, 0, Pointer(FARPROC), @uExitCode, 0, dwTID);
-                                                      if hrt = 0 then
-                                                         TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0)
-                                                      else
-                                                         CloseHandle(hRT);
-                                                   end
-                                                   else
-                                                      TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), eProcessInfo.dwProcessId), 0);
-                                                   if (bDup) then
-                                                      CloseHandle(hProcessDup);
-                                                   GetExitCodeProcess(eProcessInfo.hProcess, ExitCode);
-                                                end;
-                                                if (ExitCode <> Still_Active) and (ExitCode <> 0) then
-                                                begin
-                                                   if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
-                                                      strRegErrMsg := 'dll file not found'
-                                                   else
-                                                      case ExitCode of
-                                                         1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
-                                                         2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
-                                                         3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
-                                                         4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
-                                                         5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
+                                             end;
+                                             if (ExitCode <> Still_Active) and (ExitCode <> 0) then
+                                             begin
+                                                if not FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(exeRegSvr32Path)) + 'VBoxNetFltNobj.dll') then
+                                                   strRegErrMsg := 'dll file not found'
+                                                else
+                                                   case ExitCode of
+                                                      1: strTemp := GetLangTextDef(idxMain, ['Messages', 'InvArg'], 'Invalid argument');
+                                                      2: strTemp := GetLangTextDef(idxMain, ['Messages', 'OleinitFld'], 'OleInitialize failed');
+                                                      3: strTemp := GetLangTextDef(idxMain, ['Messages', 'LoadLibFld'], 'LoadLibrary failed');
+                                                      4: strTemp := GetLangTextDef(idxMain, ['Messages', 'GetPrcAdFld'], 'GetProcAddress failed');
+                                                      5: strTemp := GetLangTextDef(idxMain, ['Messages', 'DllRegUnregFld'], 'DllRegisterServer or DllUnregisterServer failed');
                                                       else
                                                          strTemp := '';
-                                                      end;
-                                                   strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxNetFltNobj.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
-                                                   Result := False;
-                                                end;
-                                                CloseHandle(eProcessInfo.hProcess);
-                                                CloseHandle(eProcessInfo.hThread);
-                                             except
+                                                   end;
+                                                strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemReg'], ['VBoxNetFltNobj.dll'], 'problem registering %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                                Result := False;
                                              end;
-                                          end
-                                          else
-                                          begin
-                                             if not FileExists(exeRegSvr32Path) then
-                                                strRegErrMsg := 'file not found'
-                                             else if LastError > 0 then
-                                                strRegErrMsg := SysErrorMessage(LastError)
-                                             else if LastExceptionStr <> '' then
-                                                strRegErrMsg := LastExceptionStr;
-                                             strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['regsvr32.exe'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
+                                             CloseHandle(eProcessInfo.hProcess);
+                                             CloseHandle(eProcessInfo.hThread);
+                                          except
                                           end;
-                                       finally
+                                       end
+                                       else
+                                       begin
+                                          if not FileExists(exeRegSvr32Path) then
+                                             strRegErrMsg := 'file not found'
+                                          else if LastError > 0 then
+                                             strRegErrMsg := SysErrorMessage(LastError)
+                                          else if LastExceptionStr <> '' then
+                                             strRegErrMsg := LastExceptionStr;
+                                          strRegErrMsg := GetLangTextFormatDef(idxMain, ['Messages', 'ProblemStarting'], ['regsvr32.exe'], 'problem starting %s'#13#10#13#10'System message:') + ' ' + strRegErrMsg;
                                        end;
+                                    finally
+                                    end;
                                  end;
 
                                  if Result then
@@ -12568,7 +13695,7 @@ begin
                                        i := 0;
                                        while True do
                                        begin
-                                          Sleep(500);
+                                          mEvent.WaitFor(500);
                                           Result := ServiceStart('VBoxNet' + strNetBrdg1);
                                           if Result then
                                              Break;
@@ -12970,7 +14097,7 @@ begin
                                        i := 0;
                                        while True do
                                        begin
-                                          Sleep(500);
+                                          mEvent.WaitFor(500);
                                           Result := ServiceStart('VBoxUSB');
                                           if Result then
                                              Break;
@@ -13010,7 +14137,7 @@ begin
                   begin
                      while True do
                      begin
-                        GetAllWindowsList('QWidget');
+                        GetAllWindowsList(VBWinClass);
                         h := High(AllWindowsList);
                         i := 0;
                         cm := 0;
@@ -13037,7 +14164,7 @@ begin
                                  begin
                                     isBusyClosing := True;
                                     try
-                                       GetAllWindowsList('QWidget');
+                                       GetAllWindowsList(VBWinClass);
                                        h := High(AllWindowsList);
                                        i := 0;
                                        cm := 0;
@@ -13069,7 +14196,7 @@ begin
                                              Wait(100);
                                              if (GetTickCount - dt) > wt then
                                                 Break;
-                                             GetAllWindowsList('QWidget');
+                                             GetAllWindowsList(VBWinClass);
                                              h := High(AllWindowsList);
                                              i := 0;
                                              cm := 0;
@@ -13095,9 +14222,9 @@ begin
                                     end;
                                  end;
                               mrIgnore: Break;
-                           else
-                              DoNotRegister := True;
-                              Break;
+                              else
+                                 DoNotRegister := True;
+                                 Break;
                            end;
                         end;
                         if (cm + cvm) = 0 then
@@ -13121,11 +14248,11 @@ begin
                               end;
                            end
                            else
-                              try
-                                 TerminateThread(FRegThread.Handle, 0);
-                                 FRegThread := nil;
-                              except
-                              end;
+                           try
+                              TerminateThread(FRegThread.Handle, 0);
+                              FRegThread := nil;
+                           except
+                           end;
                         end;
                         if FUnregThread <> nil then
                         begin
@@ -13140,11 +14267,11 @@ begin
                               end;
                            end
                            else
-                              try
-                                 TerminateThread(FRegThread.Handle, 0);
-                                 FRegThread := nil;
-                              except
-                              end;
+                           try
+                              TerminateThread(FRegThread.Handle, 0);
+                              FRegThread := nil;
+                           except
+                           end;
                         end;
                      end;
                      if PrecacheVBFiles and cbPrecacheVBFiles.Checked then
@@ -13162,11 +14289,11 @@ begin
                               end;
                            end
                            else
-                              try
-                                 TerminateThread(FPCThread.Handle, 0);
-                                 FPCThread := nil;
-                              except
-                              end;
+                           try
+                              TerminateThread(FPCThread.Handle, 0);
+                              FPCThread := nil;
+                           except
+                           end;
                         end;
                      end;
                      if PrestartVBExeFiles and cbPrestartVBExeFiles.Checked then
@@ -13180,11 +14307,11 @@ begin
                            end;
                         end
                         else
-                           try
-                              TerminateThread(FPSThread.Handle, 0);
-                              FPSThread := nil;
-                           except
-                           end;
+                        try
+                           TerminateThread(FPSThread.Handle, 0);
+                           FPSThread := nil;
+                        except
+                        end;
                      end;
                      if (PrestartVBExeFiles and FPSJobDone) and (LowerCase(ExeVBPath) <> LowerCase(TRim(edtVBExePath.Text))) then
                      begin
@@ -13250,6 +14377,7 @@ begin
                      begin
                         if PathIsRelative(PChar(ExeVBPathTemp)) then
                         begin
+                           FillMemory(@Path[0], Length(Path), 0);
                            PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + ExeVBPathTemp));
                            if string(Path) <> '' then
                               ws := Path
@@ -13298,11 +14426,11 @@ begin
                                        end;
                                     end
                                     else
-                                       try
-                                          TerminateThread(FRegThread.Handle, 0);
-                                          FRegThread := nil;
-                                       except
-                                       end;
+                                    try
+                                       TerminateThread(FRegThread.Handle, 0);
+                                       FRegThread := nil;
+                                    except
+                                    end;
                                  end;
                                  if FUnregThread <> nil then
                                  begin
@@ -13317,11 +14445,11 @@ begin
                                        end;
                                     end
                                     else
-                                       try
-                                          TerminateThread(FRegThread.Handle, 0);
-                                          FRegThread := nil;
-                                       except
-                                       end;
+                                    try
+                                       TerminateThread(FRegThread.Handle, 0);
+                                       FRegThread := nil;
+                                    except
+                                    end;
                                  end;
                                  FRegJobDone := False;
                                  FRegThread := TRegisterThread.Create;
@@ -13341,11 +14469,11 @@ begin
                         begin
                            ws := ws + '\.VirtualBox\VirtualBox.xml';
                            if FileExists(ws) then
-                              try
-                                 xmlGen.LoadFromFile(ws);
-                              except
-                                 xmlGen.Active := False;
-                              end;
+                           try
+                              xmlGen.LoadFromFile(ws);
+                           except
+                              xmlGen.Active := False;
+                           end;
                            xmlGen.Tag := Integer(xmlGen.Active);
                            xmlGen.Active := False;
                         end;
@@ -13463,6 +14591,7 @@ begin
                else
                   ExeQPath := '';
                HideConsoleWindow := cbHideConsoleWindow.Checked;
+               EmulationBusType := cbEmulationBusType.ItemIndex;
                QEMUDefaultParameters := Trim(edtDefaultParameters.Text);
                if DoAlign then
                begin
@@ -13471,6 +14600,7 @@ begin
                end;
                vstVMs.Header.Columns.EndUpdate;
                vstVMs.EndUpdate;
+               StartKeyComb := hkStart.HotKey;
                SaveCFG(CfgFile);
             end;
          end;
@@ -13480,15 +14610,68 @@ begin
             frmOptions := nil;
          except
          end;
+         ShortCutToHotKey(StartKeyComb, Key, Modifiers);
+         Hotkey_id := GlobalAddAtom('hkVMUbStart');
+         RegisterHotKey(frmMain.Handle, Hotkey_id, Modifiers, Key);
       end;
    except
    end;
    btnOptions.Down := False;
 end;
 
+procedure TfrmMain.WMHotKey(var Msg: TWMHotKey);
+begin
+   if Msg.HotKey = Hotkey_id then
+      if not isOnModal then
+         btnStart.Click;
+end;
+
 procedure TfrmMain.mmHelpClick(Sender: TObject);
 begin
    OpenInternetHelp(Self.Handle, DefSiteHelp);
+end;
+
+procedure TfrmMain.mmHideTrayIconClick(Sender: TObject);
+var
+   t: Double;
+   dt: Cardinal;
+begin
+   HideTray;
+   ShowTrayIcon := False;
+   btnShowTrayIcon.Visible := True;
+   btnExit.Tag := 7;
+   OnResize := nil;
+   if Visible and (not IsIconic(Application.Handle)) then
+   begin
+      LockWindowUpdate(Handle);
+      SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(False), 0);
+   end;
+   Constraints.MinHeight := 2 * vstVMs.Top + 8 * btnStart.Height + Height - ClientHeight;
+   Constraints.MaxHeight := Height - ClientHeight + 2 * vstVms.Top + vstVMs.Height - vstVMs.ClientHeight + 12 * Integer(vstVMs.DefaultNodeHeight);
+   t := 1.0 / 7 * (btnExit.Top - btnStart.Top);
+   btnAdd.Top := Round(t + btnStart.Top);
+   btnEdit.Top := Round(2.0 * t + btnStart.Top);
+   btnDelete.Top := Round(3.0 * t + btnStart.Top);
+   btnManager.Top := Round(4.0 * t + btnStart.Top);
+   btnOptions.Top := Round(5.0 * t + btnStart.Top);
+   btnShowTrayIcon.Top := Round(6.0 * t + btnStart.Top);
+   if Visible and (not IsIconic(Application.Handle)) then
+   begin
+      SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(True), 0);
+      LockWindowUpdate(0);
+   end;
+   OnResize := FormResize;
+   if IsIconic(Application.Handle) then
+   begin
+      SendMessage(Application.Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+      dt := GetTickCount;
+      while isIconic(Application.Handle) do
+      begin
+         Application.ProcessMessages;
+         if (GetTickCount - dt) > 3000 then
+            Break;
+      end;
+   end
 end;
 
 procedure TfrmMain.mmOptionsClick(Sender: TObject);
@@ -13521,45 +14704,45 @@ var
 begin
    Result := '0';
    if Succeeded(CoInitialize(nil)) then
+   try
       try
-         try
-            objWMIService := GetWMIObject(AnsiString(Format('winmgmts:\\%s\%s', ['.', 'root\CIMV2'])));
-            colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Caption', 'Win32_CDROMDrive']), 'WQL', 0);
-            oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
-            i := 0;
-            isFound := False;
-            while oEnum.Next(1, colItem, iValue) = 0 do
+         objWMIService := GetWMIObject(AnsiString(Format('winmgmts:\\%s\%s', ['.', 'root\CIMV2'])));
+         colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Caption', 'Win32_CDROMDrive']), 'WQL', 0);
+         oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
+         i := 0;
+         isFound := False;
+         while oEnum.Next(1, colItem, iValue) = 0 do
+         begin
+            if AnsiString(colItem.Properties_.Item('Caption', 0)) = CDROMName then
             begin
-               if AnsiString(colItem.Properties_.Item('Caption', 0)) = CDROMName then
-               begin
-                  isFound := True;
-                  Break;
-               end;
-               Inc(i);
+               isFound := True;
+               Break;
             end;
-            if not isFound then
-               Exit;
-            colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Drive', 'Win32_CDROMDrive']), 'WQL', 0);
-            oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
-            j := 0;
-            while oEnum.Next(1, colItem, iValue) = 0 do
-            begin
-               if i = j then
-               begin
-                  strTemp := AnsiString(colItem.Properties_.Item('Drive', 0));
-                  if (Length(strTemp) = 2) and (strTemp[2] = ':') and (strTemp[1] in ['A'..'Z']) then
-                     Result := strTemp[1];
-                  Break;
-               end;
-               Inc(j);
-               if j > i then
-                  Break;
-            end;
-         except
+            Inc(i);
          end;
-      finally
-         CoUninitialize;
+         if not isFound then
+            Exit;
+         colItems := objWMIService.ExecQuery(Format('SELECT %s FROM %s', ['Drive', 'Win32_CDROMDrive']), 'WQL', 0);
+         oEnum := IUnknown(colItems._NewEnum) as IEnumvariant;
+         j := 0;
+         while oEnum.Next(1, colItem, iValue) = 0 do
+         begin
+            if i = j then
+            begin
+               strTemp := AnsiString(colItem.Properties_.Item('Drive', 0));
+               if (Length(strTemp) = 2) and (strTemp[2] = ':') and (strTemp[1] in ['A'..'Z']) then
+                  Result := strTemp[1];
+               Break;
+            end;
+            Inc(j);
+            if j > i then
+               Break;
+         end;
+      except
       end;
+   finally
+      CoUninitialize;
+   end;
 end;
 
 procedure GetVBVersion;
@@ -13574,6 +14757,7 @@ begin
    WaitForVBSVC := True;
    VBSVC2x := True;
    UseDll := False;
+   VBWinClass := 'QWidget';
    try
       if not FileExists(ExeVBPath) then
       begin
@@ -13625,6 +14809,9 @@ begin
       begin
          WaitForVBSVC := False;
          VBSVC2x := False;
+         if ((LongRec(FixedPtr.dwFileVersionMS).hi = 5) and (((LongRec(FixedPtr.dwFileVersionMS).Lo = 1) and (LongRec(FixedPtr.dwFileVersionLS).hi >= 2))
+            or (LongRec(FixedPtr.dwFileVersionMS).Lo >= 2))) or (LongRec(FixedPtr.dwFileVersionMS).hi > 5) then
+            VBWinClass := 'Qt5QWindowIcon';
          Exit;
       end;
 
@@ -13642,9 +14829,9 @@ begin
                WaitForVBSVC := False;
                VBSVC2x := False;
             end;
-      else
-         WaitForVBSVC := False;
-         VBSVC2x := False;
+         else
+            WaitForVBSVC := False;
+            VBSVC2x := False;
       end;
    except
    end;
@@ -13685,8 +14872,8 @@ begin
                   8: FFDImageIndex := 14;
                   14, 15:
                      FFDImageIndex := 8;
-               else
-                  FFDImageIndex := 6;
+                  else
+                     FFDImageIndex := 6;
                end;
          end
          else if ListOnlyUSBDrives then
@@ -13702,8 +14889,8 @@ begin
                8: FFDImageIndex := 15;
                14, 15:
                   FFDImageIndex := 9;
-            else
-               FFDImageIndex := 7;
+               else
+                  FFDImageIndex := 7;
             end;
 
          if SecondDriveName = '' then
@@ -13728,8 +14915,8 @@ begin
                   8: FSDImageIndex := 14;
                   14, 15:
                      FSDImageIndex := 8;
-               else
-                  FSDImageIndex := 6;
+                  else
+                     FSDImageIndex := 6;
                end;
          end
          else if ListOnlyUSBDrives then
@@ -13745,14 +14932,42 @@ begin
                8: FSDImageIndex := 15;
                14, 15:
                   FSDImageIndex := 9;
-            else
-               FSDImageIndex := 7;
+               else
+                  FSDImageIndex := 7;
             end;
       end;
       Node := frmMain.vstVMs.GetNext(Node);
    end;
    vstVMs.EndUpdate;
    vstVMs.Invalidate;
+end;
+
+procedure TfrmMain.mmShowHideMainWindowClick(Sender: TObject);
+var
+   dt: Cardinal;
+begin
+   if IsIconic(Application.Handle) then
+   begin
+      SendMessage(Application.Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+      dt := GetTickCount;
+      while isIconic(Application.Handle) do
+      begin
+         Application.ProcessMessages;
+         if (GetTickCount - dt) > 3000 then
+            Break;
+      end;
+      SetForegroundWindow(Handle);
+      if Assigned(frmOptions) and frmOptions.Showing then
+         SetForegroundWindow(frmOptions.Handle);
+   end
+   else if not Showing then
+   begin
+      Show;
+      if Assigned(frmOptions) and frmOptions.Showing then
+         SetForegroundWindow(frmOptions.Handle);
+   end
+   else
+      Hide;
 end;
 
 procedure TfrmMain.mmStartManagersClick(Sender: TObject);
@@ -13782,6 +14997,7 @@ var
    strTemp: string;
    exeVBPath: string;
    Path: array[0..MAX_PATH - 1] of Char;
+   dt: Cardinal;
    //     ts: TTime;
 begin
    if isBusyStartVM or IsBusyManager or IsBusyEjecting then
@@ -13795,15 +15011,22 @@ begin
    PrestartVBFilesAgain := False;
    try
       tmCheckCTRL.Enabled := False;
-      if btnStart.PngImage.Width = 16 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
-      end
-      else if btnStart.PngImage.Width = 24 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+            end;
       end;
       StartVMAnimation;
       if vstVMs.GetFirstSelected <> nil then
@@ -13818,6 +15041,7 @@ begin
             Exit;
          if PathIsRelative(PChar(Mainform.ExeVBPath)) then
          begin
+            FillMemory(@Path[0], Length(Path), 0);
             PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + Mainform.ExeVBPath));
             if string(Path) <> '' then
                exeVBPath := Path
@@ -13826,7 +15050,7 @@ begin
          end
          else
             exeVBPath := Mainform.ExeVBPath;
-         GetAllWindowsList('QWidget');
+         GetAllWindowsList(VBWinClass);
          l := Length(AllWindowsList);
          j := 0;
          while j < l do
@@ -13837,10 +15061,19 @@ begin
                      if not IsAppNotStartedByAdmin(ProcessID) then
                      begin
                         if IsIconic(AllWindowsList[j].Handle) then
-                           SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_RESTORE, 0)
+                        begin
+                           SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                           dt := GetTickCount;
+                           while isIconic(AllWindowsList[j].Handle) do
+                           begin
+                              Application.ProcessMessages;
+                              if (GetTickCount - dt) > 3000 then
+                                 Break;
+                           end;
+                        end
                         else
                            SetForegroundWindow(AllWindowsList[j].Handle);
-                        Sleep(1000);
+                        mEvent.WaitFor(1000);
                         Exit;
                      end;
             Inc(j);
@@ -13879,7 +15112,7 @@ begin
                   Exit;
                if WaitForSingleObject(eProcessInfo.hProcess, 25) <> WAIT_TIMEOUT then
                   Break;
-               GetAllWindowsList('QWidget');
+               GetAllWindowsList(VBWinClass);
                l := Length(AllWindowsList);
                j := 0;
                while j < l do
@@ -13928,10 +15161,19 @@ begin
                      if not IsAppNotStartedByAdmin(ProcessID) then
                      begin
                         if IsIconic(AllWindowsList[j].Handle) then
-                           SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_RESTORE, 0)
+                        begin
+                           SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                           dt := GetTickCount;
+                           while isIconic(AllWindowsList[j].Handle) do
+                           begin
+                              Application.ProcessMessages;
+                              if (GetTickCount - dt) > 3000 then
+                                 Break;
+                           end;
+                        end
                         else
                            SetForegroundWindow(AllWindowsList[j].Handle);
-                        Sleep(1000);
+                        mEvent.WaitFor(1000);
                         Exit;
                      end;
             Inc(j);
@@ -14159,8 +15401,8 @@ begin
                         8: FFDImageIndex := 14;
                         14, 15:
                            FFDImageIndex := 8;
-                     else
-                        FFDImageIndex := 6;
+                        else
+                           FFDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -14176,8 +15418,8 @@ begin
                      8: FFDImageIndex := 15;
                      14, 15:
                         FFDImageIndex := 9;
-                  else
-                     FFDImageIndex := 7;
+                     else
+                        FFDImageIndex := 7;
                   end;
 
                if SecondDriveName = '' then
@@ -14202,8 +15444,8 @@ begin
                         8: FSDImageIndex := 14;
                         14, 15:
                            FSDImageIndex := 8;
-                     else
-                        FSDImageIndex := 6;
+                        else
+                           FSDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -14219,8 +15461,8 @@ begin
                      8: FSDImageIndex := 15;
                      14, 15:
                         FSDImageIndex := 9;
-                  else
-                     FSDImageIndex := 7;
+                     else
+                        FSDImageIndex := 7;
                   end;
             end;
             Node := frmMain.vstVMs.GetNext(Node);
@@ -14472,8 +15714,8 @@ begin
                               8: FFDImageIndex := 14;
                               14, 15:
                                  FFDImageIndex := 8;
-                           else
-                              FFDImageIndex := 6;
+                              else
+                                 FFDImageIndex := 6;
                            end;
                      end
                      else if ListOnlyUSBDrives then
@@ -14489,8 +15731,8 @@ begin
                            8: FFDImageIndex := 15;
                            14, 15:
                               FFDImageIndex := 9;
-                        else
-                           FFDImageIndex := 7;
+                           else
+                              FFDImageIndex := 7;
                         end;
 
                      if SecondDriveName = '' then
@@ -14515,8 +15757,8 @@ begin
                               8: FSDImageIndex := 14;
                               14, 15:
                                  FSDImageIndex := 8;
-                           else
-                              FSDImageIndex := 6;
+                              else
+                                 FSDImageIndex := 6;
                            end;
                      end
                      else if ListOnlyUSBDrives then
@@ -14532,8 +15774,8 @@ begin
                            8: FSDImageIndex := 15;
                            14, 15:
                               FSDImageIndex := 9;
-                        else
-                           FSDImageIndex := 7;
+                           else
+                              FSDImageIndex := 7;
                         end;
                   end;
                   Node := frmMain.vstVMs.GetNext(Node);
@@ -14772,8 +16014,8 @@ begin
                         8: FFDImageIndex := 14;
                         14, 15:
                            FFDImageIndex := 8;
-                     else
-                        FFDImageIndex := 6;
+                        else
+                           FFDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -14789,8 +16031,8 @@ begin
                      8: FFDImageIndex := 15;
                      14, 15:
                         FFDImageIndex := 9;
-                  else
-                     FFDImageIndex := 7;
+                     else
+                        FFDImageIndex := 7;
                   end;
 
                if SecondDriveName = '' then
@@ -14815,8 +16057,8 @@ begin
                         8: FSDImageIndex := 14;
                         14, 15:
                            FSDImageIndex := 8;
-                     else
-                        FSDImageIndex := 6;
+                        else
+                           FSDImageIndex := 6;
                      end;
                end
                else if ListOnlyUSBDrives then
@@ -14832,8 +16074,8 @@ begin
                      8: FSDImageIndex := 15;
                      14, 15:
                         FSDImageIndex := 9;
-                  else
-                     FSDImageIndex := 7;
+                     else
+                        FSDImageIndex := 7;
                   end;
             end;
             Node := frmMain.vstVMs.GetNext(Node);
@@ -14969,9 +16211,9 @@ begin
                               CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'ErrorAccessVolDrive'], [SysErrorMessage(LastError)], 'Error accessing the volume on drive !'#13#10#13#10'System message: %s')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                            end;
                         end
-                  else
-                     CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'NotRemFixedLocalDrive'], 'This is not a removable or fixed local drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
-                     Exit;
+                     else
+                        CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'NotRemFixedLocalDrive'], 'This is not a removable or fixed local drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+                        Exit;
                   end;
                finally
                   SetErrorMode(ErrorMode);
@@ -14982,9 +16224,9 @@ begin
                CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'NotVolDrive'], 'Not a volume or drive !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
             end;
          end;
-   else
-      DragFinish(Msg.wParam);
-      CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+      else
+         DragFinish(Msg.wParam);
+         CustomMessageBox(Handle, (GetLangTextDef(idxMain, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
    end;
 end;
 
@@ -15018,12 +16260,12 @@ begin
                      Inc(j);
                      Result[j] := '\';
                   end;
-            else
-               begin
-                  Result[j] := '\';
-                  Inc(j);
-                  Result[j] := InputText[i + 1];
-               end;
+               else
+                  begin
+                     Result[j] := '\';
+                     Inc(j);
+                     Result[j] := InputText[i + 1];
+                  end;
             end;
             Inc(i, 2);
             Inc(j);
@@ -15189,7 +16431,7 @@ const
 var
    msgForm: TForm;
    DialogUnits: TPoint;
-   HorzMargin, VertMargin, HorzSpacing, VertSpacing, ButtonWidth, ButtonHeight, ButtonMargin, ButtonSpacing, ButtonCount, ButtonGroupWidth, IconTextWidth, IconTextHeight, X, ALeft: Integer;
+   HorzMargin, VertMargin, HorzSpacing, VertSpacing, ButtonWidth, ButtonHeight, ButtonMargin, ButtonSpacing, ButtonCount, ButtonGroupWidth, IconTextWidth, IconTextHeight, X, ALeft, wImg: Integer;
    b, CancelButton: TMsgDlgBtn;
    IconID: PChar;
    OwnerRect, ATextRect: TRect;
@@ -15198,9 +16440,23 @@ var
    LButton: TPngBitBtn;
    AddCb, Snap: Boolean;
    ImgSize: Integer;
+   dt: Cardinal;
 begin
    Snap := False;
    SystemParametersInfo(SPI_GETSNAPTODEFBUTTON, 1, @Snap, 0);
+   if OwnerHandle <> 0 then
+      if isIconic(Application.Handle) then
+      begin
+         SendMessage(Application.Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+         dt := GetTickCount;
+         while isIconic(Application.Handle) do
+         begin
+            Application.ProcessMessages;
+            if (GetTickCount - dt) > 3000 then
+               Break;
+         end;
+         SetForegroundWindow(OwnerHandle);
+      end;
    Owner := FindControl(OwnerHandle);
    if Owner = nil then
       msgForm := TMessageForm.CreateNew(Application)
@@ -15209,6 +16465,7 @@ begin
    AddCb := CbText <> '';
    msgForm.Caption := Caption;
    ImgSize := Round(32.0 * Screen.PixelsPerInch / 96);
+   wImg := 16;
    with msgForm do
    begin
       Visible := False;
@@ -15237,14 +16494,28 @@ begin
          end;
       end;
       ButtonMargin := Round(sqrt(ButtonWidth)) + 5;
-      if (3 * ButtonMargin + frmMain.imlBtn16.Width + ButtonWidth) < MulDiv(mcButtonWidth, DialogUnits.X, 4) then
+      case SystemIconSize of
+         -2147483647..18:
+            begin
+               wImg := frmMain.imlBtn16.Width;
+            end;
+         19..22:
+            begin
+               wImg := frmMain.imlBtn20.Width;
+            end;
+         23..2147483647:
+            begin
+               wImg := frmMain.imlBtn24.Width;
+            end;
+      end;
+      if (3 * ButtonMargin + wImg + ButtonWidth) < MulDiv(mcButtonWidth, DialogUnits.X, 4) then
       begin
-         ButtonMargin := Max(0, Round((MulDiv(mcButtonWidth, DialogUnits.X, 4) - frmMain.imlBtn16.Width - ButtonWidth) / 3));
+         ButtonMargin := Max(0, Round((MulDiv(mcButtonWidth, DialogUnits.X, 4) - wImg - ButtonWidth) / 3));
          ButtonWidth := MulDiv(mcButtonWidth, DialogUnits.X, 4);
       end
       else
-         ButtonWidth := 3 * ButtonMargin + frmMain.imlBtn16.Width + ButtonWidth;
-      ButtonHeight := Max(frmMain.imlBtn16.Height + 8, MulDiv(mcButtonHeight, DialogUnits.Y, 8));
+         ButtonWidth := 3 * ButtonMargin + wImg + ButtonWidth;
+      ButtonHeight := Max(wImg + 8, MulDiv(mcButtonHeight, DialogUnits.Y, 8));
       ButtonSpacing := MulDiv(mcButtonSpacing, DialogUnits.X, 4);
       SetRect(ATextRect, 0, 0, Round(3 * Screen.WorkAreaWidth / 4), 0);
       DrawText(Canvas.Handle, PChar(Msg), Length(Msg) + 1, ATextRect, DT_EXPANDTABS or DT_CALCRECT or DT_WORDBREAK or DrawTextBiDiModeFlagsReadingOnly);
@@ -15362,22 +16633,55 @@ begin
                Parent := msgForm;
                DrawText(Canvas.Handle, PChar(GetLangTextDef(idxMessages, ['Buttons', AnsiString(ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', ''))], AnsiString(ButtonNames[b]))), -1, ATextRect, DT_CALCRECT or DT_LEFT or DT_SINGLELINE or DrawTextBiDiModeFlagsReadingOnly);
                with ATextRect do
-                  Spacing := Max(0, ButtonWidth - ButtonMargin - frmMain.imlBtn16.Width - Right + Left) div 2;
+                  Spacing := Max(0, ButtonWidth - ButtonMargin - wImg - Right + Left) div 2;
                Margin := ButtonMargin;
                Caption := GetLangTextDef(idxMessages, ['Buttons', AnsiString(ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', ''))], AnsiString(ButtonNames[b]));
-               case b of
-                  mbOK: PngImage := frmMain.imlBtn16.PngImages[13].PngImage;
-                  mbCancel: PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
-                  mbRetry: PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
-                  mbAbort: PngImage := frmMain.imlBtn16.PngImages[16].PngImage;
-                  mbIgnore: PngImage := frmMain.imlBtn16.PngImages[17].PngImage;
-                  mbYes: PngImage := frmMain.imlBtn16.PngImages[18].PngImage;
-                  mbNo: PngImage := frmMain.imlBtn16.PngImages[19].PngImage;
-                  mbYesToAll: if ListOnlyUSBDrives then
-                        PngImage := frmMain.imlVST16.PngImages[1].PngImage
-                     else
-                        PngImage := frmMain.imlVST16.PngImages[2].PngImage;
-                  mbNoToAll: PngImage := frmMain.imlBtn16.PngImages[19].PngImage;
+               case wImg of
+                  16:
+                     case b of
+                        mbOK: PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
+                        mbCancel: PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
+                        mbRetry: PngImage := frmMain.imlBtn16.PngImages[16].PngImage;
+                        mbAbort: PngImage := frmMain.imlBtn16.PngImages[17].PngImage;
+                        mbIgnore: PngImage := frmMain.imlBtn16.PngImages[18].PngImage;
+                        mbYes: PngImage := frmMain.imlBtn16.PngImages[19].PngImage;
+                        mbNo: PngImage := frmMain.imlBtn16.PngImages[20].PngImage;
+                        mbYesToAll: if ListOnlyUSBDrives then
+                              PngImage := frmMain.imlVST16.PngImages[1].PngImage
+                           else
+                              PngImage := frmMain.imlVST16.PngImages[2].PngImage;
+                        mbNoToAll: PngImage := frmMain.imlBtn16.PngImages[20].PngImage;
+                     end;
+                  20:
+                     case b of
+                        mbOK: PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
+                        mbCancel: PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
+                        mbRetry: PngImage := frmMain.imlBtn20.PngImages[16].PngImage;
+                        mbAbort: PngImage := frmMain.imlBtn20.PngImages[17].PngImage;
+                        mbIgnore: PngImage := frmMain.imlBtn20.PngImages[18].PngImage;
+                        mbYes: PngImage := frmMain.imlBtn20.PngImages[19].PngImage;
+                        mbNo: PngImage := frmMain.imlBtn20.PngImages[20].PngImage;
+                        mbYesToAll: if ListOnlyUSBDrives then
+                              PngImage := frmMain.imlVST20.PngImages[1].PngImage
+                           else
+                              PngImage := frmMain.imlVST20.PngImages[2].PngImage;
+                        mbNoToAll: PngImage := frmMain.imlBtn20.PngImages[20].PngImage;
+                     end;
+                  24:
+                     case b of
+                        mbOK: PngImage := frmMain.imlBtn24.PngImages[14].PngImage;
+                        mbCancel: PngImage := frmMain.imlBtn24.PngImages[15].PngImage;
+                        mbRetry: PngImage := frmMain.imlBtn24.PngImages[16].PngImage;
+                        mbAbort: PngImage := frmMain.imlBtn24.PngImages[17].PngImage;
+                        mbIgnore: PngImage := frmMain.imlBtn24.PngImages[18].PngImage;
+                        mbYes: PngImage := frmMain.imlBtn24.PngImages[19].PngImage;
+                        mbNo: PngImage := frmMain.imlBtn24.PngImages[20].PngImage;
+                        mbYesToAll: if ListOnlyUSBDrives then
+                              PngImage := frmMain.imlVST24.PngImages[1].PngImage
+                           else
+                              PngImage := frmMain.imlVST24.PngImages[2].PngImage;
+                        mbNoToAll: PngImage := frmMain.imlBtn24.PngImages[20].PngImage;
+                     end;
                end;
                ModalResult := ModalResults[b];
                if b = DefaultButton then
@@ -15438,8 +16742,10 @@ begin
          Result := 'MMC';
       14, 15:
          Result := 'VIRTUAL';
-   else
-      Result := '';
+      17:
+         Result := 'NVMe';
+      else
+         Result := '';
    end;
 end;
 
@@ -15475,6 +16781,8 @@ begin
       Result := 13
    else if BusType = 'VIRTUAL' then
       Result := 14
+   else if BusType = 'NVMe' then
+      Result := 16
    else
       Result := 0;
 end;
@@ -15542,15 +16850,15 @@ var
                PressedButtonStyle := BDR_SUNKENOUTER;
                PressedButtonFlags := BF_RECT or BF_MIDDLE or BF_ADJUST;
             end;
-      else
-         begin
-            NormalButtonStyle := BDR_RAISEDINNER;
-            NormalButtonFlags := BF_RECT or BF_MIDDLE or BF_SOFT or BF_ADJUST;
-            PressedButtonStyle := BDR_SUNKENOUTER;
-            PressedButtonFlags := BF_RECT or BF_MIDDLE or BF_ADJUST;
-            RaisedButtonStyle := BDR_RAISEDINNER;
-            RaisedButtonFlags := BF_LEFT or BF_TOP or BF_BOTTOM or BF_MIDDLE or BF_ADJUST;
-         end;
+         else
+            begin
+               NormalButtonStyle := BDR_RAISEDINNER;
+               NormalButtonFlags := BF_RECT or BF_MIDDLE or BF_SOFT or BF_ADJUST;
+               PressedButtonStyle := BDR_SUNKENOUTER;
+               PressedButtonFlags := BF_RECT or BF_MIDDLE or BF_ADJUST;
+               RaisedButtonStyle := BDR_RAISEDINNER;
+               RaisedButtonFlags := BF_LEFT or BF_TOP or BF_BOTTOM or BF_MIDDLE or BF_ADJUST;
+            end;
       end;
    end;
 
@@ -15719,30 +17027,44 @@ begin
          tmCheckCTRL.Enabled := True;
          Exit;
       end;
-      if btnStart.PngImage.Width = 16 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[9].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn16.PngImages[9].PngImage;
-      end
-      else if btnStart.PngImage.Width = 24 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[7].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn24.PngImages[7].PngImage;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[10].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[10].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[10].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[10].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[10].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[10].PngImage;
+            end;
       end;
       tmCheckCTRL.Enabled := True;
    end
    else
    begin
       tmCheckCTRL.Enabled := False;
-      if btnStart.PngImage.Width = 16 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
-      end
-      else if btnStart.PngImage.Width = 24 then
-      begin
-         if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
-            btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+            end;
       end;
    end;
 end;
@@ -15791,6 +17113,8 @@ begin
       FirstDriveAnimImageIndex := AnimationStartIndex;
       ShowFirstDriveAnim := True;
    end;
+   if TrayIcon.Visible and ShowFirstDriveAnim and ((not Visible) or IsIconic(Application.Handle)) then
+      TrayIcon.Animate := True;
    if not tmAnimation.Enabled then
       tmAnimation.Enabled := True;
 end;
@@ -15809,6 +17133,8 @@ begin
       SecDriveAnimImageIndex := AnimationStartIndex;
       ShowSecDriveAnim := True;
    end;
+   if TrayIcon.Visible and ShowSecDriveAnim and ((not Visible) or IsIconic(Application.Handle)) then
+      TrayIcon.Animate := True;
    if not tmAnimation.Enabled then
       tmAnimation.Enabled := True;
 end;
@@ -15822,6 +17148,8 @@ begin
       VMAnimImageIndex := AnimationStartIndex;
       ShowVMAnim := True;
    end;
+   if TrayIcon.Visible and ShowVMAnim and ((not Visible) or IsIconic(Application.Handle)) then
+      TrayIcon.Animate := True;
    if not tmAnimation.Enabled then
       tmAnimation.Enabled := True;
 end;
@@ -15831,8 +17159,16 @@ var
    R: TRect;
 begin
    ShowFirstDriveAnim := False;
+   if TrayIcon.Visible and (not ShowSecDriveAnim) and (not ShowVMAnim) then
+      if TrayIcon.Animate then
+         StopTrayAnimation
+      else
+         SetTrayIcon;
    if tmAnimation.Enabled and (not ShowSecDriveAnim) and (not ShowVMAnim) then
+   begin
       tmAnimation.Enabled := False;
+      TrayIcon.Animate := False;
+   end;
    if vstVMs.GetFirstSelected = nil then
       Exit;
    if coVisible in vstVMs.Header.Columns[2].Options then
@@ -15849,6 +17185,11 @@ var
    R: TRect;
 begin
    ShowSecDriveAnim := False;
+   if TrayIcon.Visible and (not ShowFirstDriveAnim) and (not ShowVMAnim) then
+      if TrayIcon.Animate then
+         StopTrayAnimation
+      else
+         SetTrayIcon;
    if tmAnimation.Enabled and (not ShowFirstDriveAnim) and (not ShowVMAnim) then
       tmAnimation.Enabled := False;
    if vstVMs.GetFirstSelected = nil then
@@ -15867,6 +17208,11 @@ var
    R: TRect;
 begin
    ShowVMAnim := False;
+   if TrayIcon.Visible and (not ShowSecDriveAnim) and (not ShowFirstDriveAnim) then
+      if TrayIcon.Animate then
+         StopTrayAnimation
+      else
+         SetTrayIcon;
    if tmAnimation.Enabled and (not ShowFirstDriveAnim) and (not ShowSecDriveAnim) then
       tmAnimation.Enabled := False;
    if vstVMs.GetFirstSelected = nil then
@@ -15878,6 +17224,8 @@ begin
       R.Right := R.Left + imlVST_items.Width;
       InvalidateRect(vstVms.Handle, &R, False);
    end;
+   if (not ShowFirstDriveAnim) and (not ShowSecDriveAnim) then
+      TrayIcon.Animate := False;
 end;
 
 procedure Wait(dt: DWORD);
@@ -15946,17 +17294,19 @@ var
    Delta: Integer;
    MinValue: Integer;
    r, g, b, c, h, s, v, v1, v2, f, hTemp, p, q, t: Integer;
-   SelBckItemColor, BckItemColor: TColor;
+   SelBckItemColor, BckItemColor, TaskbarColor: TColor;
 begin
    if StyleServices.Enabled then
    begin
       SelBckItemColor := StyleServices.GetSystemColor(frmMain.vstVMs.Colors.SelectionRectangleBlendColor);
       BckItemColor := StyleServices.GetStyleColor(scTreeView);
+      TaskbarColor := StyleServices.GetStyleColor(scButtonNormal);
    end
    else
    begin
       SelBckItemColor := frmMain.vstVMs.Colors.SelectionRectangleBlendColor;
       BckItemColor := frmMain.vstVMs.Color;
+      TaskbarColor := clBtnFace;
    end;
 
    SelBckItemColor := Blend(SelBckItemColor, BckItemColor, frmMain.vstVMs.SelectionBlendFactor);
@@ -15969,12 +17319,37 @@ begin
    if v <= 127 then
    begin
       AnimationStartIndex := 64; //white "busy"
-      AnimationEndIndex := 111;
+      AnimationEndIndex := 109;
    end
    else
    begin
       AnimationStartIndex := 16; //dark blue "busy"
-      AnimationEndIndex := 63;
+      AnimationEndIndex := 61;
+   end;
+
+   c := ColorToRGB(TaskbarColor);
+   r := GetRValue(c);
+   g := GetGValue(c);
+   b := GetBValue(c);
+   MinMax3(r, g, b, MinValue, v);
+   // Showmessage(Inttostr(r) + ' ' + Inttostr(g) + ' ' + Inttostr(b) + '   ' + Inttostr(v));
+   if v <= 127 then
+   begin
+      AnimTrayStartCopyIndex := 51; //white "busy"
+      frmMain.imlBtn16.PngImages[6].PngImage := frmMain.imlBtn16.PngImages[29].PngImage;
+      frmMain.imlBtn20.PngImages[6].PngImage := frmMain.imlBtn20.PngImages[29].PngImage;
+      frmMain.imlBtn24.PngImages[6].PngImage := frmMain.imlBtn24.PngImages[29].PngImage;
+      case SystemIconSize of
+         -2147483647..18: frmMain.btnShowTrayIcon.PngImage := frmMain.imlBtn16.PngImages[29].PngImage;
+         19..22: frmMain.btnShowTrayIcon.PngImage := frmMain.imlBtn20.PngImages[29].PngImage;
+         23..2147483647: frmMain.btnShowTrayIcon.PngImage := frmMain.imlBtn24.PngImages[29].PngImage;
+      end;
+      frmMain.mmHideTrayIcon.ImageIndex := 30;
+   end
+   else
+   begin
+      AnimTrayStartCopyIndex := 3; //dark blue "busy"
+      frmMain.mmHideTrayIcon.ImageIndex := 23;
    end;
 
    c := ColorToRGB(BckItemColor);
@@ -16097,12 +17472,12 @@ begin
                g := p;
                b := q;
             end;
-      else
-         begin
-            r := v1;
-            g := v1;
-            b := v1;
-         end
+         else
+            begin
+               r := v1;
+               g := v1;
+               b := v1;
+            end
       end
    end;
    DarkenBckColor := RGB(r, g, b);
@@ -16164,12 +17539,12 @@ begin
                g := p;
                b := q;
             end;
-      else
-         begin
-            r := v2;
-            g := v2;
-            b := v2;
-         end
+         else
+            begin
+               r := v2;
+               g := v2;
+               b := v2;
+            end
       end
    end;
    BrightenBckColor := RGB(r, g, b);
@@ -16179,21 +17554,22 @@ procedure TfrmMain.mmOpenInEXplorerClick(Sender: TObject);
 var
    eStartupInfo: TStartupInfo;
    eProcessInfo: TProcessInformation;
-   strTemp: string;
+   exeCmd, dirName: string;
 begin
    if isBusyStartVM or IsBusyManager or IsBusyEjecting then
       Exit;
    if vstVMs.GetFirstSelected = nil then
       Exit;
    try
-      strTemp := PathsToOpen[Min(High(PathsToOpen), Max(Low(PathsToOPen), StrToIntDef(Copy((Sender as TMenuItem).Name, 15, Length((Sender as TMenuItem).Name) - 14), 0)))];
+      dirName := PathsToOpen[Min(High(PathsToOpen), Max(Low(PathsToOPen), StrToIntDef(Copy((Sender as TMenuItem).Name, 15, Length((Sender as TMenuItem).Name) - 14), 0)))];
       FillChar(eStartupInfo, SizeOf(eStartupInfo), #0);
       eStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
       eStartupInfo.cb := SizeOf(eStartupInfo);
       eStartupInfo.wShowWindow := SW_SHOW;
-      strTemp := 'explorer.exe /n,/root,' + strTemp;
-      UniqueString(strTemp);
-      if CreateProcess(nil, PChar(strTemp), nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PChar(strTemp), eStartupInfo, eProcessInfo) then
+      exeCmd := 'explorer.exe /n,/root,' + dirName;
+      UniqueString(exeCmd);
+      UniqueString(dirName);
+      if CreateProcess(nil, PChar(exeCmd), nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PChar(dirName), eStartupInfo, eProcessInfo) then
       begin
          WaitForInputIdle(eProcessInfo.hProcess, 5000);
          try
@@ -16241,112 +17617,112 @@ begin
       end;
    end;
    if NativeUInt(hDevInfo) <> INVALID_HANDLE_VALUE then
-      try
-         dwIndex := 0;
-         spdid.cbSize := SizeOf(spdid);
+   try
+      dwIndex := 0;
+      spdid.cbSize := SizeOf(spdid);
 
-         while true do
-         begin
+      while true do
+      begin
+         try
             try
-               try
-                  prevLastError := LastError;
-                  res := SetupDiEnumDeviceInterfaces(hDevInfo, nil, StorageGUID, dwIndex, spdid);
-                  LastError := GetLastError;
-                  if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
-                     LastError := prevLastError;
-                  if not res then
-                     Break;
-               except
-                  on E: Exception do
-                  begin
-                     LastExceptionStr := E.Message;
-                     Exit;
-                  end;
-               end;
-               dwSize := 0;
-               try
-                  prevLastError := LastError;
-                  SetupDiGetDeviceInterfaceDetail(hDevInfo, @spdid, nil, 0, dwSize, nil);
-                  LastError := GetLastError;
-                  if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
-                     LastError := prevLastError;
-               except
-                  on E: Exception do
-                  begin
-                     LastExceptionStr := E.Message;
-                     Exit;
-                  end;
-               end;
-               if dwSize <> 0 then
+               prevLastError := LastError;
+               res := SetupDiEnumDeviceInterfaces(hDevInfo, nil, StorageGUID, dwIndex, spdid);
+               LastError := GetLastError;
+               if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
+                  LastError := prevLastError;
+               if not res then
+                  Break;
+            except
+               on E: Exception do
                begin
-                  pspdidd := AllocMem(dwSize);
-                  try
-                     {$IFDEF WIN32}
-                     pspdidd.cbSize := SizeOf(TSPDeviceInterfaceDetailData);
-                     {$ENDIF}
-                     {$IFDEF WIN64}
-                     pspdidd.cbSize := 8;
-                     {$ENDIF}
-                     ZeroMemory(@spdd, sizeof(spdd));
-                     spdd.cbSize := SizeOf(spdd);
-                     try
-                        prevLastError := LastError;
-                        res := SetupDiGetDeviceInterfaceDetail(hDevInfo, @spdid, pspdidd, dwSize, dwSize, @spdd);
-                        LastError := GetLastError;
-                        if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
-                           LastError := prevLastError;
-                        if not res then
-                           Continue;
-                     except
-                        on E: Exception do
-                        begin
-                           LastExceptionStr := E.Message;
-                           Exit;
-                        end;
-                     end;
-                     try
-                        prevLastError := LastError;
-                        hDrive := CreateFile(pspdidd.DevicePath, GENERIC_READ or GENERIC_WRITE, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, 0, 0);
-                        LastError := GetLastError;
-                        if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
-                           LastError := prevLastError;
-                        if hDrive = INVALID_HANDLE_VALUE then
-                           Continue;
-                        dwBytesReturned := 0;
-                        try
-                           prevLastError := LastError;
-                           res := DeviceIoControl(hDrive, IOCTL_STORAGE_GET_DEVICE_NUMBER, nil, 0, @sdn, sizeof(sdn), dwBytesReturned, nil);
-                           LastError := GetLastError;
-                           if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
-                              LastError := prevLastError;
-                        finally
-                           try
-                              CloseHandle(hDrive);
-                           except
-                           end;
-                        end;
-                        if not res then
-                           Continue;
-                        if DeviceNumber = Integer(sdn.DeviceNumber) then
-                        begin
-                           Result := spdd.DevInst;
-                           Exit;
-                        end;
-                     except
-                        on E: Exception do
-                           LastExceptionStr := E.Message;
-                     end;
-                  finally
-                     FreeMem(pspdidd);
-                  end;
+                  LastExceptionStr := E.Message;
+                  Exit;
                end;
-            finally
-               Inc(dwIndex);
             end;
+            dwSize := 0;
+            try
+               prevLastError := LastError;
+               SetupDiGetDeviceInterfaceDetail(hDevInfo, @spdid, nil, 0, dwSize, nil);
+               LastError := GetLastError;
+               if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
+                  LastError := prevLastError;
+            except
+               on E: Exception do
+               begin
+                  LastExceptionStr := E.Message;
+                  Exit;
+               end;
+            end;
+            if dwSize <> 0 then
+            begin
+               pspdidd := AllocMem(dwSize);
+               try
+                  {$IFDEF WIN32}
+                  pspdidd.cbSize := SizeOf(TSPDeviceInterfaceDetailData);
+                  {$ENDIF}
+                  {$IFDEF WIN64}
+                  pspdidd.cbSize := 8;
+                  {$ENDIF}
+                  ZeroMemory(@spdd, sizeof(spdd));
+                  spdd.cbSize := SizeOf(spdd);
+                  try
+                     prevLastError := LastError;
+                     res := SetupDiGetDeviceInterfaceDetail(hDevInfo, @spdid, pspdidd, dwSize, dwSize, @spdd);
+                     LastError := GetLastError;
+                     if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
+                        LastError := prevLastError;
+                     if not res then
+                        Continue;
+                  except
+                     on E: Exception do
+                     begin
+                        LastExceptionStr := E.Message;
+                        Exit;
+                     end;
+                  end;
+                  try
+                     prevLastError := LastError;
+                     hDrive := CreateFile(pspdidd.DevicePath, GENERIC_READ or GENERIC_WRITE, FILE_SHARE_READ or FILE_SHARE_WRITE, nil, OPEN_EXISTING, 0, 0);
+                     LastError := GetLastError;
+                     if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
+                        LastError := prevLastError;
+                     if hDrive = INVALID_HANDLE_VALUE then
+                        Continue;
+                     dwBytesReturned := 0;
+                     try
+                        prevLastError := LastError;
+                        res := DeviceIoControl(hDrive, IOCTL_STORAGE_GET_DEVICE_NUMBER, nil, 0, @sdn, sizeof(sdn), dwBytesReturned, nil);
+                        LastError := GetLastError;
+                        if (LastError = ERROR_NO_MORE_ITEMS) and (LastError > 0) and (LastError <> ERROR_NO_MORE_ITEMS) then
+                           LastError := prevLastError;
+                     finally
+                        try
+                           CloseHandle(hDrive);
+                        except
+                        end;
+                     end;
+                     if not res then
+                        Continue;
+                     if DeviceNumber = Integer(sdn.DeviceNumber) then
+                     begin
+                        Result := spdd.DevInst;
+                        Exit;
+                     end;
+                  except
+                     on E: Exception do
+                        LastExceptionStr := E.Message;
+                  end;
+               finally
+                  FreeMem(pspdidd);
+               end;
+            end;
+         finally
+            Inc(dwIndex);
          end;
-      finally
-         SetupDiDestroyDeviceInfoList(hDevInfo);
       end;
+   finally
+      SetupDiDestroyDeviceInfoList(hDevInfo);
+   end;
 end;
 
 function ServiceCreate(const sBinPath: string; sService: string = 'VBoxDRV'; const DisplayName: string = ''): Boolean;
@@ -16448,7 +17824,7 @@ begin
                LastError := 1053;
                Exit;
             end;
-            Sleep(dwWaitTime);
+            mEvent.WaitFor(dwWaitTime);
             if (GetTickCount - dt) > 20000 then
             begin
                LastError := 1053;
@@ -16497,7 +17873,7 @@ begin
                LastError := 1053;
                Exit;
             end;
-            Sleep(dwWaitTime);
+            mEvent.WaitFor(dwWaitTime);
             if (GetTickCount - dt) > 20000 then
             begin
                LastError := 1053;
@@ -16640,7 +18016,7 @@ begin
                LastError := 1053;
                Exit;
             end;
-            Sleep(dwWaitTime);
+            mEvent.WaitFor(dwWaitTime);
             if (GetTickCount - dt) > 20000 then
             begin
                LastError := 1053;
@@ -16706,7 +18082,7 @@ begin
             LastError := 1053;
             Exit;
          end;
-         Sleep(dwWaitTime);
+         mEvent.WaitFor(dwWaitTime);
          if (GetTickCount - dt) > 20000 then
          begin
             LastError := 1053;
@@ -16776,16 +18152,16 @@ begin
    Result := False;
    ResetLastError;
    if GetEnvVarValue(Name) <> Value then
-      try
-         if Value <> '' then
-            SetEnvironmentVariable(PChar(Name), PChar(Value))
-         else
-            SetEnvironmentVariable(PChar(Name), nil);
-         MainForm.LastError := GetLastError;
-      except
-         on E: Exception do
-            LastExceptionStr := E.Message;
-      end;
+   try
+      if Value <> '' then
+         SetEnvironmentVariable(PChar(Name), PChar(Value))
+      else
+         SetEnvironmentVariable(PChar(Name), nil);
+      MainForm.LastError := GetLastError;
+   except
+      on E: Exception do
+         LastExceptionStr := E.Message;
+   end;
    with TRegistry.Create do
    begin
       try
@@ -17256,6 +18632,334 @@ begin
       end;
    finally
       SetupDiDestroyDeviceInfoList(DeviceInfoSet);
+   end;
+end;
+
+{function TfrmMain.LoadIconFromResource(const nIndex: Integer): HIcon;
+var
+   hExe, hResource, hMem: THandle;
+   lpResource: PByte;
+   nID: Integer;
+begin
+   Result := 0;
+   hExe := LoadLibrary(PChar(Application.ExeName));
+   if hExe = 0 then
+      Exit;
+   hResource := FindResource(hExe, MAKEINTRESOURCE(nIndex), RT_GROUP_ICON);
+   if hResource = 0 then
+      Exit;
+   hMem := LoadResource(hExe, hResource);
+   lpResource := LockResource(hMem);
+   nID := LookupIconIdFromDirectoryEx(lpResource, TRUE, 24, 24, LR_DEFAULTCOLOR);
+   hResource := FindResource(hExe, MAKEINTRESOURCE(nID), MAKEINTRESOURCE(RT_ICON));
+   if hResource = 0 then
+      Exit;
+   hMem := LoadResource(hExe, hResource);
+   lpResource := LockResource(hMem);
+   Result := CreateIconFromResourceEx(lpResource, SizeofResource(hExe, hResource), TRUE, $00030000, 24, 24, LR_DEFAULTCOLOR);
+end;}
+
+procedure TfrmMain.SetTrayIcon;
+var
+   Icon: TIcon;
+begin
+   Icon := TIcon.Create;
+   case imlTray.Width of
+      16:
+         imlVST16.GetIcon(imlVST16.Count - 2 + Integer(VMisOff), Icon);
+      20:
+         imlVST20.GetIcon(imlVST20.Count - 2 + Integer(VMisOff), Icon);
+      24:
+         imlVST24.GetIcon(imlVST24.Count - 2 + Integer(VMisOff), Icon);
+      28:
+         imlVST28.GetIcon(imlVST28.Count - 2 + Integer(VMisOff), Icon);
+      32:
+         imlVST32.GetIcon(imlVST32.Count - 2 + Integer(VMisOff), Icon);
+   end;
+   TrayIcon.Icon := Icon;
+   Icon.Free;
+end;
+
+procedure TfrmMain.StopTrayAnimation;
+begin
+   TrayIcon.Animate := False;
+   SetTrayIcon;
+end;
+
+procedure TFrmMain.ShowTray;
+begin
+   ShowWindow(Application.Handle, SW_HIDE);
+   TrayIcon.Visible := True;
+end;
+
+procedure TFrmMain.HideTray;
+begin
+   if TrayIcon.Animate then
+   begin
+      TrayIcon.Animate := False;
+      case imlTray.Width of
+         16:
+            imlVST16.GetIcon(imlVST16.Count - 1, TrayIcon.Icon);
+         20:
+            imlVST20.GetIcon(imlVST20.Count - 1, TrayIcon.Icon);
+         24:
+            imlVST24.GetIcon(imlVST24.Count - 1, TrayIcon.Icon);
+         28:
+            imlVST28.GetIcon(imlVST28.Count - 1, TrayIcon.Icon);
+         32:
+            imlVST32.GetIcon(imlVST32.Count - 1, TrayIcon.Icon);
+      end;
+   end;
+   TrayIcon.Visible := False;
+   if not IsIconic(Application.Handle) then
+      if not Visible then
+         Show
+      else if isOnModal then
+         SetForegroundWindow(Application.Handle)
+      else
+         SetForegroundWindow(Handle);
+   ShowWindow(Application.Handle, SW_SHOW);
+end;
+
+procedure TFrmMain.AppMinimize(Sender: TObject);
+begin
+   if TrayIcon.Visible then
+   begin
+      ShowWindow(Application.Handle, SW_HIDE);
+      if TrayIcon.BalloonHint <> '' then
+      begin
+         TrayIcon.BalloonHint := '';
+         Application.ProcessMessages;
+      end;
+      TrayIcon.BalloonHint := GetLangTextFormatDef(idxMain, ['Messages', 'AppMinToTray'], ['Virtual Machine USB Boot'],
+         '%s is now minimized to tray'#13#10'Click on the icon to restore it...');
+      TrayIcon.ShowBalloonHint;
+      tmCloseHint.Interval := 5000;
+      tmCloseHint.Enabled := False;
+      tmCloseHint.Enabled := True;
+   end;
+end;
+
+procedure TFrmMain.AppRestore(Sender: TObject);
+begin
+   if TrayIcon.Visible then
+      ShowWindow(Application.Handle, SW_HIDE);
+end;
+
+procedure TFrmMain.StartVBNewMachineWizzard;
+var
+   j, k, l: Integer;
+   eStartupInfo: TStartupInfo;
+   eProcessInfo: TProcessInformation;
+   ProcessID: THandle;
+   PexeVBPath, PVBPath: PChar;
+   Result: Boolean;
+   strTemp: string;
+   exeVBPath: string;
+   Path: array[0..MAX_PATH - 1] of Char;
+   dt: Cardinal;
+   //     ts: TTime;
+begin
+   if isBusyStartVM or IsBusyManager or IsBusyEjecting then
+      Exit;
+
+   IsBusyManager := True;
+   FillChar(eStartupInfo, SizeOf(eStartupInfo), #0);
+   eStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
+   eStartupInfo.cb := SizeOf(eStartupInfo);
+   eStartupInfo.wShowWindow := SW_SHOWNORMAL;
+   PrestartVBFilesAgain := False;
+   try
+      tmCheckCTRL.Enabled := False;
+      case btnStart.PngImage.Width of
+         16:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn16.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn16.PngImages[0].PngImage;
+            end;
+         20:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn20.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn20.PngImages[0].PngImage;
+            end;
+         24:
+            begin
+               if btnStart.PngImage.Canvas.Pixels[8, 8] <> imlBtn24.PngImages[0].PngImage.Canvas.Pixels[8, 8] then
+                  btnStart.PngImage := imlBtn24.PngImages[0].PngImage;
+            end;
+      end;
+      StartVMAnimation;
+      if vstVMs.GetFirstSelected <> nil then
+      begin
+         vstVMs.ScrollIntoView(vstVMs.GetFirstSelected, True, True);
+         CurSelNode := vstVMs.GetFirstSelected.Index;
+      end;
+      vstVMs.SelectionLocked := True;
+      if (isVBPortable and ((not FRegJobDone)) or (not FUnregJobDone)) then
+         Exit;
+      if PathIsRelative(PChar(Mainform.ExeVBPath)) then
+      begin
+         FillMemory(@Path[0], Length(Path), 0);
+         PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + Mainform.ExeVBPath));
+         if string(Path) <> '' then
+            exeVBPath := Path
+         else
+            exeVBPath := Mainform.ExeVBPath;
+      end
+      else
+         exeVBPath := Mainform.ExeVBPath;
+      GetAllWindowsList(VBWinClass);
+      l := Length(AllWindowsList);
+      j := 0;
+      while j < l do
+      begin
+         if IsWindowVisible(AllWindowsList[j].Handle) then
+            if Pos('Oracle VM VirtualBox ', AllWindowsList[j].WCaption) = 1 then
+               if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                  if not IsAppNotStartedByAdmin(ProcessID) then
+                  begin
+                     if IsIconic(AllWindowsList[j].Handle) then
+                     begin
+                        SendMessage(AllWindowsList[j].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                        dt := GetTickCount;
+                        while isIconic(AllWindowsList[j].Handle) do
+                        begin
+                           Application.ProcessMessages;
+                           if (GetTickCount - dt) > 3000 then
+                              Break;
+                        end;
+                     end
+                     else
+                        SetForegroundWindow(AllWindowsList[j].Handle);
+                     mEvent.WaitFor(500);
+                     if not isWindowEnabled(AllWindowsList[j].Handle) then
+                     begin
+                        k := 0;
+                        while k < l do
+                        begin
+                           if IsWindowVisible(AllWindowsList[k].Handle) then
+                              if j <> k then
+                                 if IsWindowEnabled(AllWindowsList[k].Handle) then
+                                    if GetFileNameAndThreadFromHandle(AllWindowsList[k].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                                       if not IsAppNotStartedByAdmin(ProcessID) then
+                                       begin
+                                          SetForegroundWindow(AllWindowsList[k].Handle);
+                                          Exit;
+                                       end;
+                           Inc(k);
+                        end;
+                     end
+                     else
+                     begin
+                        keybd_event(VK_CONTROL, MapVirtualKey(VK_CONTROL, 0), 0, 0);
+                        keybd_event(Ord('N'), MapVirtualKey(Ord('N'), 0), 0, 0);
+                        keybd_event(Ord('N'), MapVirtualKey(Ord('N'), 0), KEYEVENTF_KEYUP, 0);
+                        keybd_event(VK_CONTROL, MapVirtualKey(VK_CONTROL, 0), KEYEVENTF_KEYUP, 0);
+                     end;
+                     Exit;
+                  end;
+         Inc(j);
+      end;
+      if ExeVBPath <> '' then
+      begin
+         UniqueString(ExeVBPath);
+         PexeVBPath := PChar(ExeVBPath);
+      end
+      else
+         PexeVBPath := nil;
+      if ExtractFilePath(ExeVBPath) <> '' then
+         PVBPath := PChar(ExtractFilePath(ExeVBPath))
+      else
+         PVBPath := nil;
+      strTemp := '';
+      //   ts := Now;
+      ResetLastError;
+      try
+         Result := CreateProcess(nil, PExeVBPath, nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PVBPath, eStartupInfo, eProcessInfo);
+         LastError := GetLastError;
+      except
+         on E: Exception do
+         begin
+            Result := False;
+            LastExceptionStr := E.Message;
+         end;
+      end;
+      if Result then
+      begin
+         PrestartVBFilesAgain := True;
+         while True do
+         begin
+            Application.ProcessMessages;
+            if Application.Terminated then
+               Exit;
+            if WaitForSingleObject(eProcessInfo.hProcess, 25) <> WAIT_TIMEOUT then
+               Break;
+            GetAllWindowsList(VBWinClass);
+            l := Length(AllWindowsList);
+            j := 0;
+            while j < l do
+            begin
+               if IsWindowVisible(AllWindowsList[j].Handle) then
+                  if Pos('Oracle VM VirtualBox ', AllWindowsList[j].WCaption) = 1 then
+                     if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                        if not IsAppNotStartedByAdmin(ProcessID) then
+                           Break;
+               Inc(j);
+            end;
+            if j < l then
+               Break;
+         end;
+         keybd_event(VK_CONTROL, MapVirtualKey(VK_CONTROL, 0), 0, 0);
+         keybd_event(Ord('N'), MapVirtualKey(Ord('N'), 0), 0, 0);
+         keybd_event(Ord('N'), MapVirtualKey(Ord('N'), 0), KEYEVENTF_KEYUP, 0);
+         keybd_event(VK_CONTROL, MapVirtualKey(VK_CONTROL, 0), KEYEVENTF_KEYUP, 0);
+         try
+            CloseHandle(eProcessInfo.hProcess);
+            CloseHandle(eProcessInfo.hThread);
+         except
+         end;
+      end
+      else
+      begin
+         StopVMAnimation;
+         Application.ProcessMessages;
+         if not FileExists(ExeVBPath) then
+            strTemp := 'file not found'
+         else if LastError > 0 then
+            strTemp := SysErrorMessage(LastError)
+         else if LastExceptionStr <> '' then
+            strTemp := LastExceptionStr
+         else
+            strTemp := 'Unknown error';
+         CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'VBUnableLaunch'], [strTemp], 'Unable to launch VirtualBox.exe !'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
+      end;
+   finally
+      StopVMAnimation;
+      IsBusyManager := False;
+      vstVMs.SelectionLocked := False;
+      btnManager.Down := False;
+      if PrestartVBFilesAgain then
+      begin
+         PrestartVBFilesAgain := False;
+         if PrestartVBExeFiles then
+         begin
+            if FPSThread <> nil then
+            begin
+               FPSThread.Terminate;
+               FPSThread.Free;
+               FPSThread := nil;
+            end;
+            try
+               CloseHandle(svcThrProcessInfo.hProcess);
+               CloseHandle(svcThrProcessInfo.hThread);
+            except
+            end;
+            FPSJobDone := False;
+            FPSThread := TPrestartThread.Create;
+         end;
+      end;
+      //  ts := Now - ts;
+        //ShowMessage('Starting VB Manager = ' + FormatDateTime('ss.zzz', ts));
    end;
 end;
 

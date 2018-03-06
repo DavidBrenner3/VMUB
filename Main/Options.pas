@@ -6,7 +6,7 @@ uses
    Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
    Dialogs, StdCtrls, Buttons, ExtCtrls, ShellApi, ProcessViewer, Math,
    xmldom, XMLIntf, msxmldom, XMLDoc, System.UITypes, System.StrUtils,
-   PngSpeedButton, PngBitBtn, ShLwApi;
+   PngSpeedButton, PngBitBtn, ShLwApi, Vcl.ComCtrls;
 
 type
    TfrmOptions = class(TForm)
@@ -27,14 +27,12 @@ type
       odSearchQExe: TOpenDialog;
       lblWaitTime: TLabel;
       edtWaitTime: TEdit;
-      gbDefaultVMType: TGroupBox;
       gbUpdateMethod: TGroupBox;
       cbRemoveDrive: TCheckBox;
       cbAutoDetect: TCheckBox;
       cbListOnlyUSBDrives: TCheckBox;
       fdListViewFont: TFontDialog;
       cbAutomaticFont: TCheckBox;
-      cbEscapeKeyClosesMain: TCheckBox;
       lblLanguage: TLabel;
       cmbLanguage: TComboBox;
       xmlTemp: TXMLDocument;
@@ -59,6 +57,11 @@ type
       gbApplicationStartup: TGroupBox;
       odSearchVBExe: TOpenDialog;
       cbuseLoadedFromInstalled: TCheckBox;
+      lblDefaultVMType: TLabel;
+      lblKeyCombination: TLabel;
+      hkStart: THotKey;
+    lblEmulationBusType: TLabel;
+    cbEmulationBusType: TComboBox;
       procedure cbUseVboxmanageClick(Sender: TObject);
       procedure cbDirectlyClick(Sender: TObject);
       procedure btnBrowseForVBExeClick(Sender: TObject);
@@ -137,7 +140,14 @@ begin
          if isInstalledVersion then
             odSearchVBExe.InitialDir := envProgramFiles
          else
-            odSearchVBExe.InitialDir := ExtractFilePath(Application.ExeName);
+         begin
+            FillMemory(@Path[0], Length(Path), 0);
+            PathCombine(@Path[0], PChar(ExtractFilePath(Application.ExeName)), PChar(edtVBExePath.Text));
+            if FileExists(string(Path)) then
+               odSearchVBExe.InitialDir := ExtractFilePath(string(Path))
+            else
+               odSearchVBExe.InitialDir := ExtractFilePath(Application.ExeName);
+         end;
    end
    else
       odSearchVBExe.InitialDir := FolderName;
@@ -147,8 +157,11 @@ begin
          edtVBExePath.Text := odSearchVBExe.FileName
       else
       begin
-         PathRelativePathTo(@Path[0], PChar(ExtractFilePath(Application.ExeName)), FILE_ATTRIBUTE_DIRECTORY, PChar(ExtractFilePath(odSearchVBExe.FileName)), 0);
-         edtVBExePath.Text := Path + ExtractFileName(odSearchVBExe.FileName);
+         FillMemory(@Path[0], Length(Path), 0);
+         if PathRelativePathTo(@Path[0], PChar(ExtractFilePath(Application.ExeName)), FILE_ATTRIBUTE_DIRECTORY, PChar(ExtractFilePath(odSearchVBExe.FileName)), 0) then
+            edtVBExePath.Text := string(Path) + ExtractFileName(odSearchVBExe.FileName)
+         else
+            edtVBExePath.Text := odSearchVBExe.FileName;
       end;
       edtVBExePath.SelStart := Length(edtVBExePath.Text);
       edtVBExePath.SelLength := 0;
@@ -174,46 +187,69 @@ begin
          if isInstalledVersion then
             odSearchQExe.InitialDir := envProgramFiles
          else
-            odSearchQExe.InitialDir := ExtractFilePath(Application.ExeName);
+         begin
+            FillMemory(@Path[0], Length(Path), 0);
+            PathCombine(@Path[0], PChar(ExtractFilePath(Application.ExeName)), PChar(edtQExePath.Text));
+            if DirectoryExists(string(Path)) then
+               odSearchQExe.InitialDir := string(Path)
+            else
+               odSearchQExe.InitialDir := ExtractFilePath(Application.ExeName);
+         end;
    end
    else
       odSearchQExe.InitialDir := FolderName;
    if odSearchQExe.Execute(Self.Handle) then
    begin
       if isInstalledVersion or (LowerCase(ExtractFileDrive(odSearchQExe.FileName)) <> LowerCase(ExtractFileDrive(Application.ExeName))) then
-         edtQExePath.Text := ExtractFilePath(odSearchQExe.FileName)
+      begin
+         edtQExePath.Text := ExtractFilePath(odSearchQExe.FileName);
+         FillMemory(@Path[0], Length(Path), 0);
+         PathCanonicalize(@Path[0], PChar(edtQExePath.Text));
+      end
       else
       begin
-         PathRelativePathTo(@Path[0], PChar(ExtractFilePath(Application.ExeName)), FILE_ATTRIBUTE_DIRECTORY, PChar(ExtractFilePath(odSearchQExe.FileName)), 0);
-         edtQExePath.Text := Path;
+         FillMemory(@Path[0], Length(Path), 0);
+         if PathRelativePathTo(@Path[0], PChar(ExtractFilePath(Application.ExeName)), FILE_ATTRIBUTE_DIRECTORY, PChar(ExtractFilePath(odSearchQExe.FileName)), 0) then
+         begin
+            edtQExePath.Text := Path;
+            PathCombine(@Path[0], PChar(ExtractFilePath(Application.ExeName)), PChar(edtQExePath.Text));
+         end
+         else
+         begin
+            FillMemory(@Path[0], Length(Path), 0);
+            edtQExePath.Text := ExtractFilePath(odSearchQExe.FileName);
+            PathCanonicalize(@Path[0], PChar(edtQExePath.Text));
+         end;
       end;
       edtQExePath.SelStart := Length(edtQExePath.Text);
       edtQExePath.SelLength := 0;
-      PathCanonicalize(@Path[0], PChar(IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName)) + edtQExePath.Text));
       cmbExeVersion.Items.BeginUpdate;
       cmbExeVersion.Items.Clear;
-      New(wfa);
-      hFind := FindFirstFile(PChar(string(Path) + 'qemu*.exe'), wfa^);
-      if hFind = INVALID_HANDLE_VALUE then
-         Exit;
-      repeat
-         if wfa.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
-            cmbExeVersion.Items.Append(wfa.cFileName);
-      until not Windows.FindNextFile(hFind, wfa^);
-      Windows.FindClose(hFind);
-      if FileExists(odSearchQExe.FileName) then
-      begin
-         ws := ExtractFileName(odSearchQExe.FileName);
-         i := cmbExeVersion.Items.IndexOf(ws);
-         if i > -1 then
-            cmbExeVersion.ItemIndex := i
+      try
+         New(wfa);
+         hFind := FindFirstFile(PChar(string(Path) + '*.exe'), wfa^);
+         if hFind = INVALID_HANDLE_VALUE then
+            Exit;
+         repeat
+            if wfa.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
+               cmbExeVersion.Items.Append(wfa.cFileName);
+         until not Windows.FindNextFile(hFind, wfa^);
+         Windows.FindClose(hFind);
+         if FileExists(odSearchQExe.FileName) then
+         begin
+            ws := ExtractFileName(odSearchQExe.FileName);
+            i := cmbExeVersion.Items.IndexOf(ws);
+            if i > -1 then
+               cmbExeVersion.ItemIndex := i
+            else
+               cmbExeVersion.ItemIndex := -1;
+         end
          else
             cmbExeVersion.ItemIndex := -1;
-      end
-      else
-         cmbExeVersion.ItemIndex := -1;
-      cmbExeVersion.Items.EndUpdate;
-      cmbExeVersion.Invalidate;
+      finally
+         cmbExeVersion.Items.EndUpdate;
+         cmbExeVersion.Invalidate;
+      end;
    end;
    SetFocus;
 end;
@@ -272,12 +308,13 @@ end;
 
 procedure TfrmOptions.FormCreate(Sender: TObject);
 var
-   NewWidth: integer;
+   i, NewWidth: integer;
    OldText: string;
 begin
    SetWindowLong(Handle, GWL_EXSTYLE, GetWindowLong(Handle, GWL_EXSTYLE) and not WS_EX_TOOLWINDOW);
-   frmMain.imlBtn16.GetIcon(5, Icon);
-   NewWidth := Min(Max(StrToIntDef(GetLangTextDef(idxOptions, ['Width'], AnsiString(IntToStr(Width))), Width), 100), 1000);
+
+   NewWidth := Round(0.0001 * Width * Min(Max(StrToIntDef(GetLangTextDef(idxOptions, ['Width'], AnsiString(IntToStr(10000))), 10000), 1000), 100000));
+
    Caption := GetLangTextDef(idxOptions, ['Caption'], 'Options');
    lblWaitTime.Caption := GetLangTextDef(idxOptions, ['Labels', 'WaitTime'], 'Wait time to flush system data before dismounting (ms):');
    edtWaitTime.Width := edtWaitTime.Left + edtWaitTime.Width - lblWaitTime.Left - lblWaitTime.Width - 5 + NewWidth - Width;
@@ -303,7 +340,6 @@ begin
    cbSecondDrive.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'SecDrive'], 'Show a second drive option');
    cbListOnlyUSBDrives.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'OnlyUSB'], 'List only USB drives');
    cbAutomaticFont.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'AutomaticFont'], 'Font size, style and color will be set automatically');
-   cbEscapeKeyClosesMain.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'EscapeKey'], 'Escape key closes the main window');
    cbAutoDetect.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'AutodetectMethod'], 'try to autodetect the most appropriate for the given situation');
    cbUseVboxmanage.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'UseVBMethod'], 'use VBoxManage.exe command line (slower)');
    cbDirectly.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'DirectWrtMethod'], 'directly (faster, but VB Manager must be closed)');
@@ -311,23 +347,57 @@ begin
    cbPrecacheVBFiles.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'PrecacheVBFiles'], 'Precache the VirtualBox files at application start');
    cbPrestartVBExeFiles.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'PrestartVBFiles'], 'Prestart the VirtualBox files at application start');
    gbGeneral.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'General'], 'General');
-   gbDefaultVMType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'DefaultVMType'], 'Default VM type when adding a new entry');
+   lblDefaultVMType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'DefaultVMType'], 'Default VM type when adding a new entry:');
    gbUpdateMethod.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'UpdateVMMethod'], 'Method to update the VM configuration file (*.vbox)');
    btnBrowseForVBExe.Hint := GetLangTextDef(idxOptions, ['Hints', 'BrowseForExe'], 'click to browse for exe');
    btnBrowseForQExe.Hint := GetLangTextDef(idxOptions, ['Hints', 'BrowseForExe'], 'click to browse for exe');
    edtDefaultParameters.Hint := GetLangTextDef(idxOptions, ['Hints', 'DefaultParam'], 'Basic parameters for x86/x64 version');
    cbHideConsoleWindow.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'HideConsoleWindow'], 'Hide console window');
-   sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[4].PngImage;
-   sbQEMU.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
-   frmMain.imlBtn16.GetIcon(4, imgVB.Picture.Icon);
-   frmMain.imlBtn16.GetIcon(8, imgQEMU.Picture.Icon);
+   lblEmulationBusType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'EmulationBusType'], 'Emulation bus type:');
 
-   btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[10].PngImage;
-   btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[10].PngImage;
-   btnOK.PngImage := frmMain.imlBtn16.PngImages[13].PngImage;
-   btnCancel.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
-   cmbLanguage.Width := cmbLanguage.Left + cmbLanguage.Width - lblLanguage.Left - lblLanguage.Width - 5 + NewWidth - Width;
-   cmbLanguage.Left := lblWaitTime.Left + lblLanguage.Width + 5 - NewWidth + Width;
+   case SystemIconSize of
+      -2147483647..18:
+         begin
+            frmMain.imlBtn16.GetIcon(5, Icon);
+            sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn16.PngImages[9].PngImage;
+            frmMain.imlBtn16.GetIcon(8, imgVB.Picture.Icon);
+            frmMain.imlBtn16.GetIcon(9, imgQEMU.Picture.Icon);
+            btnOK.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+         end;
+      19..22:
+         begin
+            frmMain.imlBtn20.GetIcon(5, Icon);
+            sbVirtualBox.PngImage := frmMain.imlBtn20.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn20.PngImages[9].PngImage;
+            frmMain.imlBtn20.GetIcon(8, imgVB.Picture.Icon);
+            frmMain.imlBtn20.GetIcon(9, imgQEMU.Picture.Icon);
+            btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+         end;
+      23..2147483647:
+         begin
+            frmMain.imlBtn24.GetIcon(5, Icon);
+            sbVirtualBox.PngImage := frmMain.imlBtn24.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn24.PngImages[9].PngImage;
+            frmMain.imlBtn24.GetIcon(8, imgVB.Picture.Icon);
+            frmMain.imlBtn24.GetIcon(9, imgQEMU.Picture.Icon);
+            btnOK.PngImage := frmMain.imlBtn24.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn24.PngImages[15].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+         end;
+   end;
+
+   for i := 0 to ComponentCount - 1 do
+      if Components[i] is TComboBox then
+         (Components[i] as TComboBox).ItemHeight := Round(1.0 * Screen.PixelsPerInch / 96 * (Components[i] as TComboBox).ItemHeight);
+
    btnOK.Glyph.Canvas.Font.Assign(btnOK.Font);
    btnOK.Width := Max(btnOK.Glyph.Canvas.TextWidth(btnOK.Caption), btnOK.Glyph.Canvas.TextWidth(btnCancel.Caption));
    btnOK.Margin := Round(sqrt(btnOK.Width)) + 5;
@@ -356,6 +426,8 @@ begin
       Top := Round((Screen.WorkAreaHeight - ClientHeight) / 2) + Top - ClientOrigin.Y - DlgOffsPos;
    btnOK.Left := Round(0.4 * (ClientWidth - btnOK.Width - btnCancel.Width));
    btnCancel.Left := Round(0.6 * (ClientWidth - btnOK.Width - btnCancel.Width)) + btnOK.Width;
+
+   lblEmulationBusType.Left := cbEmulationBusType.Left - lblEmulationBusType.Width - 10;
 
    originaledtVBExePathWindowProc := edtVBExePath.WindowProc;
    edtVBExePath.WindowProc := edtVBExePathWindowProc;
