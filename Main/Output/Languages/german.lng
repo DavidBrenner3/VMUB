@@ -13,6 +13,7 @@
       <Delete>Löschen</Delete>
       <Manager>Manager</Manager>
       <Options>Einstellen</Options>
+      <ShowTrayIcon>Tray</ShowTrayIcon>
       <Exit>Verlassen</Exit>
     </Buttons>
     <List>
@@ -27,11 +28,15 @@
         <Edit>editieren</Edit>
         <Clone>klonen</Clone>
         <Delete>löschen</Delete>
-        <FileExplorer>Open %s in Explorer</FileExplorer>
+        <FileExplorer>Öffnen Sie %s im Explorer</FileExplorer>
         <Eject>Eject</Eject>
         <MoveUp>nach unten</MoveUp>
         <MoveDown>nach oben</MoveDown>
         <Refresh>neu laden</Refresh>
+        <Start>Starten</Start>
+        <ShowHideMainWindow>Zeige Verstecken Hauptfenster</ShowHideMainWindow>
+        <HideTrayIcon>Ausblenden Tray-Icon</HideTrayIcon>
+        <Exit>Verlassen</Exit>
       </Menu>
     </List>
     <Messages>
@@ -99,6 +104,7 @@
       <NoStorageAdvice>Unmöglich einen freien Port beim Festplattencontroller in der VirtualBox VM zu finden,\r\nbitte entferne einen und versuch es nochmal.\r\nDu kannst das tun, indem Sie das VirtualBox-Manager, dann den VM Datenträher Optionen aufrufst\r\nund fügst einen Festplatten Contoller hinzu.</NoStorageAdvice>
       <WarnBootFirstDrive>Es scheint diese VM nicht in der Lage, von dem ersten Laufwerk (%s) zu booten\r\nWegen anderen Laufwerk(e) ist/sind angeschlossen Festplatten Controller in vorderer Position(nen).\r\n\r\nMein Tip ist befreie einen port am VM Festplatten Controlervor den anderen Laufwerken.\r\nDu kannst das tun indem Du den VirtualBox Manager startest, editierst die VM Festplatten management\r\nund bewegst die andere Ports in nachfolgenden port(s) im VM-Festplatten Controller.\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</WarnBootFirstDrive>
       <WarnBootDrive>Es scheint, diese VM nicht in der Lage,vom Laufwerk (%s)\r\nWeil andere(m) Laufwerk(e) ist/sind verbunden sind zum Festplatten Controller in vorheriger(en) Positionen(en).\r\n\r\nMein Rat ist, einen Anschluss in der Speicher-Controller, vor den andere Festplatte(n) zu lösen. (s).\r\nDu kannst das tun indem Du den VirtualBox Manager startest, editierst die VM Festplatten management\r\nund bewegst der anderen Festplatte(n) in nachfolgende Port(s) VM-Festplatten-Controller.\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</WarnBootDrive>
+      <WarnChangeBootDriveAndOther>In order to boot the VM from the "%s" drive,\r\nit must be set as the first internal hard disk, but the first position is currently taken by another drive.\r\n\r\nClick on Yes to automatically shift up the other drives in subsequent positions\r\nor do it manually and click on Retry</WarnChangeBootDriveAndOther>
       <ErrorVBMan>Ende der Zeit zum warten auf VBoxManage.exe um den actuellen Vorgang zu ende zu bringen (%s) !\r\n\r\nVorgang = %s\r\n\r\nDas ist ein VirtualBox bug. Mein Rat ist 20..30 secunden zu warten und es nochmal zu versuchen...</ErrorVBMan>
       <HardwareVirtOp>Wechseln der Hardware virtualization</HardwareVirtOp>
       <VBManErrorCode>VBoxManage.exe gibt Errorcode %d zurück für den actuellen Vorgang (%s) !\r\n\r\nVorgang = %s</VBManErrorCode>
@@ -138,7 +144,7 @@
       <GetPrcAdFld>GetProcAddress failed</GetPrcAdFld>
       <DllRegUnregFld>DllRegisterServer or DllUnregisterServer failed</DllRegUnregFld>
       <ProblemUnreg>problem unregistering %s\r\n\r\nSystem message:</ProblemUnreg>
-      <ProblemReg>problem registering %s\rn\r\nSystem message:</ProblemReg>
+      <ProblemReg>problem registering %s\r\n\r\nSystem message:</ProblemReg>
       <ProblemFcntDll>problem starting %s function from %s\r\n\r\nSystem message:</ProblemFcntDll>
       <ProblemCreateSrv>problem creating %s service\r\n\r\nSystem message:</ProblemCreateSrv>
       <ProblemStartSrv>problem starting %s service\r\n\r\nSystem message:</ProblemStartSrv>
@@ -146,8 +152,11 @@
       <ProperRegUnreg>In order to properly (un)register VirtualBox dlls, infs and services'#13#10'for the portable version, all the VirtualBox windows have to be closed!\r\n\r\nYou can choose to Abort, close all VirtualBox windows manually and click on Retry,\r\nclick on Ignore to not (un)register or click on Close all to automatically close them</ProperRegUnreg>
       <CouldNotReg>Could not automatically register the VirtualBox%s dlls, infs and services !\r\n\r\nReason:</CouldNotReg>
       <CouldNotUnreg>Could not automatically unregister the VirtualBox%s dlls, infs and services !\r\n\r\nReason:</CouldNotUnreg>
-      <ProblemStopSrv>problem stopping %s service'#13#10#13#10'System message:</ProblemStopSrv>
-      <ProblemRemSrv>problem removing VBoxNetAdp service'#13#10#13#10'System message:</ProblemRemSrv>
+      <ProblemStopSrv>problem stopping %s service\r\n\r\nSystem message:</ProblemStopSrv>
+      <ProblemRemSrv>problem removing VBoxNetAdp service\r\n\r\nSystem message:</ProblemRemSrv>
+      <AppMinToTray>%s is now minimized to tray\r\nClick on the icon to restore it</AppMinToTray>
+      <AppStartedWithTray>%s tray icon is now active...</AppStartedWithTray>
+      <VMStarting>Starting "%s" VM...</VMStarting>
     </Messages>
   </Main>
   <AddEdit>
@@ -175,6 +184,7 @@
       <Type>Type:</Type>
       <VMName>VM Name:</VMName>
       <VMPath>VM Pfad:</VMPath>
+      <UseHostCache>Use host I/O cache:</UseHostCache>
     </Labels>
     <Dialogs>
       <LoadVM>
@@ -192,6 +202,7 @@
     </Dialogs>
     <Comboboxes>
       <NoneText>Kein Text</NoneText>
+      <CreateNewVM>Create new VM</CreateNewVM>
       <EnableCPUVirtualization>Unverändert\r\nAn\r\nAus\r\nSchalter</EnableCPUVirtualization>
       <Mode>VM Name\r\nVM Pfad\r\nExe Parameter</Mode>
       <Priority>Unter Normal\r\nNormal\r\nÜber Normal\r\nHoch</Priority>
@@ -234,10 +245,11 @@
     </Hints>
   </AddEdit>
   <Options>
-    <Width>690</Width>
+    <Width>12500</Width>
     <Caption>Optionen</Caption>
     <Labels>
       <WaitTime>Wartezeit, Systemdaten zu leeren vor dem Entfernen (ms):</WaitTime>
+      <HotkeyStart>Hotkey to start the current selected entry:</HotkeyStart>
       <ExePath>Exe Pfad:</ExePath>
       <DefCommParam>Die Standard-Befehlszeilenparametern:</DefCommParam>
     </Labels>
@@ -259,7 +271,6 @@
       <DontWarn>Nicht warnen, bei einem read only Medium, um die Konfiguration oder die Einträge der Datei zu speichern </DontWarn>
       <OnlyUSB>Liste nur USB Laufwerke</OnlyUSB>
       <AutomaticFont>Schriftgröße, Stil und Farbe wird automatisch eingestellt</AutomaticFont>
-      <EscapeKey>ESC-Taste schließt das Hauptfenster</EscapeKey>
       <AutodetectMethod>Versuche besten geeigneteste Methode für die gegebene Situationen zu erkennen</AutodetectMethod>
       <UseVBMethod>benutze VBoxManage.exe commandline (langsamer)</UseVBMethod>
       <DirectWrtMethod>Direkt schreiben Methode (schneller, aber der VB Manager muß geschlossen sein)</DirectWrtMethod>
@@ -271,8 +282,9 @@
     </Checkboxes>
     <Groupboxes>
       <General>Allgemein</General>
-      <DefaultVMType>Standard-VM-Typ beim hinzufügen eines neuen Eintrags</DefaultVMType>
+      <DefaultVMType>Standard-VM-Typ beim hinzufügen eines neuen Eintrags:</DefaultVMType>
       <UpdateVMMethod>Methode zum aktualisieren der VM-Konfiguration-Datei (*.vbox)</UpdateVMMethod>
+      <EmulationBusType>Emulation bus type:</EmulationBusType>
     </Groupboxes>
     <Messages>
       <ProperWaitTime>Bitte stellen Sie einen geeigneten Wert für die Wartezeit ein (0..20000) !</ProperWaitTime>
