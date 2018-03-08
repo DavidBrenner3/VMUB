@@ -609,20 +609,32 @@ begin
       -2147483647..18:
          begin
             frmMain.imlBtn16.GetIcon(1 + Integer(isEdit), Icon);
-            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
-            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn16.PngImages[9].PngImage;
+            btnOK.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
          end;
       19..22:
          begin
             frmMain.imlBtn20.GetIcon(1 + Integer(isEdit), Icon);
-            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
-            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            sbVirtualBox.PngImage := frmMain.imlBtn20.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn20.PngImages[9].PngImage;
+            btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
          end;
       23..2147483647:
          begin
             frmMain.imlBtn24.GetIcon(1 + Integer(isEdit), Icon);
             btnBrowseForVM.PngImage := frmMain.imlBtn32.PngImages[0].PngImage;
-            btnBrowseForHDD.PngImage := frmMain.imlBtn32.PngImages[0].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn32.PngImages[1].PngImage;
+            sbVirtualBox.PngImage := frmMain.imlBtn24.PngImages[8].PngImage;
+            sbQEMU.PngImage := frmMain.imlBtn24.PngImages[9].PngImage;
+            btnOK.PngImage := frmMain.imlBtn24.PngImages[14].PngImage;
+            btnCancel.PngImage := frmMain.imlBtn24.PngImages[15].PngImage;
          end;
    end;
    if FocusFirstDrive then

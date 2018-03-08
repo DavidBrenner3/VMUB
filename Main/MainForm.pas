@@ -214,7 +214,7 @@ type
       mmHideTrayIcon: TMenuItem;
       btnShowTrayIcon: TPngSpeedButton;
       tmCloseHint: TTimer;
-      imlBtn20: TPngImageList;
+    imlBtn20: TPngImageList;
       imlVst20: TPngImageList;
       imlReg20: TPngImageList;
       imlVst28: TPngImageList;
@@ -663,7 +663,7 @@ function CM_Get_Device_ID(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; u
 function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiSetClassInstallParamsW';
 
 const
-   BaseVersion = ' 1.7 Beta 1';
+   BaseVersion = ' 1.7 Beta 2';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -5412,7 +5412,7 @@ var
    eStartupInfo, vbmStartupInfo, svcStartupInfo: TStartupInfo;
    eProcessInfo, vbmProcessInfo, svcProcessInfo: TProcessInformation;
    ExitCode: DWORD;
-   i, j, k, p, cp, l, n1, n2, n3, n4, n5, a1, a2, a3, a4, sc: Integer;
+   i, j, k, p, cp, l, n1, n2, n3, n4, n5, a1, a2, a3, a4, sc, iSC: Integer;
    lv: Int64;
    hVolume, hVBoxSVC, hVmdk, hVbox, hDrive, hSrcVol: THandle;
    dwBytesReturned: DWORD;
@@ -5458,6 +5458,7 @@ var
    dt: Cardinal;
    AllProcAffinityMask: DWORD_PTR;
    useHostIOCacheCurr: Boolean;
+   arrCtrlBoot: array[0..4] of SmallInt;
    //  ts: array[1..4] of TTime;
 
 label
@@ -7623,302 +7624,569 @@ begin
                                     if n3 > -1 then
                                        if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count > 0 then
                                        begin
+                                          for i := 0 to High(arrCtrlBoot) do
+                                             arrCtrlBoot[i] := -1;
                                           for sc := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1 do
                                           begin
-                                             if isFUSet and isSUSet then
-                                                Break;
                                              a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('name');
                                              if a2 > -1 then
                                                 mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a2].Text
                                              else
                                                 mCName := 'IDE';
-                                             a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('useHostIOCache');
-                                             if a3 > -1 then
-                                                useHostIOCacheCurr := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text = 'true'
-                                             else
+                                             if mCName = 'IDE' then
+                                                arrCtrlBoot[0] := sc
+                                             else if mCName = 'NVMe' then
+                                                arrCtrlBoot[1] := sc
+                                             else if mCName = 'SAS' then
+                                                arrCtrlBoot[2] := sc
+                                             else if mCName = 'SATA' then
+                                                arrCtrlBoot[3] := sc
+                                             else if mCName = 'SCSI' then
+                                                arrCtrlBoot[4] := sc;
+                                          end;
+                                          for iSC := 0 to High(arrCtrlBoot) do
+                                             if arrCtrlBoot[iSC] > -1 then
                                              begin
-                                                useHostIOCacheCurr := False;
-                                                ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].SetAttribute('useHostIOCache', 'false');
+                                                if isFUSet and isSUSet then
+                                                   Break;
+                                                sc := arrCtrlBoot[iSC];
+                                                a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('name');
+                                                if a2 > -1 then
+                                                   mCName := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a2].Text
+                                                else
+                                                   mCName := 'IDE';
                                                 a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('useHostIOCache');
-                                             end;
-                                             if useHostIOCacheCurr <> useHostIOCache then
-                                             begin
-                                                SetLength(vbmComm, Length(vbmComm) + 1);
-                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'setting "use host I/O cache"');
-                                                if useHostIOCache then
+                                                if a3 > -1 then
+                                                   useHostIOCacheCurr := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text = 'true'
+                                                else
                                                 begin
-                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text := 'true';
-                                                   vbmComm[High(vbmComm)][1] := 'storagectl ' + VMID + ' --name ' + mCName + ' --hostiocache on';
+                                                   useHostIOCacheCurr := False;
+                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].SetAttribute('useHostIOCache', 'false');
+                                                   a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('useHostIOCache');
+                                                end;
+                                                if useHostIOCacheCurr <> useHostIOCache then
+                                                begin
+                                                   SetLength(vbmComm, Length(vbmComm) + 1);
+                                                   vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'setting "use host I/O cache"');
+                                                   if useHostIOCache then
+                                                   begin
+                                                      ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text := 'true';
+                                                      vbmComm[High(vbmComm)][1] := 'storagectl ' + VMID + ' --name ' + mCName + ' --hostiocache on';
+                                                   end
+                                                   else
+                                                   begin
+                                                      ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text := 'false';
+                                                      vbmComm[High(vbmComm)][1] := 'storagectl ' + VMID + ' --name ' + mCName + ' --hostiocache off';
+                                                   end;
+                                                end;
+                                                i := iSC + 1;
+                                                isLastC := True;
+                                                while i <= High(arrCtrlBoot) do
+                                                begin
+                                                   if arrCtrlBoot[i] > -1 then
+                                                   begin
+                                                      isLastC := False;
+                                                      Break;
+                                                   end;
+                                                   Inc(i);
+                                                end;
+                                                if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count = 0 then
+                                                begin
+                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                   p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
+                                                   if (fu >= 0) and (not isFUSet) then
+                                                      if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
+                                                      begin
+                                                         if isLastC then
+                                                         begin
+                                                            if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                            else
+                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                            Abort;
+                                                         end
+                                                         else
+                                                            Continue;
+                                                      end
+                                                      else
+                                                      begin
+                                                         a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
+                                                         with xmlVBox.ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                         begin
+                                                            SetAttribute('type', 'HardDisk');
+                                                            SetAttribute('port', IntToStr(a2));
+                                                            SetAttribute('device', '0');
+                                                            with AddChild('Image') do
+                                                               SetAttribute('uuid', '{' + fuuid + '}');
+                                                         end;
+                                                         SetLength(vbmComm, Length(vbmComm) + 1);
+                                                         vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + floc + '" --mtype normal';
+                                                         vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                      end;
+                                                   if (su >= 0) and (not isSUSet) then
+                                                      if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
+                                                      begin
+                                                         if isLastC then
+                                                         begin
+                                                            if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                            else
+                                                               errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                            Abort;
+                                                         end
+                                                         else
+                                                            Continue;
+                                                      end
+                                                      else
+                                                      begin
+                                                         a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
+                                                         with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                         begin
+                                                            SetAttribute('type', 'HardDisk');
+                                                            SetAttribute('port', IntToStr(a2));
+                                                            SetAttribute('device', '0');
+                                                            with AddChild('Image') do
+                                                               SetAttribute('uuid', '{' + suuid + '}');
+                                                         end;
+                                                         SetLength(vbmComm, Length(vbmComm) + 1);
+                                                         vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + sloc + '" --mtype normal';
+                                                         vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                      end;
+                                                   Break;
                                                 end
                                                 else
                                                 begin
-                                                   ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a3].Text := 'false';
-                                                   vbmComm[High(vbmComm)][1] := 'storagectl ' + VMID + ' --name ' + mCName + ' --hostiocache off';
-                                                end;
-                                             end;
-                                             isLastC := sc = (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count - 1);
-                                             if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count = 0 then
-                                             begin
-                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
-                                                if (fu >= 0) and (not isFUSet) then
-                                                   if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
+                                                   SetLength(ahs, 0);
+                                                   SetLength(ahsUUID, 0);
+                                                   for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count - 1 do
                                                    begin
-                                                      if isLastC then
+                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('port');
+                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('device');
+                                                      a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('type');
+                                                      if (a1 > -1) and (a2 > -1) and (a3 > -1) then
                                                       begin
-                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                         else
-                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                         Abort;
-                                                      end
-                                                      else
-                                                         Continue;
-                                                   end
-                                                   else
-                                                   begin
-                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
-                                                      with xmlVBox.ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                      begin
-                                                         SetAttribute('type', 'HardDisk');
-                                                         SetAttribute('port', IntToStr(a2));
-                                                         SetAttribute('device', '0');
-                                                         with AddChild('Image') do
-                                                            SetAttribute('uuid', '{' + fuuid + '}');
-                                                      end;
-                                                      SetLength(vbmComm, Length(vbmComm) + 1);
-                                                      vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + floc + '" --mtype normal';
-                                                      vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                   end;
-                                                if (su >= 0) and (not isSUSet) then
-                                                   if (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count + 1) > p then
-                                                   begin
-                                                      if isLastC then
-                                                      begin
-                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                         else
-                                                            errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                         Abort;
-                                                      end
-                                                      else
-                                                         Continue;
-                                                   end
-                                                   else
-                                                   begin
-                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count;
-                                                      with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                      begin
-                                                         SetAttribute('type', 'HardDisk');
-                                                         SetAttribute('port', IntToStr(a2));
-                                                         SetAttribute('device', '0');
-                                                         with AddChild('Image') do
-                                                            SetAttribute('uuid', '{' + suuid + '}');
-                                                      end;
-                                                      SetLength(vbmComm, Length(vbmComm) + 1);
-                                                      vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(a2) + ' --device 0 --type hdd --medium "' + sloc + '" --mtype normal';
-                                                      vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                   end;
-                                                Break;
-                                             end
-                                             else
-                                             begin
-                                                SetLength(ahs, 0);
-                                                SetLength(ahsUUID, 0);
-                                                for i := 0 to ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count - 1 do
-                                                begin
-                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('port');
-                                                   a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('device');
-                                                   a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('type');
-                                                   if (a1 > -1) and (a2 > -1) and (a3 > -1) then
-                                                   begin
-                                                      j := 0;
-                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a1].NodeValue;
-                                                      a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a2].NodeValue;
-                                                      while j <= High(ahs) do
-                                                      begin
-                                                         if ahs[j][0] > a1 then
-                                                            Break
-                                                         else if ahs[j][0] = a1 then
-                                                            if ahs[j][1] > a2 then
-                                                               Break;
-                                                         Inc(j);
-                                                      end;
-                                                      SetLength(ahs, Length(ahs) + 1);
-                                                      SetLength(ahsUUID, Length(ahsUUID) + 1);
-                                                      for k := High(ahs) downto j + 1 do
-                                                      begin
-                                                         ahs[k] := ahs[k - 1];
-                                                         ahsUUID[k] := ahsUUID[k - 1];
-                                                      end;
-                                                      ahs[j][0] := a1;
-                                                      ahs[j][1] := a2;
-                                                      ahs[j][2] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a3].Text = 'HardDisk');
-                                                      a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('passthrough');
-                                                      if a4 > -1 then
-                                                         ahs[j][3] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
-                                                      else
-                                                         ahs[j][3] := 0;
-                                                      a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('nonrotational');
-                                                      if a4 > -1 then
-                                                         ahs[j][4] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
-                                                      else
-                                                         ahs[j][4] := 0;
-                                                      a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('hotpluggable');
-                                                      if a4 > -1 then
-                                                         ahs[j][5] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
-                                                      else
-                                                         ahs[j][5] := 0;
-                                                      ahsUUID[j] := '';
-                                                      if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes.Count = 1 then
-                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].NodeName = 'Image' then
+                                                         j := 0;
+                                                         a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a1].NodeValue;
+                                                         a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a2].NodeValue;
+                                                         while j <= High(ahs) do
                                                          begin
-                                                            a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes.IndexOf('uuid');
-                                                            if a1 >= 0 then
-                                                               ahsUUID[j] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes[a1].Text;
-                                                         end
-                                                         else if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].NodeName = 'HostDrive' then
-                                                         begin
-                                                            a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes.IndexOf('src');
-                                                            if a1 >= 0 then
-                                                               ahsUUID[j] := 'host:' + ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes[a1].Text;
-                                                         end;
-                                                   end;
-                                                end;
-                                                a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('type');
-                                                if a1 > -1 then
-                                                begin
-                                                   wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].Text;
-                                                   if (wst = 'PIIX3') or (wst = 'PIIX4') or (wst = 'ICH6') then
-                                                   begin
-                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                      p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
-                                                      if (fu >= 0) and (not isFUSet) then
-                                                      begin
-                                                         if Length(ahs) < (2 * p) then
-                                                         begin
-                                                            i := 0;
-                                                            j := 0;
-                                                            BreakCycles := False;
-                                                            while i < p do
-                                                            begin
-                                                               j := 0;
-                                                               while j < p do
-                                                               begin
-                                                                  k := 0;
-                                                                  while k < Length(ahs) do
-                                                                  begin
-                                                                     if (ahs[k][0] = i) and (ahs[k][1] = j) then
-                                                                        Break;
-                                                                     Inc(k);
-                                                                  end;
-                                                                  if k >= Length(ahs) then
-                                                                  begin
-                                                                     BreakCycles := True;
-                                                                     Break;
-                                                                  end
-                                                                  else if WarnAboutBoot = 1 then
-                                                                     WarnAboutBoot := 2;
-                                                                  Inc(j);
-                                                               end;
-                                                               if BreakCycles then
+                                                            if ahs[j][0] > a1 then
+                                                               Break
+                                                            else if ahs[j][0] = a1 then
+                                                               if ahs[j][1] > a2 then
                                                                   Break;
-                                                               Inc(i);
-                                                            end;
-                                                            if (WarnAboutBoot <> 2) or (sc <> 0) then
+                                                            Inc(j);
+                                                         end;
+                                                         SetLength(ahs, Length(ahs) + 1);
+                                                         SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                         for k := High(ahs) downto j + 1 do
+                                                         begin
+                                                            ahs[k] := ahs[k - 1];
+                                                            ahsUUID[k] := ahsUUID[k - 1];
+                                                         end;
+                                                         ahs[j][0] := a1;
+                                                         ahs[j][1] := a2;
+                                                         ahs[j][2] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a3].Text = 'HardDisk');
+                                                         a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('passthrough');
+                                                         if a4 > -1 then
+                                                            ahs[j][3] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
+                                                         else
+                                                            ahs[j][3] := 0;
+                                                         a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('nonrotational');
+                                                         if a4 > -1 then
+                                                            ahs[j][4] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
+                                                         else
+                                                            ahs[j][4] := 0;
+                                                         a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes.IndexOf('hotpluggable');
+                                                         if a4 > -1 then
+                                                            ahs[j][5] := Integer(ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].AttributeNodes[a4].Text = 'true')
+                                                         else
+                                                            ahs[j][5] := 0;
+                                                         ahsUUID[j] := '';
+                                                         if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes.Count = 1 then
+                                                            if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].NodeName = 'Image' then
                                                             begin
+                                                               a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes.IndexOf('uuid');
+                                                               if a1 >= 0 then
+                                                                  ahsUUID[j] := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes[a1].Text;
+                                                            end
+                                                            else if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].NodeName = 'HostDrive' then
+                                                            begin
+                                                               a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes.IndexOf('src');
+                                                               if a1 >= 0 then
+                                                                  ahsUUID[j] := 'host:' + ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[i].ChildNodes[0].AttributeNodes[a1].Text;
+                                                            end;
+                                                      end;
+                                                   end;
+                                                   a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('type');
+                                                   if a1 > -1 then
+                                                   begin
+                                                      wst := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].Text;
+                                                      if (wst = 'PIIX3') or (wst = 'PIIX4') or (wst = 'ICH6') then
+                                                      begin
+                                                         a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                         p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
+                                                         if (fu >= 0) and (not isFUSet) then
+                                                         begin
+                                                            if Length(ahs) < (2 * p) then
+                                                            begin
+                                                               i := 0;
+                                                               j := 0;
+                                                               BreakCycles := False;
+                                                               while i < p do
+                                                               begin
+                                                                  j := 0;
+                                                                  while j < p do
+                                                                  begin
+                                                                     k := 0;
+                                                                     while k < Length(ahs) do
+                                                                     begin
+                                                                        if (ahs[k][0] = i) and (ahs[k][1] = j) then
+                                                                           Break;
+                                                                        Inc(k);
+                                                                     end;
+                                                                     if k >= Length(ahs) then
+                                                                     begin
+                                                                        BreakCycles := True;
+                                                                        Break;
+                                                                     end
+                                                                     else if WarnAboutBoot = 1 then
+                                                                        WarnAboutBoot := 2;
+                                                                     Inc(j);
+                                                                  end;
+                                                                  if BreakCycles then
+                                                                     Break;
+                                                                  Inc(i);
+                                                               end;
+                                                               if (WarnAboutBoot <> 2) or (sc <> 0) then
+                                                               begin
+                                                                  with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                                  begin
+                                                                     SetAttribute('type', 'HardDisk');
+                                                                     SetAttribute('port', IntToStr(i));
+                                                                     SetAttribute('device', IntToStr(j));
+                                                                     with AddChild('Image') do
+                                                                        SetAttribute('uuid', '{' + fuuid + '}');
+                                                                     SetLength(ahs, Length(ahs) + 1);
+                                                                     ahs[High(ahs)][0] := i;
+                                                                     ahs[High(ahs)][1] := j;
+                                                                     isFUSet := True;
+                                                                  end;
+                                                                  SetLength(vbmComm, Length(vbmComm) + 1);
+                                                                  vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + floc + '" --mtype normal';
+                                                                  vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                               end
+                                                               else
+                                                               begin
+                                                                  WarnAboutBoot := 1;
+                                                                  i := 0;
+                                                                  while i <= High(ahs) do
+                                                                  begin
+                                                                     if (ahs[i][0] <> (i div 2)) or (ahs[i][1] <> (i mod 2)) then
+                                                                        Break;
+                                                                     Inc(i);
+                                                                  end;
+                                                                  Dec(i);
+                                                                  StopVMAnimation;
+                                                                  TrayIcon.BalloonHint := '';
+                                                                  case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages',
+                                                                     'WarnChangeBootDriveAndOther'], [FirstDriveName], 'In order to boot the VM from the "%s" drive,'#13#10 +
+                                                                        'it must be set as the first internal hard disk, but the first position is currently taken by another drive.' +
+                                                                     #13#10#13#10'Click on Yes to automatically shift up the other drives in subsequent positions'#13#10'or do it manually and click on Retry'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbRetry, mbCancel], mbYes) of
+                                                                     mrNone, mrCancel:
+                                                                        Exit;
+                                                                     mrRetry:
+                                                                        begin
+                                                                           TryAgain := True;
+                                                                           Exit;
+                                                                        end;
+                                                                  end;
+                                                                  StartVMANimation;
+                                                                  j := 0;
+                                                                  while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
+                                                                  begin
+                                                                     a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
+                                                                     a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('device');
+                                                                     a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue;
+                                                                     a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue;
+                                                                     if (a3 <> 1) or (a4 <> 1) then
+                                                                        if (a3 < ahs[i][0]) or ((a3 = ahs[i][0]) and (a4 <= ahs[i][1])) then
+                                                                        begin
+                                                                           if a3 = 0 then
+                                                                           begin
+                                                                              if a4 = 0 then
+                                                                              begin
+                                                                                 ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 1;
+                                                                              end
+                                                                              else
+                                                                              begin
+                                                                                 ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue := 1;
+                                                                                 ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 0;
+                                                                              end;
+                                                                           end
+                                                                           else
+                                                                           begin
+                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 1;
+                                                                           end;
+                                                                        end;
+                                                                     Inc(j);
+                                                                  end;
+                                                                  j := Length(vbmComm);
+                                                                  SetLength(vbmComm, 2 * (i + 1) + j + 1);
+                                                                  while i >= 0 do
+                                                                  begin
+                                                                     if (ahs[i][0] <> 1) or (ahs[i][1] <> 1) then
+                                                                     begin
+                                                                        vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0]) + ' --device ' + IntToStr(ahs[i][1]) + ' --medium none';
+                                                                        vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
+                                                                        Inc(j);
+                                                                        vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName;
+                                                                        if ahs[i][0] = 0 then
+                                                                        begin
+                                                                           if ahs[i][1] = 0 then
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --port 0 --device 1'
+                                                                           else
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 0';
+                                                                        end
+                                                                        else
+                                                                        begin
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 1';
+                                                                        end;
+                                                                        if ahs[i][2] = 1 then
+                                                                        begin
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --type hdd';
+                                                                           if ahs[i][4] = 1 then
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on'
+                                                                           else
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational off';
+                                                                           {                            if ahs[i][5] = 1 then
+                                                                                                          vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                                                       else
+                                                                                                          vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                        end
+                                                                        else
+                                                                        begin
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --type dvddrive';
+                                                                           if ahs[i][3] = 1 then
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --passthrough on'
+                                                                           else
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --passthrough off';
+                                                                           { if ahs[i][5] = 1 then
+                                                                               vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                            else
+                                                                               vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                        end;
+                                                                        if ahsUUID[i] <> '' then
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --medium "' + ahsUUId[i] + '"'
+                                                                        else
+                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --medium emptydrive';
+                                                                        vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                                     end;
+                                                                     Inc(j);
+                                                                     Dec(i);
+                                                                  end;
+                                                                  with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                                  begin
+                                                                     SetAttribute('type', 'HardDisk');
+                                                                     SetAttribute('port', 0);
+                                                                     SetAttribute('device', 0);
+                                                                     with AddChild('Image') do
+                                                                        SetAttribute('uuid', '{' + fuuid + '}');
+                                                                     SetLength(ahs, Length(ahs) + 1);
+                                                                     ahs[High(ahs)][0] := 0;
+                                                                     ahs[High(ahs)][1] := 0;
+                                                                     SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                     ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                     isFUSet := True;
+                                                                  end;
+                                                                  vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
+                                                                  vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                               end;
+                                                            end
+                                                            else
+                                                            begin
+                                                               if isLastC then
+                                                               begin
+                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
+                                                                  else
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                                  Abort;
+                                                               end
+                                                               else
+                                                                  Continue;
+                                                            end;
+                                                         end;
+                                                         if (su >= 0) and (not isSUSet) then
+                                                         begin
+                                                            if Length(ahs) < (2 * p) then
+                                                            begin
+                                                               i := 0;
+                                                               j := 0;
+                                                               BreakCycles := False;
+                                                               while i < p do
+                                                               begin
+                                                                  j := 0;
+                                                                  while j < p do
+                                                                  begin
+                                                                     k := 0;
+                                                                     while k < Length(ahs) do
+                                                                     begin
+                                                                        if (ahs[k][0] = i) and (ahs[k][1] = j) then
+                                                                           Break;
+                                                                        Inc(k);
+                                                                     end;
+                                                                     if k >= Length(ahs) then
+                                                                     begin
+                                                                        BreakCycles := True;
+                                                                        Break;
+                                                                     end;
+                                                                     Inc(j);
+                                                                  end;
+                                                                  if BreakCycles then
+                                                                     Break;
+                                                                  Inc(i);
+                                                               end;
                                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                begin
                                                                   SetAttribute('type', 'HardDisk');
                                                                   SetAttribute('port', IntToStr(i));
                                                                   SetAttribute('device', IntToStr(j));
                                                                   with AddChild('Image') do
-                                                                     SetAttribute('uuid', '{' + fuuid + '}');
-                                                                  SetLength(ahs, Length(ahs) + 1);
-                                                                  ahs[High(ahs)][0] := i;
-                                                                  ahs[High(ahs)][1] := j;
-                                                                  isFUSet := True;
+                                                                     SetAttribute('uuid', '{' + suuid + '}');
+                                                                  isSUSet := True;
                                                                end;
                                                                SetLength(vbmComm, Length(vbmComm) + 1);
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + floc + '" --mtype normal';
+                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + sloc + '" --mtype normal';
                                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                             end
                                                             else
                                                             begin
-                                                               WarnAboutBoot := 1;
-                                                               i := 0;
-                                                               while i <= High(ahs) do
+                                                               if isLastC then
                                                                begin
-                                                                  if (ahs[i][0] <> (i div 2)) or (ahs[i][1] <> (i mod 2)) then
-                                                                     Break;
-                                                                  Inc(i);
-                                                               end;
-                                                               Dec(i);
-                                                               StopVMAnimation;
-                                                               TrayIcon.BalloonHint := '';
-                                                               case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages',
-                                                                  'WarnChangeBootDriveAndOther'], [FirstDriveName], 'In order to boot the VM from the "%s" drive,'#13#10 +
-                                                                     'it must be set as the first internal hard disk, but the first position is currently taken by another drive.' +
-                                                                  #13#10#13#10'Click on Yes to automatically shift up the other drives in subsequent positions'#13#10'or do it manually and click on Retry'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbRetry, mbCancel], mbYes) of
-                                                                  mrNone, mrCancel:
-                                                                     Exit;
-                                                                  mrRetry:
-                                                                     begin
-                                                                        TryAgain := True;
-                                                                        Exit;
-                                                                     end;
-                                                               end;
-                                                               StartVMANimation;
+                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
+                                                                  else
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                                  Abort;
+                                                               end
+                                                               else
+                                                                  Continue;
+                                                            end;
+                                                         end;
+                                                      end
+                                                      else if mCName <> 'Floppy' then
+                                                      begin
+                                                         a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                         p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
+
+                                                         if (fu >= 0) and (not isFUSet) then
+                                                         begin
+                                                            i := 0;
+                                                            BreakCycles := False;
+                                                            while i < p do
+                                                            begin
                                                                j := 0;
-                                                               while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
+                                                               while j < Length(ahs) do
                                                                begin
-                                                                  a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
-                                                                  a2 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('device');
-                                                                  a3 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue;
-                                                                  a4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue;
-                                                                  if (a3 <> 1) or (a4 <> 1) then
-                                                                     if (a3 < ahs[i][0]) or ((a3 = ahs[i][0]) and (a4 <= ahs[i][1])) then
-                                                                     begin
-                                                                        if a3 = 0 then
-                                                                        begin
-                                                                           if a4 = 0 then
-                                                                           begin
-                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 1;
-                                                                           end
-                                                                           else
-                                                                           begin
-                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue := 1;
-                                                                              ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 0;
-                                                                           end;
-                                                                        end
-                                                                        else
-                                                                        begin
-                                                                           ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a2].NodeValue := 1;
-                                                                        end;
-                                                                     end;
+                                                                  if ahs[j][0] = i then
+                                                                     Break;
                                                                   Inc(j);
                                                                end;
-                                                               j := Length(vbmComm);
-                                                               SetLength(vbmComm, 2 * (i + 1) + j + 1);
-                                                               while i >= 0 do
+                                                               if j >= Length(ahs) then
                                                                begin
-                                                                  if (ahs[i][0] <> 1) or (ahs[i][1] <> 1) then
+                                                                  BreakCycles := True;
+                                                                  Break;
+                                                               end
+                                                               else if WarnAboutBoot = 1 then
+                                                                  WarnAboutBoot := 2;
+                                                               Inc(i);
+                                                            end;
+                                                            if (not BreakCycles) and (sc <> 0) then
+                                                            begin
+                                                               if isLastC then
+                                                               begin
+                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                                  else
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                                  Abort;
+                                                               end
+                                                               else
+                                                                  Continue;
+                                                            end
+                                                            else
+                                                            begin
+                                                               if (WarnAboutBoot <> 2) or (sc <> 0) then
+                                                               begin
+                                                                  with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                   begin
-                                                                     vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0]) + ' --device ' + IntToStr(ahs[i][1]) + ' --medium none';
+                                                                     SetAttribute('type', 'HardDisk');
+                                                                     SetAttribute('port', IntToStr(i));
+                                                                     SetAttribute('device', '0');
+                                                                     with AddChild('Image') do
+                                                                        SetAttribute('uuid', '{' + fuuid + '}');
+                                                                     SetLength(ahs, Length(ahs) + 1);
+                                                                     SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                     ahs[High(ahs)][0] := i;
+                                                                     ahs[High(ahs)][1] := 0;
+                                                                     ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                     isFUSet := True;
+                                                                  end;
+                                                                  SetLength(vbmComm, Length(vbmComm) + 1);
+                                                                  vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + floc + '" --mtype normal';
+                                                                  vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                               end
+                                                               else
+                                                               begin
+                                                                  WarnAboutBoot := 1;
+                                                                  if not BreakCycles then
+                                                                  begin
+                                                                     a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
+                                                                     ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue :=
+                                                                        ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue + 1;
+                                                                  end;
+                                                                  i := 0;
+                                                                  while i <= High(ahs) do
+                                                                  begin
+                                                                     if ahs[i][0] <> i then
+                                                                        Break;
+                                                                     Inc(i);
+                                                                  end;
+                                                                  Dec(i);
+
+                                                                  StopVMAnimation;
+                                                                  TrayIcon.BalloonHint := '';
+                                                                  case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages',
+                                                                     'WarnChangeBootDriveAndOther'], [FirstDriveName], 'In order to boot the VM from the "%s" drive,'#13#10 +
+                                                                        'it must be set as the first internal hard disk, but the first position is currently taken by another drive.' +
+                                                                     #13#10#13#10'Click on Yes to automatically shift up the other drives in subsequent positions'#13#10'or do it manually and click on Retry'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbRetry, mbCancel], mbYes) of
+                                                                     mrNone, mrCancel:
+                                                                        Exit;
+                                                                     mrRetry:
+                                                                        begin
+                                                                           TryAgain := True;
+                                                                           Exit;
+                                                                        end;
+                                                                  end;
+                                                                  StartVMANimation;
+                                                                  j := 0;
+                                                                  while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
+                                                                  begin
+                                                                     a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
+                                                                     if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue <= ahs[i][0]) then
+                                                                        ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue :=
+                                                                           ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue + 1;
+                                                                     Inc(j);
+                                                                  end;
+                                                                  j := Length(vbmComm);
+                                                                  SetLength(vbmComm, 2 * (i + 1) + j + 1);
+                                                                  while i >= 0 do
+                                                                  begin
+                                                                     vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0]) + ' --device 0 --medium none';
                                                                      vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
                                                                      Inc(j);
-                                                                     vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName;
-                                                                     if ahs[i][0] = 0 then
-                                                                     begin
-                                                                        if ahs[i][1] = 0 then
-                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --port 0 --device 1'
-                                                                        else
-                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 0';
-                                                                     end
-                                                                     else
-                                                                     begin
-                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 1';
-                                                                     end;
+                                                                     vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0] + 1) + ' --device 0';
                                                                      if ahs[i][2] = 1 then
                                                                      begin
                                                                         vbmComm[j][1] := vbmComm[j][1] + ' --type hdd';
@@ -7926,10 +8194,11 @@ begin
                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on'
                                                                         else
                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational off';
-                                                                        {                            if ahs[i][5] = 1 then
-                                                                                                       vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
-                                                                                                    else
-                                                                                                       vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                        if mCName = 'SATA' then
+                                                                           if ahs[i][5] = 1 then
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                           else
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';
                                                                      end
                                                                      else
                                                                      begin
@@ -7938,153 +8207,73 @@ begin
                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --passthrough on'
                                                                         else
                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --passthrough off';
-                                                                        { if ahs[i][5] = 1 then
-                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
-                                                                         else
-                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                        if mCName = 'SATA' then
+                                                                           if ahs[i][5] = 1 then
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                           else
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';
                                                                      end;
                                                                      if ahsUUID[i] <> '' then
                                                                         vbmComm[j][1] := vbmComm[j][1] + ' --medium "' + ahsUUId[i] + '"'
                                                                      else
                                                                         vbmComm[j][1] := vbmComm[j][1] + ' --medium emptydrive';
-                                                                     vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
+                                                                     Inc(j);
+                                                                     Dec(i);
                                                                   end;
-                                                                  Inc(j);
-                                                                  Dec(i);
+                                                                  with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                                  begin
+                                                                     SetAttribute('type', 'HardDisk');
+                                                                     SetAttribute('port', 0);
+                                                                     SetAttribute('device', '0');
+                                                                     with AddChild('Image') do
+                                                                        SetAttribute('uuid', '{' + fuuid + '}');
+                                                                     SetLength(ahs, Length(ahs) + 1);
+                                                                     SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                     ahs[High(ahs)][0] := 0;
+                                                                     ahs[High(ahs)][1] := 0;
+                                                                     ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                     isFUSet := True;
+                                                                  end;
+                                                                  vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
+                                                                  vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                                end;
-                                                               with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                               begin
-                                                                  SetAttribute('type', 'HardDisk');
-                                                                  SetAttribute('port', 0);
-                                                                  SetAttribute('device', 0);
-                                                                  with AddChild('Image') do
-                                                                     SetAttribute('uuid', '{' + fuuid + '}');
-                                                                  SetLength(ahs, Length(ahs) + 1);
-                                                                  ahs[High(ahs)][0] := 0;
-                                                                  ahs[High(ahs)][1] := 0;
-                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
-                                                                  ahsUUID[High(ahsUUID)] := string(fuuid);
-                                                                  isFUSet := True;
-                                                               end;
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
-                                                               vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                             end;
-                                                         end
-                                                         else
-                                                         begin
-                                                            if isLastC then
-                                                            begin
-                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
-                                                               else
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                               Abort;
-                                                            end
-                                                            else
-                                                               Continue;
                                                          end;
-                                                      end;
-                                                      if (su >= 0) and (not isSUSet) then
-                                                      begin
-                                                         if Length(ahs) < (2 * p) then
+
+                                                         if (su >= 0) and (not isSUSet) then
                                                          begin
                                                             i := 0;
-                                                            j := 0;
                                                             BreakCycles := False;
                                                             while i < p do
                                                             begin
                                                                j := 0;
-                                                               while j < p do
+                                                               while j < Length(ahs) do
                                                                begin
-                                                                  k := 0;
-                                                                  while k < Length(ahs) do
-                                                                  begin
-                                                                     if (ahs[k][0] = i) and (ahs[k][1] = j) then
-                                                                        Break;
-                                                                     Inc(k);
-                                                                  end;
-                                                                  if k >= Length(ahs) then
-                                                                  begin
-                                                                     BreakCycles := True;
+                                                                  if ahs[j][0] = i then
                                                                      Break;
-                                                                  end;
                                                                   Inc(j);
                                                                end;
-                                                               if BreakCycles then
+                                                               if j >= Length(ahs) then
+                                                               begin
+                                                                  BreakCycles := True;
                                                                   Break;
+                                                               end;
                                                                Inc(i);
                                                             end;
-                                                            with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
+                                                            if not BreakCycles then
                                                             begin
-                                                               SetAttribute('type', 'HardDisk');
-                                                               SetAttribute('port', IntToStr(i));
-                                                               SetAttribute('device', IntToStr(j));
-                                                               with AddChild('Image') do
-                                                                  SetAttribute('uuid', '{' + suuid + '}');
-                                                               isSUSet := True;
-                                                            end;
-                                                            SetLength(vbmComm, Length(vbmComm) + 1);
-                                                            vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device ' + IntToStr(j) + ' --type hdd --medium "' + sloc + '" --mtype normal';
-                                                            vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                         end
-                                                         else
-                                                         begin
-                                                            if isLastC then
-                                                            begin
-                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdviceIde'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and deleting one or more drives from the IDE controller.')
+                                                               if isLastC then
+                                                               begin
+                                                                  if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
+                                                                  else
+                                                                     errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
+                                                                  Abort;
+                                                               end
                                                                else
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                               Abort;
+                                                                  Continue;
                                                             end
                                                             else
-                                                               Continue;
-                                                         end;
-                                                      end;
-                                                   end
-                                                   else if mCName <> 'Floppy' then
-                                                   begin
-                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                      p := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue;
-
-                                                      if (fu >= 0) and (not isFUSet) then
-                                                      begin
-                                                         i := 0;
-                                                         BreakCycles := False;
-                                                         while i < p do
-                                                         begin
-                                                            j := 0;
-                                                            while j < Length(ahs) do
-                                                            begin
-                                                               if ahs[j][0] = i then
-                                                                  Break;
-                                                               Inc(j);
-                                                            end;
-                                                            if j >= Length(ahs) then
-                                                            begin
-                                                               BreakCycles := True;
-                                                               Break;
-                                                            end
-                                                            else if WarnAboutBoot = 1 then
-                                                               WarnAboutBoot := 2;
-                                                            Inc(i);
-                                                         end;
-                                                         if (not BreakCycles) and (sc <> 0) then
-                                                         begin
-                                                            if isLastC then
-                                                            begin
-                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                               else
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                               Abort;
-                                                            end
-                                                            else
-                                                               Continue;
-                                                         end
-                                                         else
-                                                         begin
-                                                            if (WarnAboutBoot <> 2) or (sc <> 0) then
                                                             begin
                                                                with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                begin
@@ -8092,175 +8281,19 @@ begin
                                                                   SetAttribute('port', IntToStr(i));
                                                                   SetAttribute('device', '0');
                                                                   with AddChild('Image') do
-                                                                     SetAttribute('uuid', '{' + fuuid + '}');
-                                                                  SetLength(ahs, Length(ahs) + 1);
-                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
-                                                                  ahs[High(ahs)][0] := i;
-                                                                  ahs[High(ahs)][1] := 0;
-                                                                  ahsUUID[High(ahsUUID)] := string(fuuid);
-                                                                  isFUSet := True;
+                                                                     SetAttribute('uuid', '{' + suuid + '}');
+                                                                  isSUSet := True;
                                                                end;
                                                                SetLength(vbmComm, Length(vbmComm) + 1);
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + floc + '" --mtype normal';
-                                                               vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
-                                                            end
-                                                            else
-                                                            begin
-                                                               WarnAboutBoot := 1;
-                                                               if not BreakCycles then
-                                                               begin
-                                                                  a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes.IndexOf('PortCount');
-                                                                  ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue :=
-                                                                     ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue + 1;
-                                                               end;
-                                                               i := 0;
-                                                               while i <= High(ahs) do
-                                                               begin
-                                                                  if ahs[i][0] <> i then
-                                                                     Break;
-                                                                  Inc(i);
-                                                               end;
-                                                               Dec(i);
-
-                                                               StopVMAnimation;
-                                                               TrayIcon.BalloonHint := '';
-                                                               case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages',
-                                                                  'WarnChangeBootDriveAndOther'], [FirstDriveName], 'In order to boot the VM from the "%s" drive,'#13#10 +
-                                                                     'it must be set as the first internal hard disk, but the first position is currently taken by another drive.' +
-                                                                  #13#10#13#10'Click on Yes to automatically shift up the other drives in subsequent positions'#13#10'or do it manually and click on Retry'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbRetry, mbCancel], mbYes) of
-                                                                  mrNone, mrCancel:
-                                                                     Exit;
-                                                                  mrRetry:
-                                                                     begin
-                                                                        TryAgain := True;
-                                                                        Exit;
-                                                                     end;
-                                                               end;
-                                                               StartVMANimation;
-                                                               j := 0;
-                                                               while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
-                                                               begin
-                                                                  a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
-                                                                  if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue <= ahs[i][0]) then
-                                                                     ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue :=
-                                                                        ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue + 1;
-                                                                  Inc(j);
-                                                               end;
-                                                               j := Length(vbmComm);
-                                                               SetLength(vbmComm, 2 * (i + 1) + j + 1);
-                                                               while i >= 0 do
-                                                               begin
-                                                                  vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0]) + ' --device 0 --medium none';
-                                                                  vbmComm[j][2] := GetLangTextDef(idxMain, ['Messages', 'DetachDriveOp'], 'detaching the drive');
-                                                                  Inc(j);
-                                                                  vbmComm[j][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(ahs[i][0] + 1) + ' --device 0';
-                                                                  if ahs[i][2] = 1 then
-                                                                  begin
-                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --type hdd';
-                                                                     if ahs[i][4] = 1 then
-                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on'
-                                                                     else
-                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational off';
-                                                                     if mCName = 'SATA' then
-                                                                        if ahs[i][5] = 1 then
-                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
-                                                                        else
-                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';
-                                                                  end
-                                                                  else
-                                                                  begin
-                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --type dvddrive';
-                                                                     if ahs[i][3] = 1 then
-                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --passthrough on'
-                                                                     else
-                                                                        vbmComm[j][1] := vbmComm[j][1] + ' --passthrough off';
-                                                                     if mCName = 'SATA' then
-                                                                        if ahs[i][5] = 1 then
-                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
-                                                                        else
-                                                                           vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';
-                                                                  end;
-                                                                  if ahsUUID[i] <> '' then
-                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --medium "' + ahsUUId[i] + '"'
-                                                                  else
-                                                                     vbmComm[j][1] := vbmComm[j][1] + ' --medium emptydrive';
-                                                                  Inc(j);
-                                                                  Dec(i);
-                                                               end;
-                                                               with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                               begin
-                                                                  SetAttribute('type', 'HardDisk');
-                                                                  SetAttribute('port', 0);
-                                                                  SetAttribute('device', '0');
-                                                                  with AddChild('Image') do
-                                                                     SetAttribute('uuid', '{' + fuuid + '}');
-                                                                  SetLength(ahs, Length(ahs) + 1);
-                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
-                                                                  ahs[High(ahs)][0] := 0;
-                                                                  ahs[High(ahs)][1] := 0;
-                                                                  ahsUUID[High(ahsUUID)] := string(fuuid);
-                                                                  isFUSet := True;
-                                                               end;
-                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
+                                                               vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + sloc + '" --mtype normal';
                                                                vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                             end;
-                                                         end;
-                                                      end;
-
-                                                      if (su >= 0) and (not isSUSet) then
-                                                      begin
-                                                         i := 0;
-                                                         BreakCycles := False;
-                                                         while i < p do
-                                                         begin
-                                                            j := 0;
-                                                            while j < Length(ahs) do
-                                                            begin
-                                                               if ahs[j][0] = i then
-                                                                  Break;
-                                                               Inc(j);
-                                                            end;
-                                                            if j >= Length(ahs) then
-                                                            begin
-                                                               BreakCycles := True;
-                                                               Break;
-                                                            end;
-                                                            Inc(i);
-                                                         end;
-                                                         if not BreakCycles then
-                                                         begin
-                                                            if isLastC then
-                                                            begin
-                                                               if ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.Count = 1 then
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePortAdvice'], 'unable to find a free port in the storage controller in the VirtualBox VM,'#13#10'please free one and try again.'#13#10'You can do that by starting the VirtualBox Manager, editing the VM''s storage options'#13#10'and increasing the Port Count of the storage controller.')
-                                                               else
-                                                                  errmsg := GetLangTextDef(idxMain, ['Messages', 'FreePort'], 'unable to find a free port in the storage controllers in the VirtualBox VM,'#13#10'please free one and try again.');
-                                                               Abort;
-                                                            end
-                                                            else
-                                                               Continue;
-                                                         end
-                                                         else
-                                                         begin
-                                                            with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
-                                                            begin
-                                                               SetAttribute('type', 'HardDisk');
-                                                               SetAttribute('port', IntToStr(i));
-                                                               SetAttribute('device', '0');
-                                                               with AddChild('Image') do
-                                                                  SetAttribute('uuid', '{' + suuid + '}');
-                                                               isSUSet := True;
-                                                            end;
-                                                            SetLength(vbmComm, Length(vbmComm) + 1);
-                                                            vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port ' + IntToStr(i) + ' --device 0 --type hdd --medium "' + sloc + '" --mtype normal';
-                                                            vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'AttachDriveOp'], 'attaching the drive');
                                                          end;
                                                       end;
                                                    end;
                                                 end;
-                                             end;
 
-                                          end;
+                                             end;
                                        end
                                        else
                                        begin

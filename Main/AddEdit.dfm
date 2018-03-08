@@ -33,7 +33,6 @@ object frmAddEdit: TfrmAddEdit
     Anchors = [akLeft, akTop, akRight, akBottom]
     BevelInner = bvLowered
     TabOrder = 0
-    ExplicitHeight = 270
     DesignSize = (
       576
       302)
@@ -326,7 +325,6 @@ object frmAddEdit: TfrmAddEdit
       Visible = False
       OnChange = edtExeParamsChange
       OnKeyDown = AllKeyDown
-      ExplicitTop = 74
     end
     object cmbWS: TComboBox
       Left = 245
@@ -351,7 +349,6 @@ object frmAddEdit: TfrmAddEdit
         'Minimized'
         'Maximized'
         'Fullscreen')
-      ExplicitTop = 202
     end
     object cmbPriority: TComboBox
       Left = 245
@@ -376,7 +373,6 @@ object frmAddEdit: TfrmAddEdit
         'Normal'
         'AboveNormal'
         'High')
-      ExplicitTop = 234
     end
     object cmbMode: TComboBox
       Left = 246
@@ -418,7 +414,6 @@ object frmAddEdit: TfrmAddEdit
       TabOrder = 4
       Visible = False
       OnKeyDown = AllKeyDown
-      ExplicitTop = 74
     end
     object cmbFirstDrive: TComboBox
       Left = 245
@@ -445,7 +440,6 @@ object frmAddEdit: TfrmAddEdit
       OnKeyDown = AllKeyDown
       Items.Strings = (
         'None')
-      ExplicitTop = 106
     end
     object cmbSecondDrive: TComboBox
       Left = 245
@@ -472,7 +466,6 @@ object frmAddEdit: TfrmAddEdit
       OnKeyDown = AllKeyDown
       Items.Strings = (
         'None')
-      ExplicitTop = 138
     end
     object cmbVMName: TComboBox
       Left = 245
@@ -495,7 +488,6 @@ object frmAddEdit: TfrmAddEdit
       Items.Strings = (
         'None'
         'Create new VM')
-      ExplicitTop = 74
     end
     object cmbEnableCPUVirtualization: TComboBox
       Left = 245
@@ -520,7 +512,6 @@ object frmAddEdit: TfrmAddEdit
         'On'
         'Off'
         'Switch')
-      ExplicitTop = 170
     end
     object cmbAudio: TComboBox
       Left = 245
@@ -551,7 +542,6 @@ object frmAddEdit: TfrmAddEdit
         'CS4231A'
         'Yamaha YM3812 (OPL2)'
         'Intel 82801AA AC97 Audio')
-      ExplicitTop = 170
     end
     object edtHDD: TEdit
       Left = 245
@@ -589,7 +579,6 @@ object frmAddEdit: TfrmAddEdit
       Value = 512
       Visible = False
       OnKeyDown = edtMemoryKeyDown
-      ExplicitTop = 140
     end
     object cmbCDROM: TComboBox
       Left = 245
@@ -617,7 +606,6 @@ object frmAddEdit: TfrmAddEdit
       OnKeyDown = AllKeyDown
       Items.Strings = (
         'None')
-      ExplicitTop = 106
     end
     object pnlVirtualBox: TPanel
       Left = 245
@@ -731,7 +719,6 @@ object frmAddEdit: TfrmAddEdit
     TabOrder = 1
     OnClick = btnOKClick
     OnKeyDown = AllKeyDown
-    ExplicitTop = 286
   end
   object btnCancel: TPngBitBtn
     Left = 369
@@ -745,7 +732,6 @@ object frmAddEdit: TfrmAddEdit
     Spacing = 10
     TabOrder = 2
     OnKeyDown = AllKeyDown
-    ExplicitTop = 286
   end
   object odSearchVM: TOpenDialog
     Filter = 'VirtualBox VM (*.vbox)|*.vbox|All files (*.*)|*.*'

@@ -11,57 +11,59 @@ uses
 type
    TfrmOptions = class(TForm)
       pnlAll: TPanel;
-      gbGeneral: TGroupBox;
-      cbLock: TCheckBox;
-      gbVirtualBox: TGroupBox;
-      gbQEMU: TGroupBox;
+    pnlVirtualBoxAll: TPanel;
       lblVBExePath: TLabel;
       edtVBExePath: TEdit;
-      cbSecondDrive: TCheckBox;
       cbUseVboxmanage: TCheckBox;
       cbDirectly: TCheckBox;
-      lblQExePath: TLabel;
-      edtQExePath: TEdit;
-      edtDefaultParameters: TEdit;
-      lblDefaultParameters: TLabel;
       odSearchQExe: TOpenDialog;
-      lblWaitTime: TLabel;
-      edtWaitTime: TEdit;
       gbUpdateMethod: TGroupBox;
       cbRemoveDrive: TCheckBox;
       cbAutoDetect: TCheckBox;
-      cbListOnlyUSBDrives: TCheckBox;
       fdListViewFont: TFontDialog;
-      cbAutomaticFont: TCheckBox;
-      lblLanguage: TLabel;
-      cmbLanguage: TComboBox;
       xmlTemp: TXMLDocument;
-      btnChooseFont: TPngBitBtn;
-      imgVB: TImage;
-      imgQEMU: TImage;
       cbPrecacheVBFiles: TCheckBox;
       cbPrestartVBExeFiles: TCheckBox;
-      btnBrowseForQExe: TPngSpeedButton;
       btnBrowseForVBExe: TPngSpeedButton;
       btnOK: TPngBitBtn;
       btnCancel: TPngBitBtn;
-      cmbExeVersion: TComboBox;
-      cbHideConsoleWindow: TCheckBox;
-      pnlQEMU: TPanel;
-      sbQEMU: TPngSpeedButton;
-      pnlVirtualBox: TPanel;
-      sbVirtualBox: TPngSpeedButton;
       cbLoadNetPortable: TCheckBox;
       cbLoadUSBPortable: TCheckBox;
       gbPortable: TGroupBox;
       gbApplicationStartup: TGroupBox;
       odSearchVBExe: TOpenDialog;
       cbuseLoadedFromInstalled: TCheckBox;
-      lblDefaultVMType: TLabel;
-      lblKeyCombination: TLabel;
-      hkStart: THotKey;
+      PageControl: TPageControl;
+      General: TTabSheet;
+      VirtualBox: TTabSheet;
+      QEMU: TTabSheet;
+    pnlQemuAll: TPanel;
+    lblQExePath: TLabel;
+    lblDefaultParameters: TLabel;
+    btnBrowseForQExe: TPngSpeedButton;
     lblEmulationBusType: TLabel;
+    edtQExePath: TEdit;
+    edtDefaultParameters: TEdit;
+    cmbExeVersion: TComboBox;
+    cbHideConsoleWindow: TCheckBox;
     cbEmulationBusType: TComboBox;
+    pnlGeneral: TPanel;
+    lblWaitTime: TLabel;
+    lblLanguage: TLabel;
+    lblDefaultVMType: TLabel;
+    lblKeyCombination: TLabel;
+    cbLock: TCheckBox;
+    cbSecondDrive: TCheckBox;
+    edtWaitTime: TEdit;
+    cbListOnlyUSBDrives: TCheckBox;
+    cbAutomaticFont: TCheckBox;
+    cmbLanguage: TComboBox;
+    btnChooseFont: TPngBitBtn;
+    pnlQEMU: TPanel;
+    sbQEMU: TPngSpeedButton;
+    pnlVirtualBox: TPanel;
+    sbVirtualBox: TPngSpeedButton;
+    hkStart: THotKey;
       procedure cbUseVboxmanageClick(Sender: TObject);
       procedure cbDirectlyClick(Sender: TObject);
       procedure btnBrowseForVBExeClick(Sender: TObject);
@@ -261,22 +263,26 @@ begin
    i := StrToIntDef(Trim(edtWaitTime.Text), -1);
    if (i < 0) or (i > 20000) then
    begin
+      PageControl.ActivePageIndex := 0;
       CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'ProperWaitTime'], 'Please set a proper value for the wait time (0..20000) !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       edtWaitTime.SetFocus;
       Exit;
    end;
    if (Trim(edtVBExePath.Text) <> '') and (not FileExists(Trim(edtVBExePath.Text))) then
    begin
+      PageControl.ActivePageIndex := 1;
       CustomMessageBox(Handle, (GetLangTextFormatDef(idxOptions, ['Messages', 'FileDoesntExist'], [Trim(edtVBExePath.Text), 'VirtualBox'], 'The file "%s" doesn''t exist !'#13#10'Please clear the %s Exe Path from the edit box if you don''t want to use it...')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       Exit;
    end;
    if (Trim(edtQExePath.Text) <> '') and (not FileExists(ExcludeTrailingPathDelimiter((Trim(edtQExePath.Text))) + '\' + Trim(cmbExeVersion.Text))) then
    begin
+      PageControl.ActivePageIndex := 2;
       CustomMessageBox(Handle, (GetLangTextFormatDef(idxOptions, ['Messages', 'FileDoesntExist'], [ExcludeTrailingPathDelimiter((Trim(edtQExePath.Text))) + '\' + Trim(cmbExeVersion.Text), 'QEMU'], 'The file "%s" doesn''t exist !'#13#10'Please clear the %s Exe Path from the edit box if you don''t want to use it...')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       Exit;
    end;
    if cmbLanguage.ItemIndex = -1 then
    begin
+      PageControl.ActivePageIndex := 0;
       CustomMessageBox(Handle, PWideChar(string('A language for the interface must be selected...!')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       Exit;
    end;
@@ -346,7 +352,7 @@ begin
    cbRemoveDrive.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'RemDrives'], 'Remove the drive(s) from the VM after closing');
    cbPrecacheVBFiles.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'PrecacheVBFiles'], 'Precache the VirtualBox files at application start');
    cbPrestartVBExeFiles.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'PrestartVBFiles'], 'Prestart the VirtualBox files at application start');
-   gbGeneral.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'General'], 'General');
+   PageControl.Pages[0].Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'General'], 'General');
    lblDefaultVMType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'DefaultVMType'], 'Default VM type when adding a new entry:');
    gbUpdateMethod.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'UpdateVMMethod'], 'Method to update the VM configuration file (*.vbox)');
    btnBrowseForVBExe.Hint := GetLangTextDef(idxOptions, ['Hints', 'BrowseForExe'], 'click to browse for exe');
@@ -361,36 +367,32 @@ begin
             frmMain.imlBtn16.GetIcon(5, Icon);
             sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
             sbQEMU.PngImage := frmMain.imlBtn16.PngImages[9].PngImage;
-            frmMain.imlBtn16.GetIcon(8, imgVB.Picture.Icon);
-            frmMain.imlBtn16.GetIcon(9, imgQEMU.Picture.Icon);
             btnOK.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
             btnCancel.PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
-            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
-            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
          end;
       19..22:
          begin
             frmMain.imlBtn20.GetIcon(5, Icon);
             sbVirtualBox.PngImage := frmMain.imlBtn20.PngImages[8].PngImage;
             sbQEMU.PngImage := frmMain.imlBtn20.PngImages[9].PngImage;
-            frmMain.imlBtn20.GetIcon(8, imgVB.Picture.Icon);
-            frmMain.imlBtn20.GetIcon(9, imgQEMU.Picture.Icon);
+            PageControl.Images := frmMain.imlBtn20;
             btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
             btnCancel.PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
-            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
-            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[31].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
          end;
       23..2147483647:
          begin
             frmMain.imlBtn24.GetIcon(5, Icon);
             sbVirtualBox.PngImage := frmMain.imlBtn24.PngImages[8].PngImage;
             sbQEMU.PngImage := frmMain.imlBtn24.PngImages[9].PngImage;
-            frmMain.imlBtn24.GetIcon(8, imgVB.Picture.Icon);
-            frmMain.imlBtn24.GetIcon(9, imgQEMU.Picture.Icon);
+            PageControl.Images := frmMain.imlBtn24;
             btnOK.PngImage := frmMain.imlBtn24.PngImages[14].PngImage;
             btnCancel.PngImage := frmMain.imlBtn24.PngImages[15].PngImage;
-            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
-            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn32.PngImages[1].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn32.PngImages[1].PngImage;
          end;
    end;
 
@@ -427,7 +429,10 @@ begin
    btnOK.Left := Round(0.4 * (ClientWidth - btnOK.Width - btnCancel.Width));
    btnCancel.Left := Round(0.6 * (ClientWidth - btnOK.Width - btnCancel.Width)) + btnOK.Width;
 
-   lblEmulationBusType.Left := cbEmulationBusType.Left - lblEmulationBusType.Width - 10;
+   i := Round(0.5 * ((-edtQExePath.Left - edtQExePath.Width + cmbExeVersion.Left) - (3 * Screen.PixelsPerInch / 96)));
+   edtQExePath.Width := edtQExePath.Width + i;
+   cmbExeVersion.Left := cmbExeVersion.Left - i;
+   cmbExeVersion.Width := cmbExeVersion.Width + i;
 
    originaledtVBExePathWindowProc := edtVBExePath.WindowProc;
    edtVBExePath.WindowProc := edtVBExePathWindowProc;
@@ -563,9 +568,9 @@ begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'NotAFile'], 'This is not a file !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                end;
             end;
-      else
-         DragFinish(Msg.WParam);
-         CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+         else
+            DragFinish(Msg.WParam);
+            CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       end;
    end
    else
@@ -601,9 +606,9 @@ begin
                   CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'NotAFile'], 'This is not a file !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
                end;
             end;
-      else
-         DragFinish(Msg.WParam);
-         CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
+         else
+            DragFinish(Msg.WParam);
+            CustomMessageBox(Handle, (GetLangTextDef(idxOptions, ['Messages', 'JustOneItem'], 'Just one item at a time !')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbOk], mbOk);
       end;
    end
    else
