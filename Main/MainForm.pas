@@ -214,7 +214,7 @@ type
       mmHideTrayIcon: TMenuItem;
       btnShowTrayIcon: TPngSpeedButton;
       tmCloseHint: TTimer;
-    imlBtn20: TPngImageList;
+      imlBtn20: TPngImageList;
       imlVst20: TPngImageList;
       imlReg20: TPngImageList;
       imlVst28: TPngImageList;
@@ -663,7 +663,7 @@ function CM_Get_Device_ID(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; u
 function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiSetClassInstallParamsW';
 
 const
-   BaseVersion = ' 1.7 Beta 2';
+   BaseVersion = ' 1.7 Beta 3';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -5417,7 +5417,7 @@ var
    hVolume, hVBoxSVC, hVmdk, hVbox, hDrive, hSrcVol: THandle;
    dwBytesReturned: DWORD;
    sdn: STORAGE_DEVICE_NUMBER;
-   an, vbmPath, StartFolder, sf, wst, wp, floc, sloc, ComLine, errmsg, mPort, mDevice, mCName, sJob, svcPath, strMess, exeVBPath: string;
+   an, vbmPath, StartFolder, sf, wst, wp, floc, sloc, ComLine, errmsg, mPort, mDevice, mCName, svcPath, strMess, exeVBPath: string;
    strStdErr: AnsiString;
    fsStdErr: TFilestream;
    CDROMLetter: AnsiChar;
@@ -5461,8 +5461,153 @@ var
    arrCtrlBoot: array[0..4] of SmallInt;
    //  ts: array[1..4] of TTime;
 
+   function DoVBoxManageJob(const nJob: Integer; nRetryTime: Cardinal = 0): Boolean;
+   var
+      nWait: Integer;
+      dt: Cardinal;
+      hProcess: THandle;
+   label
+      TryAgain;
+   begin
+      dt := GetTickCount;
+      TryAgain:
+      ComLine := vbmPath + ' ' + vbmComm[nJob][1];
+      FillChar(vbmStartupInfo, SizeOf(vbmStartupInfo), #0);
+      vbmStartupInfo.cb := SizeOf(vbmStartupInfo);
+      vbmStartupInfo.dwFlags := STARTF_USESTDHANDLES + STARTF_USESHOWWINDOW;
+      vbmStartupInfo.wShowWindow := SW_HIDE;
+      StartFolder := ExtractFilePath(ExeVBPath);
+      SecAttr.nlength := SizeOf(SecAttr);
+      SecAttr.binherithandle := True;
+      SecAttr.lpsecuritydescriptor := nil;
+      CreatePipe(StdErrRead, StdErrWrite, @SecAttr, 0);
+      vbmStartupInfo.hStdError := StdErrWrite;
+      if StartFolder <> '' then
+         PStartFolder := PChar(StartFolder)
+      else
+         PStartFolder := nil;
+      UniqueString(ComLine);
+      try
+         Result := CreateProcess(nil, PChar(ComLine), nil, nil, True, DETACHED_PROCESS or HIGH_PRIORITY_CLASS, nil, PStartFolder, vbmStartupInfo, vbmProcessInfo);
+      except
+         on E: Exception do
+         begin
+            Result := False;
+            LastExceptionStr := E.Message;
+         end;
+      end;
+      if Result then
+      begin
+         PrestartVBFilesAgain := True;
+         nWait := 0;
+         while (WaitForSingleObject(vbmProcessInfo.hProcess, 20) = WAIT_TIMEOUT) and (nWait < 1000) do
+         begin
+            Application.ProcessMessages;
+            if Application.Terminated then
+               Exit;
+            Inc(nWait);
+         end;
+         if nWait >= 1000 then
+         begin
+            errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorVBMan'], [vbmComm[nJob][2], vbmComm[nJob][1]], 'Out of time waiting for VBoxManage.exe to finish the current job (%s) !'#13#10#13#10'Job = %s'#13#10#13#10'This is a VirtualBox bug. My advice is to wait 20..30 seconds and try again...');
+            try
+               CloseHandle(vbmProcessInfo.hProcess);
+            except
+            end;
+            try
+               CloseHandle(vbmProcessInfo.hThread);
+            except
+            end;
+            try
+               CloseHandle(StdErrRead);
+            except
+            end;
+            try
+               CloseHandle(StdErrWrite);
+            except
+            end;
+            hProcess := OpenProcess(PROCESS_TERMINATE, False, vbmProcessInfo.dwProcessId);
+            if hProcess <> 0 then
+            try
+               TerminateProcess(hProcess, 1);
+            except
+            end;
+            AllOK := False;
+            Result := False;
+            Exit;
+         end;
+         try
+            PeekNamedPipe(StdErrRead, @Buffer, 1024, @BytesRead, @BytesAvail, nil);
+            if BytesRead <> 0 then
+            begin
+               Buffer[BytesRead] := #0;
+               strStdErr := AnsiString(Buffer);
+            end;
+         except
+         end;
+         try
+            if not GetExitCodeProcess(eProcessInfo.hProcess, ExitCode) then
+               ExitCode := 1;
+         except
+            ExitCode := 1;
+         end;
+
+         ExitCode := 9999;
+         try
+            GetExitCodeProcess(vbmProcessInfo.hProcess, ExitCode);
+         except
+         end;
+         try
+            CloseHandle(vbmProcessInfo.hProcess);
+         except
+         end;
+         try
+            CloseHandle(vbmProcessInfo.hThread);
+         except
+         end;
+         try
+            CloseHandle(StdErrRead);
+         except
+         end;
+         try
+            CloseHandle(StdErrWrite);
+         except
+         end;
+         if ExitCode > 0 then
+         begin
+            AllOK := False;
+            Result := False;
+            if ExitCode <> 9999 then
+            begin
+               if (GetTickCount - dt) < nRetryTime then
+               begin
+                  Application.ProcessMessages;
+                  if Application.Terminated then
+                     Exit;
+                  AllOK := True;
+                  goto TryAgain;
+               end;
+               errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManErrorCode'], [ExitCode, vbmComm[nJob][2], vbmComm[nJob][1]], 'VBoxManage.exe returned error code %d for the current job (%s) !'#13#10#13#10'Job = %s');
+            end
+            else
+               errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManExitError'], [vbmComm[nJob][2], vbmComm[nJob][1]], 'Error getting the exit code for the current VBoxManage job (%s) !'#13#10#13#10'Job = %s');
+            if strStdErr <> '' then
+               errmsg := errmsg + #13#10#13#10'VBoxManage output:'#13#10#13#10 + string(strStdErr);
+            Exit;
+         end;
+      end
+      else
+      begin
+         LastError := GetLastError;
+         errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManUnableLaunch'], [SysErrorMessage(LastError)], 'Unable to launch VBoxManage.exe !'#13#10#13#10'System message: %s');
+         AllOK := False;
+         Result := False;
+         Exit;
+      end;
+   end;
+
 label
-   sid, srchvbm, srchvm, srchvbm2, juststart, justclose, TryAgainToRemove;
+   sid, srchvbm, srchvm, srchvbm2, juststart, justclose;
 begin
    if isBusyStartVM then
    begin
@@ -5821,6 +5966,7 @@ begin
                                     dt := GetTickCount;
                                     while isIconic(AllWindowsList[i].Handle) do
                                     begin
+                                       mEvent.WaitFor(1);
                                        Application.ProcessMessages;
                                        if (GetTickCount - dt) > 3000 then
                                           Break;
@@ -5863,6 +6009,7 @@ begin
                                  dt := GetTickCount;
                                  while isIconic(AllWindowsList[i].Handle) do
                                  begin
+                                    mEvent.WaitFor(1);
                                     Application.ProcessMessages;
                                     if (GetTickCount - dt) > 3000 then
                                        Break;
@@ -5912,6 +6059,7 @@ begin
                                        dt := GetTickCount;
                                        while isIconic(AllWindowsList[i].Handle) do
                                        begin
+                                          mEvent.WaitFor(1);
                                           Application.ProcessMessages;
                                           if (GetTickCount - dt) > 3000 then
                                              Break;
@@ -5979,6 +6127,7 @@ begin
                                  dt := GetTickCount;
                                  while isIconic(AllWindowsList[i].Handle) do
                                  begin
+                                    mEvent.WaitFor(1);
                                     Application.ProcessMessages;
                                     if (GetTickCount - dt) > 3000 then
                                        Break;
@@ -6045,6 +6194,7 @@ begin
                                  dt := GetTickCount;
                                  while isIconic(AllWindowsList[i].Handle) do
                                  begin
+                                    mEvent.WaitFor(1);
                                     Application.ProcessMessages;
                                     if (GetTickCount - dt) > 3000 then
                                        Break;
@@ -6300,6 +6450,7 @@ begin
                   dt := GetTickCount;
                   while isIconic(AllWindowsList[i].Handle) do
                   begin
+                     mEvent.WaitFor(1);
                      Application.ProcessMessages;
                      if (GetTickCount - dt) > 3000 then
                         Break;
@@ -6624,6 +6775,7 @@ begin
                FLDThread := TFLDThread.Create;
                while not FLDJobDone do
                begin
+                  mEvent.WaitFor(1);
                   Application.ProcessMessages;
                   if Application.Terminated then
                   begin
@@ -7206,7 +7358,9 @@ begin
                                           begin
                                              a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].AttributeNodes.IndexOf('enabled');
                                              VBHardwareVirtualization := (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes[n5].AttributeNodes[a1].Text = 'true');
-                                          end;
+                                          end
+                                          else
+                                             VBHardwareVirtualization := True;
                                        end;
                                     end;
                                  end;
@@ -8490,58 +8644,35 @@ begin
                                        except
                                        end;
                                     end;
+                                    SetLength(vbmComm, Length(vbmComm) + 1);
+                                    vbmComm[High(vbmComm)][2] := 'changing hardware virtualization';
                                     if VBHardwareVirtualization then
-                                       sJob := 'modifyvm ' + VMID + ' --hwvirtex on'
+                                       vbmComm[High(vbmComm)][1] := 'modifyvm ' + VMID + ' --hwvirtex on'
                                     else
-                                       sJob := 'modifyvm ' + VMID + ' --hwvirtex off';
-                                    ComLine := vbmPath + ' ' + sJob;
-                                    FillChar(vbmStartupInfo, SizeOf(vbmStartupInfo), #0);
-                                    vbmStartupInfo.cb := SizeOf(vbmStartupInfo);
-                                    vbmStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
-                                    vbmStartupInfo.wShowWindow := SW_HIDE;
-                                    StartFolder := ExtractFilePath(ExeVBPath);
-                                    if StartFolder <> '' then
-                                       PStartFolder := PChar(StartFolder)
-                                    else
-                                       PStartFolder := nil;
-                                    StartVMAnimation;
-                                    UniqueString(ComLine);
-                                    if CreateProcess(nil, PChar(ComLine), nil, nil, False, DETACHED_PROCESS or HIGH_PRIORITY_CLASS, nil, PStartFolder, vbmStartupInfo, vbmProcessInfo) then
+                                       vbmComm[High(vbmComm)][1] := 'modifyvm ' + VMID + ' --hwvirtex off';
+                                    DoVBoxManageJob(High(vbmComm));
+                                    if not AllOK then
                                     begin
-                                       PrestartVBFilesAgain := True;
-                                       if WaitForSingleObject(vbmProcessInfo.hProcess, 3000) = WAIT_TIMEOUT then
+                                       StopVMAnimation;
+                                       TrayIcon.BalloonHint := '';
+                                       l := Length(errmsg);
+                                       i := l;
+                                       while i > 0 do
                                        begin
-                                          errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorVBMan'], [GetLangTextDef(idxMain, ['Messages', 'HardwareVirtOp'], 'changing hardware virtualization'), sJob], 'Out of time waiting for VBoxManage.exe to finish the current job (%s) !'#13#10#13#10'Job = %s'#13#10#13#10'This is a VirtualBox bug. My advice is to wait 20..30 seconds and try again...');
-                                          AllOK := False;
+                                          if (errmsg[i] <> #13) and (errmsg[i] <> #10) then
+                                             Break;
+                                          Dec(i);
                                        end;
-                                       if AllOK then
+                                       Delete(errmsg, i + 1, l - i);
+                                       if CustomMessageBox(Handle, errmsg + #13#10#13#10'Are you sure you want to continue (not recommended)...?', (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry], mbAbort) <> mrRetry then
+                                          Exit
+                                       else
                                        begin
-                                          ExitCode := 9999;
-                                          try
-                                             GetExitCodeProcess(vbmProcessInfo.hProcess, ExitCode);
-                                          except
-                                          end;
-                                          if ExitCode > 0 then
-                                          begin
-                                             AllOK := False;
-                                             if ExitCode <> 9999 then
-                                                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManErrorCode'], [ExitCode, GetLangTextDef(idxMain, ['Messages', 'HardwareVirtOp'], 'changing hardware virtualization'), sJob], 'VBoxManage.exe returned error code %d for the current job (%s) !'#13#10#13#10'Job = %s')
-                                             else
-                                                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManExitError'], [GetLangTextDef(idxMain, ['Messages', 'HardwareVirtOp'], 'changing hardware virtualization'), sJob], 'Error getting the exit code for the current VBoxManage job (%s) !'#13#10#13#10'Job = %s');
-                                          end;
+                                          TryAgain := True;
+                                          Exit;
                                        end;
-                                       try
-                                          CloseHandle(vbmProcessInfo.hProcess);
-                                          CloseHandle(vbmProcessInfo.hThread);
-                                       except
-                                       end;
-                                    end
-                                    else
-                                    begin
-                                       LastError := GetLastError;
-                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManUnableLaunch'], [SysErrorMessage(LastError)], 'Unable to launch VBoxManage.exe !'#13#10#13#10'System message: %s');
-                                       AllOK := False;
                                     end;
+                                    SetLength(vbmComm, Length(vbmComm) - 1);
                                  end;
                               end;
 
@@ -8741,58 +8872,8 @@ begin
                                     StartVMAnimation;
                                     while i <= High(vbmComm) do
                                     begin
-                                       ComLine := vbmPath + ' ' + vbmComm[i][1];
-                                       FillChar(vbmStartupInfo, SizeOf(vbmStartupInfo), #0);
-                                       vbmStartupInfo.cb := SizeOf(vbmStartupInfo);
-                                       vbmStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
-                                       vbmStartupInfo.wShowWindow := SW_HIDE;
-                                       StartFolder := ExtractFilePath(ExeVBPath);
-                                       if StartFolder <> '' then
-                                          PStartFolder := PChar(StartFolder)
-                                       else
-                                          PStartFolder := nil;
-                                       UniqueString(ComLine);
-                                       if CreateProcess(nil, PChar(ComLine), nil, nil, False, DETACHED_PROCESS or HIGH_PRIORITY_CLASS, nil, PStartFolder, vbmStartupInfo, vbmProcessInfo) then
-                                       begin
-                                          PrestartVBFilesAgain := True;
-                                          if WaitForSingleObject(vbmProcessInfo.hProcess, 3000) = WAIT_TIMEOUT then
-                                          begin
-                                             errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorVBMan'], [vbmComm[i][2], vbmComm[i][1]], 'Out of time waiting for VBoxManage.exe to finish the current job (%s) !'#13#10#13#10'Job = %s'#13#10#13#10'This is a VirtualBox bug. My advice is to wait 20..30 seconds and try again...');
-                                             try
-                                                CloseHandle(vbmProcessInfo.hProcess);
-                                                CloseHandle(vbmProcessInfo.hThread);
-                                             except
-                                             end;
-                                             AllOK := False;
-                                             Break;
-                                          end;
-                                          ExitCode := 9999;
-                                          try
-                                             GetExitCodeProcess(vbmProcessInfo.hProcess, ExitCode);
-                                          except
-                                          end;
-                                          try
-                                             CloseHandle(vbmProcessInfo.hProcess);
-                                             CloseHandle(vbmProcessInfo.hThread);
-                                          except
-                                          end;
-                                          if ExitCode > 0 then
-                                          begin
-                                             AllOK := False;
-                                             if ExitCode <> 9999 then
-                                                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManErrorCode'], [ExitCode, vbmComm[i][2], vbmComm[i][1]], 'VBoxManage.exe returned error code %d for the current job (%s) !'#13#10#13#10'Job = %s')
-                                             else
-                                                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManExitError'], [vbmComm[i][2], vbmComm[i][1]], 'Error getting the exit code for the current VBoxManage job (%s) !'#13#10#13#10'Job = %s');
-                                             Break;
-                                          end;
-                                       end
-                                       else
-                                       begin
-                                          LastError := GetLastError;
-                                          errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManUnableLaunch'], [SysErrorMessage(LastError)], 'Unable to launch VBoxManage.exe !'#13#10#13#10'System message: %s');
-                                          AllOK := False;
+                                       if not DoVBoxManageJob(i) then
                                           Break;
-                                       end;
                                        Inc(i);
                                     end;
 
@@ -8943,6 +9024,7 @@ begin
                                  dt := GetTickCount;
                                  while isIconic(Application.Handle) do
                                  begin
+                                    mEvent.WaitFor(1);
                                     Application.ProcessMessages;
                                     if (GetTickCount - dt) > 3000 then
                                        Break;
@@ -8960,6 +9042,7 @@ begin
                                  AlreadyHidden := True;
                               while WaitForSingleObject(eProcessInfo.hProcess, 100) = WAIT_TIMEOUT do
                               begin
+                                 mEvent.WaitFor(1);
                                  Application.ProcessMessages;
                                  if Application.Terminated then
                                     Exit;
@@ -9089,6 +9172,7 @@ begin
                                     dt := GetTickCount;
                                     while isIconic(AllWindowsList[i].Handle) do
                                     begin
+                                       mEvent.WaitFor(1);
                                        Application.ProcessMessages;
                                        if (GetTickCount - dt) > 3000 then
                                           Break;
@@ -9135,6 +9219,7 @@ begin
                                           dt := GetTickCount;
                                           while isIconic(AllWindowsList[i].Handle) do
                                           begin
+                                             mEvent.WaitFor(1);
                                              Application.ProcessMessages;
                                              if (GetTickCount - dt) > 3000 then
                                                 Break;
@@ -9527,68 +9612,8 @@ begin
                         StartVMAnimation;
                         while i <= High(vbmComm) do
                         begin
-                           ComLine := vbmPath + ' ' + vbmComm[i][1];
-                           FillChar(vbmStartupInfo, SizeOf(vbmStartupInfo), #0);
-                           vbmStartupInfo.cb := SizeOf(vbmStartupInfo);
-                           vbmStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
-                           vbmStartupInfo.wShowWindow := SW_HIDE;
-                           StartFolder := ExtractFilePath(ExeVBPath);
-                           if StartFolder <> '' then
-                              PStartFolder := PChar(StartFolder)
-                           else
-                              PStartFolder := nil;
-                           UniqueString(ComLine);
-                           dt := GetTickCount;
-                           TryAgainToRemove:
-                           if CreateProcess(nil, PChar(ComLine), nil, nil, False, DETACHED_PROCESS or HIGH_PRIORITY_CLASS, nil, PStartFolder, vbmStartupInfo, vbmProcessInfo) then
-                           begin
-                              PrestartVBFilesAgain := True;
-                              if WaitForSingleObject(vbmProcessInfo.hProcess, 3000) = WAIT_TIMEOUT then
-                              begin
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorVBMan'], [vbmComm[i][2], vbmComm[i][1]], 'Out of time waiting for VBoxManage.exe to finish the current job (%s) !'#13#10#13#10'Job = %s'#13#10#13#10'This is a VirtualBox bug. My advice is to wait 20..30 seconds and try again...');
-                                 try
-                                    CloseHandle(vbmProcessInfo.hProcess);
-                                    CloseHandle(vbmProcessInfo.hThread);
-                                 except
-                                 end;
-                                 AllOK := False;
-                                 Break;
-                              end;
-                              ExitCode := 9999;
-                              try
-                                 GetExitCodeProcess(vbmProcessInfo.hProcess, ExitCode);
-                              except
-                              end;
-                              try
-                                 CloseHandle(vbmProcessInfo.hProcess);
-                                 CloseHandle(vbmProcessInfo.hThread);
-                              except
-                              end;
-                              if ExitCode > 0 then
-                              begin
-                                 AllOK := False;
-                                 if ExitCode <> 9999 then
-                                 begin
-                                    if (GetTickCount - dt) < 3000 then
-                                    begin
-                                       AllOK := True;
-                                       goto TryAgainToRemove;
-                                    end;
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManErrorCode'], [ExitCode, vbmComm[i][2], vbmComm[i][1]], 'VBoxManage.exe returned error code %d for the current job (%s) !'#13#10#13#10'Job = %s');
-                                 end
-                                 else
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManExitError'], [vbmComm[i][2], vbmComm[i][1]], 'Error getting the exit code for the current VBoxManage job (%s) !'#13#10#13#10'Job = %s');
-                                 Clipboard.AsText := ComLine;
-                                 Break;
-                              end;
-                           end
-                           else
-                           begin
-                              LastError := GetLastError;
-                              errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManUnableLaunch'], [SysErrorMessage(LastError)], 'Unable to launch VBoxManage.exe !'#13#10#13#10'System message: %s');
-                              AllOK := False;
+                           if not DoVboxManageJob(i, 5000) then
                               Break;
-                           end;
                            Inc(i);
                         end;
                      end;
@@ -9663,7 +9688,6 @@ begin
                AllProcAffinityMask := CombinedProcessorMask(NumberOfProcessors);
                while WaitForInputIdle(eProcessInfo.hProcess, 20) = WAIT_TIMEOUT do
                begin
-                  mEvent.WaitFor(1);
                   Application.ProcessMessages;
                   if Application.Terminated then
                      Exit;
@@ -9703,6 +9727,7 @@ begin
                                     dt := GetTickCount;
                                     while isIconic(Application.Handle) do
                                     begin
+                                       mEvent.WaitFor(1);
                                        Application.ProcessMessages;
                                        if (GetTickCount - dt) > 3000 then
                                           Break;
@@ -10086,7 +10111,10 @@ begin
       FUnregThread := TUnregisterThread.Create;
       dt := GetTickCount;
       while (not FUnregJobDone) and ((GetTickCount - dt) <= wt) do
+      begin
+         mEvent.WaitFor(1);
          Application.ProcessMessages;
+      end;
       if not FUnregJobDone then
          FUnregThread.Terminate;
       if FUnregJobDone then
@@ -11292,6 +11320,7 @@ begin
          dt := GetTickCount;
          while isIconic(Application.Handle) do
          begin
+            mEvent.WaitFor(1);
             Application.ProcessMessages;
             if (GetTickCount - dt) > 3000 then
                Break;
@@ -11886,12 +11915,14 @@ begin
             StartFirstDriveAnimation
          else
             StartSecDriveAnimation;
+         mEvent.WaitFor(1);
          Application.ProcessMessages;
          EjectResult := False;
          FEjectJobDone := False;
          FEjectThread := TEjectThread.Create;
          while not FEjectJobDone do
          begin
+            mEvent.WaitFor(1);
             Application.ProcessMessages;
             if Application.Terminated then
             begin
@@ -12165,7 +12196,16 @@ begin
                cmbExeVersion.ItemIndex := 0;
             end;
             cbHideConsoleWindow.Checked := HideConsoleWindow;
-            cbEmulationBusType.ItemIndex := EmulationBusType;
+            if EmulationBusType = 0 then
+            begin
+               rbIDE.Checked := True;
+               rbSCSI.Checked := False;
+            end
+            else
+            begin
+               rbIDE.Checked := False;
+               rbSCSI.Checked := True;
+            end;
             edtDefaultParameters.Text := QEMUDefaultParameters;
             ColWereAligned := frmMain.vstVMs.Header.Columns.TotalWidth = frmMain.vstVMs.ClientWidth;
             NrRes := 0;
@@ -14624,7 +14664,7 @@ begin
                else
                   ExeQPath := '';
                HideConsoleWindow := cbHideConsoleWindow.Checked;
-               EmulationBusType := cbEmulationBusType.ItemIndex;
+               EmulationBusType := 0 * Integer(rbIDE.Checked) + 1 * Integer(rbSCSI.Checked);
                QEMUDefaultParameters := Trim(edtDefaultParameters.Text);
                if DoAlign then
                begin
@@ -14700,6 +14740,7 @@ begin
       dt := GetTickCount;
       while isIconic(Application.Handle) do
       begin
+         mEvent.WaitFor(1);
          Application.ProcessMessages;
          if (GetTickCount - dt) > 3000 then
             Break;
@@ -14985,6 +15026,7 @@ begin
       dt := GetTickCount;
       while isIconic(Application.Handle) do
       begin
+         mEvent.WaitFor(1);
          Application.ProcessMessages;
          if (GetTickCount - dt) > 3000 then
             Break;
@@ -15021,7 +15063,7 @@ end;
 
 procedure TfrmMain.StartManagersClick(Sender: TObject);
 var
-   j, l: Integer;
+   j, l, nWait: Integer;
    eStartupInfo: TStartupInfo;
    eProcessInfo: TProcessInformation;
    ProcessID: THandle;
@@ -15099,6 +15141,7 @@ begin
                            dt := GetTickCount;
                            while isIconic(AllWindowsList[j].Handle) do
                            begin
+                              mEvent.WaitFor(1);
                               Application.ProcessMessages;
                               if (GetTickCount - dt) > 3000 then
                                  Break;
@@ -15199,6 +15242,7 @@ begin
                            dt := GetTickCount;
                            while isIconic(AllWindowsList[j].Handle) do
                            begin
+                              mEvent.WaitFor(1);
                               Application.ProcessMessages;
                               if (GetTickCount - dt) > 3000 then
                                  Break;
@@ -15236,7 +15280,8 @@ begin
          end;
          if Result then
          begin
-            while WaitForInputIdle(eProcessInfo.hProcess, 25) <> WAIT_TIMEOUT do
+            nWait := 0;
+            while (WaitForInputIdle(eProcessInfo.hProcess, 20) <> WAIT_TIMEOUT) and (nWait < 250) do
                Application.ProcessMessages;
             if Application.Terminated then
                Exit;
@@ -15245,7 +15290,7 @@ begin
                Application.ProcessMessages;
                if Application.Terminated then
                   Exit;
-               if WaitForSingleObject(eProcessInfo.hProcess, 25) <> WAIT_TIMEOUT then
+               if WaitForSingleObject(eProcessInfo.hProcess, 20) <> WAIT_TIMEOUT then
                   Break;
                GetAllWindowsList('TMain');
                l := Length(AllWindowsList);
@@ -16484,6 +16529,7 @@ begin
          dt := GetTickCount;
          while isIconic(Application.Handle) do
          begin
+            mEvent.WaitFor(1);
             Application.ProcessMessages;
             if (GetTickCount - dt) > 3000 then
                Break;
@@ -17267,7 +17313,10 @@ var
 begin
    tc := GetTickCount;
    while (GetTickCount < tc + dt) and (not Application.Terminated) do
+   begin
+      mEvent.WaitFor(1);
       Application.ProcessMessages;
+   end;
 end;
 
 procedure SetThemeDependantParams;
@@ -18857,6 +18906,7 @@ begin
                         dt := GetTickCount;
                         while isIconic(AllWindowsList[j].Handle) do
                         begin
+                           mEvent.WaitFor(1);
                            Application.ProcessMessages;
                            if (GetTickCount - dt) > 3000 then
                               Break;
@@ -18925,7 +18975,7 @@ begin
             Application.ProcessMessages;
             if Application.Terminated then
                Exit;
-            if WaitForSingleObject(eProcessInfo.hProcess, 25) <> WAIT_TIMEOUT then
+            if WaitForSingleObject(eProcessInfo.hProcess, 20) <> WAIT_TIMEOUT then
                Break;
             GetAllWindowsList(VBWinClass);
             l := Length(AllWindowsList);

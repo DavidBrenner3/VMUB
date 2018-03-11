@@ -1,28 +1,45 @@
 ﻿[Closed Files]
-File_0=TSourceModule,'D:\VMUB\Main\uFLDThread.pas',0,1,115,32,139,0,0,,
-File_1=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Forms.pas',0,1,1032,1,1048,0,0,{{1716,4}
-File_2=TSourceModule,'D:\VMUB\uUnregisterThread.pas',0,1,1525,123,1525,0,0,,
-File_3=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\common\System.UITypes.pas',0,1,160,1,188,0,0,,
-File_4=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Controls.pas',0,1,1,1,1,0,0,,
-File_5=TSourceModule,'D:\VMUB\uTrayIconCmd.pas',0,1,40,119,69,0,0,,
-File_6=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.ShellAPI.pas',0,1,1,1,1,0,0,,
-File_7=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.ExtCtrls.pas',0,1,9800,3,9814,0,0,,
-File_8=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Dialogs.pas',0,1,1,1,1,0,0,,
-File_9=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Graphics.pas',0,1,33,1,50,0,0,,
-File_10=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Themes.pas',0,1,1072,74,1088,0,0,,
-File_11=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas',0,1,23135,1,23151,0,0,,
-File_12=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.DwmApi.pas',0,1,78,3,94,0,0,,
+File_0=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Forms.pas',0,1,1032,1,1048,0,0,{{1716,4}
+File_1=TSourceModule,'D:\VMUB\uUnregisterThread.pas',0,1,1525,123,1525,0,0,,
+File_2=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\common\System.UITypes.pas',0,1,160,1,188,0,0,,
+File_3=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Controls.pas',0,1,1,1,1,0,0,,
+File_4=TSourceModule,'D:\VMUB\uTrayIconCmd.pas',0,1,40,119,69,0,0,,
+File_5=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.ShellAPI.pas',0,1,1,1,1,0,0,,
+File_6=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.ExtCtrls.pas',0,1,9800,3,9814,0,0,,
+File_7=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Dialogs.pas',0,1,1,1,1,0,0,,
+File_8=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Graphics.pas',0,1,33,1,50,0,0,,
+File_9=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Themes.pas',0,1,1072,74,1088,0,0,,
+File_10=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas',0,1,23135,1,23151,0,0,,
+File_11=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.DwmApi.pas',0,1,78,3,94,0,0,,
 
 [Modules]
-Module0=D:\VMUB\Main\AddEdit.pas
-Module1=D:\VMUB\Main\Options.pas
-Module2=D:\VMUB\Main\MainForm.pas
-Count=3
+Module0=D:\VMUB\Main\MainForm.pas
+Module1=D:\VMUB\Main\uFLDThread.pas
+Module2=D:\VMUB\Main\uEjectThread.pas
+Module3=D:\VMUB\Main\uRegisterThread.pas
+Module4=D:\VMUB\Main\Options.pas
+Module5=D:\VMUB\Main\AddEdit.pas
+Count=6
 EditWindowCount=1
 
-[D:\VMUB\Main\AddEdit.pas]
+[D:\VMUB\Main\MainForm.pas]
 ModuleType=TSourceModule
 FormState=1
+FormOnTop=0
+
+[D:\VMUB\Main\uFLDThread.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[D:\VMUB\Main\uEjectThread.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[D:\VMUB\Main\uRegisterThread.pas]
+ModuleType=TSourceModule
+FormState=0
 FormOnTop=0
 
 [D:\VMUB\Main\Options.pas]
@@ -30,30 +47,35 @@ ModuleType=TSourceModule
 FormState=1
 FormOnTop=0
 
-[D:\VMUB\Main\MainForm.pas]
+[D:\VMUB\Main\AddEdit.pas]
 ModuleType=TSourceModule
 FormState=1
 FormOnTop=0
 
 [EditWindow0]
-ViewCount=3
-CurrentEditView=D:\VMUB\Main\AddEdit.pas
+ViewCount=6
+CurrentEditView=D:\VMUB\Main\MainForm.pas
 View0=0
 View1=1
 View2=2
+View3=3
+View4=4
+View5=5
 PercentageSizes=1
 Create=1
 Visible=1
 Docked=0
-State=0
-Left=1787
+State=2
+Left=1684
 Top=934
 Width=6522
 Height=9066
-MaxLeft=-59
-MaxTop=426
-ClientWidth=6404
-ClientHeight=8530
+MaxLeft=0
+MaxTop=382
+MaxWidth=6522
+MaxHeight=9066
+ClientWidth=10000
+ClientHeight=8750
 DockedToMainForm=0
 BorlandEditorCodeExplorer=BorlandEditorCodeExplorer@EditWindow0
 TopPanelSize=0
@@ -64,31 +86,64 @@ RightPanelSize=0
 BottomPanelSize=0
 BottomMiddlePanelSize=0
 BottomMiddlePanelClients=DockSite0,ToDo List,MessageView
-BottomMiddelPanelData=0000080001020300000009000000446F636B53697465300E000000546F446F4C69737457696E646F770F0000004D65737361676556696577466F726D3B1F000000000000028B05000000000000FFFFFFFF
+BottomMiddelPanelData=0000080001020300000009000000446F636B53697465300E000000546F446F4C69737457696E646F770F0000004D65737361676556696577466F726D2C4500000000000002710500000000000001000000002C4500000F0000004D65737361676556696577466F726DFFFFFFFF
 
 [View0]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\MainForm.pas
-CursorX=29
-CursorY=2836
-TopLine=2813
+CursorX=106
+CursorY=8627
+TopLine=8607
 LeftCol=1
 Elisions=
-Bookmarks=
+Bookmarks={0,9593,1}{1,5464,71}{2,8500,9}
 EditViewName=D:\VMUB\Main\MainForm.pas
 
 [View1]
 CustomEditViewType=TEditView
+Module=D:\VMUB\Main\uRegisterThread.pas
+CursorX=106
+CursorY=280
+TopLine=244
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=D:\VMUB\Main\uRegisterThread.pas
+
+[View2]
+CustomEditViewType=TEditView
+Module=D:\VMUB\Main\uFLDThread.pas
+CursorX=1
+CursorY=140
+TopLine=109
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=D:\VMUB\Main\uFLDThread.pas
+
+[View3]
+CustomEditViewType=TEditView
 Module=D:\VMUB\Main\Options.pas
-CursorX=75
-CursorY=371
-TopLine=369
+CursorX=22
+CursorY=363
+TopLine=351
 LeftCol=1
 Elisions=
 Bookmarks=
 EditViewName=D:\VMUB\Main\Options.pas
 
-[View2]
+[View4]
+CustomEditViewType=TEditView
+Module=D:\VMUB\Main\uEjectThread.pas
+CursorX=58
+CursorY=8
+TopLine=1
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=D:\VMUB\Main\uEjectThread.pas
+
+[View5]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\AddEdit.pas
 CursorX=51
@@ -100,7 +155,8 @@ Bookmarks=
 EditViewName=D:\VMUB\Main\AddEdit.pas
 
 [Watches]
-Count=0
+Count=1
+Watch0='Data^.VBCPUVirtualization',256,0,18,1,0,'Watches',1
 
 [WatchWindow]
 WatchColumnWidth=120
@@ -153,11 +209,11 @@ State=0
 Left=0
 Top=0
 Width=10000
-Height=536
+Height=934
 MaxLeft=-7
 MaxTop=-14
 ClientWidth=9882
-ClientHeight=0
+ClientHeight=398
 BottomPanelSize=0
 
 [ProjectManager]
@@ -186,14 +242,14 @@ Visible=0
 Docked=1
 State=0
 Left=0
-Top=0
-Width=3522
-Height=1250
+Top=23
+Width=10000
+Height=1154
 MaxLeft=-1
 MaxTop=-1
-ClientWidth=3522
-ClientHeight=1250
-TBDockHeight=1250
+ClientWidth=10000
+ClientHeight=1154
+TBDockHeight=1154
 LRDockWidth=3522
 Dockable=1
 StayOnTop=0
@@ -236,11 +292,6 @@ LRDockWidth=1551
 Dockable=1
 StayOnTop=0
 SplitPos=73
-
-[PropInspDesignerSelection]
-ArrangeBy=Name
-SelectedItem=Name,
-ExpandedItems="LiveBindings Designer=0"
 
 [ModelViewTool]
 PercentageSizes=1

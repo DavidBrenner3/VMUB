@@ -4150,8 +4150,8 @@ object frmMain: TfrmMain
           FAFAE726C646BEECFEB8EFE3FC0FE6A9333AA23E39DC0000000049454E44AE42
           6082}
       end>
-    Left = 312
-    Top = 48
+    Left = 224
+    Top = 152
     Bitmap = {}
   end
   object imlVST24: TPngImageList
@@ -9492,8 +9492,8 @@ object frmMain: TfrmMain
           45002B92C81030AF0E9DC06D561F3771D32F95E777DE7CE5E537E858A53DB0BF
           2DFF015AC089A97170E7280000000049454E44AE426082}
       end>
-    Left = 312
-    Top = 104
+    Left = 320
+    Top = 152
     Bitmap = {}
   end
   object imlVST32: TPngImageList
@@ -16614,8 +16614,8 @@ object frmMain: TfrmMain
           00F655DFEB0765C1F0CFA5B1C71736F5791D85AFACF00000000049454E44AE42
           6082}
       end>
-    Left = 368
-    Top = 48
+    Left = 416
+    Top = 152
     Bitmap = {}
   end
   object imlVST_header: TPngImageList
@@ -16686,22 +16686,22 @@ object frmMain: TfrmMain
           7009EC0E6624B89F95FC40B003A85A3C0B7D0BDF550000000049454E44AE4260
           82}
       end>
-    Left = 56
-    Top = 152
+    Left = 352
+    Top = 64
     Bitmap = {}
   end
   object tmCheckCTRL: TTimer
     Enabled = False
     Interval = 25
     OnTimer = tmCheckCTRLTimer
-    Left = 376
+    Left = 368
     Top = 104
   end
   object pmManagers: TPopupMenu
     AutoPopup = False
     Images = imlBtn16
-    Left = 120
-    Top = 152
+    Left = 56
+    Top = 104
     object mmVirtualBoxManager: TMenuItem
       Bitmap.Data = {
         42040000424D4204000000000000420000002800000010000000100000000100
@@ -20985,8 +20985,8 @@ object frmMain: TfrmMain
           577471B1DC648812F9E8E50DE052A78F8CFE6D89E4ABF3075C03AD7879649E5F
           0000000049454E44AE426082}
       end>
-    Left = 56
-    Top = 104
+    Left = 296
+    Top = 64
     Bitmap = {}
   end
   object imlBtn24: TPngImageList
@@ -22228,7 +22228,7 @@ object frmMain: TfrmMain
           AC7FE2E92B2D7CED3DFB77FF19405EAF2C99A93FFE5BF5189BC3A91F3FCED8BB
           62616ACF3F67468CFBC472B78E0000000049454E44AE426082}
       end>
-    Left = 176
+    Left = 120
     Top = 152
     Bitmap = {}
   end
@@ -23091,7 +23091,7 @@ object frmMain: TfrmMain
           F73F81B3BB8BF92760B35DD9C86093E61184BE3F32F8057DB0FFE1DA0F0C4600
           00000049454E44AE426082}
       end>
-    Left = 240
+    Left = 24
     Top = 152
     Bitmap = {}
   end
@@ -23186,8 +23186,8 @@ object frmMain: TfrmMain
           EBA578AD963BD067BA218ADEBA69DE3CCC71D3D7EBF5DFD023FE022625ECB99D
           845F420000000049454E44AE426082}
       end>
-    Left = 304
-    Top = 152
+    Left = 296
+    Top = 24
     Bitmap = {}
   end
   object imlReg24: TPngImageList
@@ -23298,8 +23298,8 @@ object frmMain: TfrmMain
           89F3646598B2E6B5B545B5E2AA014E93291700D39DEBEBFFF7D3BFC8F10B9B20
           48D407447FBB0000000049454E44AE426082}
       end>
-    Left = 376
-    Top = 152
+    Left = 384
+    Top = 24
     Bitmap = {}
   end
   object TrayIcon: TTrayIcon
@@ -23311,8 +23311,8 @@ object frmMain: TfrmMain
     OnBalloonClick = TrayIconBalloonClick
     OnDblClick = mmHideTrayIconClick
     OnMouseDown = TrayIconMouseDown
-    Left = 432
-    Top = 168
+    Left = 312
+    Top = 104
   end
   object imlTray: TPngImageList
     ColorDepth = cd32Bit
@@ -23320,15 +23320,15 @@ object frmMain: TfrmMain
     Height = 32
     Width = 32
     PngImages = <>
-    Left = 432
-    Top = 48
+    Left = 424
+    Top = 24
   end
   object pmTray: TPopupMenu
     AutoHotkeys = maManual
     Images = imlBtn16
     OnPopup = pmTrayPopup
-    Left = 432
-    Top = 112
+    Left = 424
+    Top = 104
     object mmStart: TMenuItem
       Caption = 'Start'
       ImageIndex = 0
@@ -23354,7 +23354,8 @@ object frmMain: TfrmMain
     Enabled = False
     Interval = 3000
     OnTimer = tmCloseHintTimer
-    Left = 392
+    Left = 16
+    Top = 104
   end
   object imlBtn20: TPngImageList
     ColorDepth = cd32Bit
@@ -24592,8 +24593,8 @@ object frmMain: TfrmMain
           74C8093A868AA20B48E32F7480AA8C31FAFD7F4A4F7A18584577A90000000049
           454E44AE426082}
       end>
-    Left = 232
-    Top = 8
+    Left = 72
+    Top = 152
     Bitmap = {}
   end
   object imlVst20: TPngImageList
@@ -29259,7 +29260,8 @@ object frmMain: TfrmMain
           CB783E8561804624B7F629B7876DEFD53241EC1F993846CD4DBFB9B616FFF8DD
           B7CBBC78E57FAC2C262AB77A5A500000000049454E44AE426082}
       end>
-    Left = 280
+    Left = 272
+    Top = 152
     Bitmap = {}
   end
   object imlReg20: TPngImageList
@@ -29389,8 +29391,8 @@ object frmMain: TfrmMain
           05DBB8B960AD3E80CB7E281B41C9475FBB60F7FC05E08E06EBE84356F16271F3
           2F204EB90D78C3F337EEA0DF99383627610000000049454E44AE426082}
       end>
-    Left = 176
-    Top = 8
+    Left = 336
+    Top = 24
     Bitmap = {}
   end
   object imlVst28: TPngImageList
@@ -35792,8 +35794,8 @@ object frmMain: TfrmMain
           A189891BCF6DDE7CE1E6AD1BE6A2E262F35F2918262E6E39F7DD000000004945
           4E44AE426082}
       end>
-    Left = 104
-    Top = 8
+    Left = 368
+    Top = 152
     Bitmap = {}
   end
   object imlBtn32: TPngImageList
@@ -35933,8 +35935,8 @@ object frmMain: TfrmMain
           576E14401B84546952CE489DAE8586EB46027479FD0A1547EABED87A71EE0000
           000049454E44AE426082}
       end>
-    Left = 144
-    Top = 80
+    Left = 168
+    Top = 152
     Bitmap = {}
   end
 end

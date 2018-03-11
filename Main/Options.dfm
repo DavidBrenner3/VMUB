@@ -629,6 +629,7 @@ object frmOptions: TfrmOptions
           ParentColor = True
           ParentFont = False
           TabOrder = 0
+          ExplicitTop = 6
           DesignSize = (
             559
             312)
@@ -649,7 +650,7 @@ object frmOptions: TfrmOptions
           end
           object lblDefaultParameters: TLabel
             Left = 8
-            Top = 112
+            Top = 167
             Width = 224
             Height = 16
             Anchors = [akLeft, akTop, akRight]
@@ -680,20 +681,6 @@ object frmOptions: TfrmOptions
             ShowHint = True
             OnClick = btnBrowseForQExeClick
           end
-          object lblEmulationBusType: TLabel
-            Left = 8
-            Top = 80
-            Width = 113
-            Height = 16
-            Caption = 'Emulation bus type:'
-            Font.Charset = DEFAULT_CHARSET
-            Font.Color = clWindowText
-            Font.Height = -13
-            Font.Name = 'Tahoma'
-            Font.Style = []
-            ParentFont = False
-            Transparent = True
-          end
           object edtQExePath: TEdit
             Left = 71
             Top = 13
@@ -712,7 +699,7 @@ object frmOptions: TfrmOptions
           end
           object edtDefaultParameters: TEdit
             Left = 8
-            Top = 139
+            Top = 192
             Width = 542
             Height = 24
             Hint = 'Basic parameters for x86/x64 version'
@@ -767,27 +754,54 @@ object frmOptions: TfrmOptions
             WordWrap = True
             OnKeyDown = AllKeyDown
           end
-          object cbEmulationBusType: TComboBox
-            Left = 206
-            Top = 77
-            Width = 344
-            Height = 24
-            Style = csDropDownList
+          object gbEmulationBusType: TGroupBox
+            Left = 8
+            Top = 78
+            Width = 542
+            Height = 72
             Anchors = [akLeft, akTop, akRight]
-            Font.Charset = DEFAULT_CHARSET
-            Font.Color = clWindowText
-            Font.Height = -13
-            Font.Name = 'Tahoma'
-            Font.Style = []
-            ItemIndex = 1
-            MaxLength = 1024
-            ParentFont = False
+            Caption = 'Emulation bus type'
             TabOrder = 3
-            Text = 'SCSI (fast, less compatible)'
-            OnKeyDown = AllKeyDown
-            Items.Strings = (
-              'IDE (slow, compatible)'
-              'SCSI (fast, less compatible)')
+            DesignSize = (
+              542
+              72)
+            object rbIDE: TRadioButton
+              Left = 8
+              Top = 20
+              Width = 522
+              Height = 17
+              Anchors = [akLeft, akTop, akRight]
+              Caption = 'IDE (slow, more compatible)'
+              Font.Charset = DEFAULT_CHARSET
+              Font.Color = clWindowText
+              Font.Height = -13
+              Font.Name = 'Tahoma'
+              Font.Style = []
+              ParentFont = False
+              TabOrder = 0
+              TabStop = True
+              WordWrap = True
+              OnKeyDown = AllKeyDown
+            end
+            object rbSCSI: TRadioButton
+              Left = 8
+              Top = 45
+              Width = 522
+              Height = 17
+              Anchors = [akLeft, akTop, akRight]
+              Caption = 'SCSI (fast, less compatible)'
+              Checked = True
+              Font.Charset = DEFAULT_CHARSET
+              Font.Color = clWindowText
+              Font.Height = -13
+              Font.Name = 'Tahoma'
+              Font.Style = []
+              ParentFont = False
+              TabOrder = 1
+              TabStop = True
+              WordWrap = True
+              OnKeyDown = AllKeyDown
+            end
           end
         end
       end
@@ -824,7 +838,7 @@ object frmOptions: TfrmOptions
     Options = [ofHideReadOnly, ofPathMustExist, ofEnableSizing]
     Title = 'Open'
     Left = 440
-    Top = 248
+    Top = 272
   end
   object fdListViewFont: TFontDialog
     Font.Charset = DEFAULT_CHARSET
@@ -832,19 +846,19 @@ object frmOptions: TfrmOptions
     Font.Height = -11
     Font.Name = 'Tahoma'
     Font.Style = []
-    Left = 407
-    Top = 328
+    Left = 159
+    Top = 280
   end
   object xmlTemp: TXMLDocument
-    Left = 224
-    Top = 336
+    Left = 264
+    Top = 296
     DOMVendorDesc = 'MSXML'
   end
   object odSearchVBExe: TOpenDialog
     Filter = 'Exe files (*.exe)|*.exe|All files (*.*)|*.*'
     Options = [ofHideReadOnly, ofPathMustExist, ofEnableSizing]
     Title = 'Open'
-    Left = 352
-    Top = 248
+    Left = 360
+    Top = 312
   end
 end

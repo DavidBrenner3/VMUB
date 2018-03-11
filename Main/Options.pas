@@ -41,12 +41,10 @@ type
     lblQExePath: TLabel;
     lblDefaultParameters: TLabel;
     btnBrowseForQExe: TPngSpeedButton;
-    lblEmulationBusType: TLabel;
     edtQExePath: TEdit;
     edtDefaultParameters: TEdit;
     cmbExeVersion: TComboBox;
     cbHideConsoleWindow: TCheckBox;
-    cbEmulationBusType: TComboBox;
     pnlGeneral: TPanel;
     lblWaitTime: TLabel;
     lblLanguage: TLabel;
@@ -64,6 +62,9 @@ type
     pnlVirtualBox: TPanel;
     sbVirtualBox: TPngSpeedButton;
     hkStart: THotKey;
+    gbEmulationBusType: TGroupBox;
+    rbIDE: TRadioButton;
+    rbSCSI: TRadioButton;
       procedure cbUseVboxmanageClick(Sender: TObject);
       procedure cbDirectlyClick(Sender: TObject);
       procedure btnBrowseForVBExeClick(Sender: TObject);
@@ -359,7 +360,7 @@ begin
    btnBrowseForQExe.Hint := GetLangTextDef(idxOptions, ['Hints', 'BrowseForExe'], 'click to browse for exe');
    edtDefaultParameters.Hint := GetLangTextDef(idxOptions, ['Hints', 'DefaultParam'], 'Basic parameters for x86/x64 version');
    cbHideConsoleWindow.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'HideConsoleWindow'], 'Hide console window');
-   lblEmulationBusType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'EmulationBusType'], 'Emulation bus type:');
+   gbEmulationBusType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'EmulationBusType'], 'Emulation bus type:');
 
    case SystemIconSize of
       -2147483647..18:
@@ -433,6 +434,11 @@ begin
    edtQExePath.Width := edtQExePath.Width + i;
    cmbExeVersion.Left := cmbExeVersion.Left - i;
    cmbExeVersion.Width := cmbExeVersion.Width + i;
+
+   btnBrowseForQExe.Top := edtQExePath.Top;
+   btnBrowseForQExe.Height := edtQExePath.Height;
+   btnBrowseForVBExe.Top := edtVBExePath.Top;
+   btnBrowseForVBExe.Height := edtVBExePath.Height;
 
    originaledtVBExePathWindowProc := edtVBExePath.WindowProc;
    edtVBExePath.WindowProc := edtVBExePathWindowProc;
