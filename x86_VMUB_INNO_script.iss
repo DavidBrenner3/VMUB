@@ -7,7 +7,7 @@
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 AppId={{A905BA2A-2D24-4D44-AAFA-02B974775A00}
 AppName=Virtual Machine USB Boot
-AppVersion=1.7 Beta 2 x86
+AppVersion=1.7 Beta 3 x86
 AppPublisher=DavidB
 AppPublisherURL=http://reboot.pro/user/61891-davidb/
 AppSupportURL=http://reboot.pro/topic/18736-virtual-machine-usb-boot/
@@ -22,6 +22,7 @@ AllowNoIcons=yes
 DisableWelcomePage=no
 WizardImageFile=compiler:WizModernImage-IS.bmp
 WizardSmallImageFile=compiler:WizModernSmallImage-IS.bmp
+VersionInfoVersion=1.0.0.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
