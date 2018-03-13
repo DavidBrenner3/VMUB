@@ -12,9 +12,9 @@
     <Transaction>1899.12.30 00:00:00.000.904,D:\VMUB\Unit1.pas=</Transaction>
     <Transaction>1899.12.30 00:00:00.000.442,=D:\VMUB\Unit1.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.388,=D:\VMUB 1.6 Delphi 10\Main\uRegisterThread.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.211,D:\VMUB\uTrayIconCmd.pas=</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.516,D:\VMUB\capbtn.pas=</Transaction>
     <Transaction>1899.12.30 00:00:00.000.885,=D:\VMUB\capbtn.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.211,D:\VMUB\uTrayIconCmd.pas=</Transaction>
     <Transaction>1899.12.30 00:00:00.000.864,=D:\VMUB\uTrayIconCmd.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.516,D:\VMUB\capbtn.pas=</Transaction>
   </Transactions>
 </BorlandProject>

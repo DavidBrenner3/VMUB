@@ -609,8 +609,8 @@ begin
       -2147483647..18:
          begin
             frmMain.imlBtn16.GetIcon(1 + Integer(isEdit), Icon);
-            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
-            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[30].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[30].PngImage;
             sbVirtualBox.PngImage := frmMain.imlBtn16.PngImages[8].PngImage;
             sbQEMU.PngImage := frmMain.imlBtn16.PngImages[9].PngImage;
             btnOK.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
@@ -619,8 +619,8 @@ begin
       19..22:
          begin
             frmMain.imlBtn20.GetIcon(1 + Integer(isEdit), Icon);
-            btnBrowseForVM.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
-            btnBrowseForHDD.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForVM.PngImage := frmMain.imlBtn28.PngImages[0].PngImage;
+            btnBrowseForHDD.PngImage := frmMain.imlBtn28.PngImages[0].PngImage;
             sbVirtualBox.PngImage := frmMain.imlBtn20.PngImages[8].PngImage;
             sbQEMU.PngImage := frmMain.imlBtn20.PngImages[9].PngImage;
             btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
@@ -629,7 +629,7 @@ begin
       23..2147483647:
          begin
             frmMain.imlBtn24.GetIcon(1 + Integer(isEdit), Icon);
-            btnBrowseForVM.PngImage := frmMain.imlBtn32.PngImages[0].PngImage;
+            btnBrowseForVM.PngImage := frmMain.imlBtn32.PngImages[1].PngImage;
             btnBrowseForHDD.PngImage := frmMain.imlBtn32.PngImages[1].PngImage;
             sbVirtualBox.PngImage := frmMain.imlBtn24.PngImages[8].PngImage;
             sbQEMU.PngImage := frmMain.imlBtn24.PngImages[9].PngImage;
@@ -637,6 +637,10 @@ begin
             btnCancel.PngImage := frmMain.imlBtn24.PngImages[15].PngImage;
          end;
    end;
+   btnBrowseForVM.Top := edtVMPath.Top;
+   btnBrowseForVM.Height := edtVMPath.Height;
+   btnBrowseForHDD.Top := edtHDD.Top;
+   btnBrowseForHDD.Height := edtHDD.Height;
    if FocusFirstDrive then
       cmbFirstDrive.SetFocus
    else if FocusSecDrive then
@@ -1664,6 +1668,13 @@ begin
    cmbSecondDrive.ItemIndex := 0;
    cmbEnableCPUVirtualization.Items.Text := GetLangTextDef(idxAddEdit, ['Comboboxes', 'EnableCPUVirtualization'], 'Unchanged'#13#10'On'#13#10'Off'#13#10'Switch');
    cmbEnableCPUVirtualization.ItemIndex := 0;
+   cmbCache.Items.BeginUpdate;
+   cmbCache.Items.Text := GetLangTextDef(idxAddEdit, ['Comboboxes', 'EnableCPUVirtualization'], 'Unchanged'#13#10'On'#13#10'Off'#13#10'Switch');
+   cmbCache.Items.Delete(0);
+   cmbCache.Items.Delete(2);
+   cmbCache.Items.Exchange(0, 1);
+   cmbCache.ItemIndex := 0;
+   cmbCache.Items.EndUpdate;
    cmbMode.Items.Text := GetLangTextDef(idxAddEdit, ['Comboboxes', 'Mode'], 'VM name'#13#10'VM path'#13#10'Exe parameters');
    cmbMode.ItemIndex := 0;
    cmbPriority.Items.Text := GetLangTextDef(idxAddEdit, ['Comboboxes', 'Priority'], 'BelowNormal'#13#10'Normal'#13#10'AboveNormal'#13#10'High');

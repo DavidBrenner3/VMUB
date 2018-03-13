@@ -219,6 +219,7 @@ type
       imlReg20: TPngImageList;
       imlVst28: TPngImageList;
       imlBtn32: TPngImageList;
+      imlBtn28: TPngImageList;
       procedure btnExitClick(Sender: TObject);
       procedure btnAddClick(Sender: TObject);
       procedure FormCreate(Sender: TObject);
@@ -663,7 +664,7 @@ function CM_Get_Device_ID(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; u
 function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiSetClassInstallParamsW';
 
 const
-   BaseVersion = ' 1.7 Beta 3';
+   BaseVersion = ' 1.7';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -4218,8 +4219,8 @@ begin
    end;
    VBVMWasClosed := Now - 1;
    DriveDetect := TComponentDrive.Create(frmMain);
-   {     for i := 0 to imlVst32.Count - 1 do
-           imlVst32.PngImages[i].PngImage.SaveToFile('d:\ff\Icon ' + Format('%.3d', [i]) + '.png');}
+   {        for i := 111 to 111 do
+              imlVst20.PngImages[i].PngImage.SaveToFile('d:\ff\Icon ' + Format('%.3d', [i]) + '.png');}
 end;
 
 procedure TfrmMain.ChangeCompLang;
@@ -5511,11 +5512,13 @@ var
          begin
             errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'ErrorVBMan'], [vbmComm[nJob][2], vbmComm[nJob][1]], 'Out of time waiting for VBoxManage.exe to finish the current job (%s) !'#13#10#13#10'Job = %s'#13#10#13#10'This is a VirtualBox bug. My advice is to wait 20..30 seconds and try again...');
             try
-               CloseHandle(vbmProcessInfo.hProcess);
+               if vbmProcessInfo.hProcess <> 0 then
+                  CloseHandle(vbmProcessInfo.hProcess);
             except
             end;
             try
-               CloseHandle(vbmProcessInfo.hThread);
+               if vbmProcessInfo.hThread <> 0 then
+                  CloseHandle(vbmProcessInfo.hThread);
             except
             end;
             try
@@ -5558,7 +5561,8 @@ var
          except
          end;
          try
-            CloseHandle(vbmProcessInfo.hProcess);
+            if vbmProcessInfo.hProcess <> 0 then
+               CloseHandle(vbmProcessInfo.hProcess);
          except
          end;
          try
@@ -5592,7 +5596,7 @@ var
             else
                errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'VBManExitError'], [vbmComm[nJob][2], vbmComm[nJob][1]], 'Error getting the exit code for the current VBoxManage job (%s) !'#13#10#13#10'Job = %s');
             if strStdErr <> '' then
-               errmsg := errmsg + #13#10#13#10'VBoxManage output:'#13#10#13#10 + string(strStdErr);
+               errmsg := errmsg + #13#10#13#10 + GetLangTextDef(idxMain, ['Messages', 'VBManOutput'], 'VBoxManage output:') + #13#10#13#10 + string(strStdErr);
             Exit;
          end;
       end
@@ -7224,7 +7228,7 @@ begin
                                  begin
                                     SetLength(vbmComm, Length(vbmComm) + 1);
                                     vbmComm[High(vbmComm)][1] := 'setextradata ' + VMID + ' "GUI/LastCloseAction" PowerOff';
-                                    vbmComm[High(vbmComm)][2] := 'setting Power Off as the default close action';
+                                    vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'PowerOffDef'], 'setting Power Off as the default close action');
                                  end;
                                  n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
                                  if n3 = -1 then
@@ -8645,7 +8649,7 @@ begin
                                        end;
                                     end;
                                     SetLength(vbmComm, Length(vbmComm) + 1);
-                                    vbmComm[High(vbmComm)][2] := 'changing hardware virtualization';
+                                    vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'HardwareVirtOp'], 'changing hardware virtualization');
                                     if VBHardwareVirtualization then
                                        vbmComm[High(vbmComm)][1] := 'modifyvm ' + VMID + ' --hwvirtex on'
                                     else
@@ -8664,7 +8668,7 @@ begin
                                           Dec(i);
                                        end;
                                        Delete(errmsg, i + 1, l - i);
-                                       if CustomMessageBox(Handle, errmsg + #13#10#13#10'Are you sure you want to continue (not recommended)...?', (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry], mbAbort) <> mrRetry then
+                                       if CustomMessageBox(Handle, errmsg + #13#10#13#10 + GetLangTextDef(idxMain, ['Messages', 'AreYouSureCont'], 'Are you sure you want to continue (not recommended)...?'), (GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning')), mtWarning, [mbAbort, mbRetry], mbAbort) <> mrRetry then
                                           Exit
                                        else
                                        begin
@@ -9033,7 +9037,7 @@ begin
                               //ts[3] := Now - ts[3];
                               VMisOff := False;
                               if TrayIcon.Visible then
-                                 TrayIcon.Hint := VMName + ' [Running] - Virtual Machine USB Boot';
+                                 TrayIcon.Hint := VMName + ' [' + GetLangTextDef(idxMain, ['Messages', 'VMStateRunning'], 'Running') + '] - Virtual Machine USB Boot';
                               StopVMAnimation;
                               TrayIcon.BalloonHint := '';
                               if frmMain.Visible and (not IsIconic(Application.Handle)) then
@@ -9735,7 +9739,7 @@ begin
                                  end;
                                  VMisOff := False;
                                  if TrayIcon.Visible then
-                                    TrayIcon.Hint := VMName + ' [Running] - Virtual Machine USB Boot';
+                                    TrayIcon.Hint := VMName + ' [' + GetLangTextDef(idxMain, ['Messages', 'VMStateRunning'], 'Running') + '] - Virtual Machine USB Boot';
                                  SetProcessAffinityMask(eProcessInfo.hProcess, AllProcAffinityMask);
                                  StopVMAnimation;
                                  if frmMain.Visible and (not IsIconic(Application.Handle)) then
@@ -17418,20 +17422,10 @@ begin
    if v <= 127 then
    begin
       AnimTrayStartCopyIndex := 51; //white "busy"
-      frmMain.imlBtn16.PngImages[6].PngImage := frmMain.imlBtn16.PngImages[29].PngImage;
-      frmMain.imlBtn20.PngImages[6].PngImage := frmMain.imlBtn20.PngImages[29].PngImage;
-      frmMain.imlBtn24.PngImages[6].PngImage := frmMain.imlBtn24.PngImages[29].PngImage;
-      case SystemIconSize of
-         -2147483647..18: frmMain.btnShowTrayIcon.PngImage := frmMain.imlBtn16.PngImages[29].PngImage;
-         19..22: frmMain.btnShowTrayIcon.PngImage := frmMain.imlBtn20.PngImages[29].PngImage;
-         23..2147483647: frmMain.btnShowTrayIcon.PngImage := frmMain.imlBtn24.PngImages[29].PngImage;
-      end;
-      frmMain.mmHideTrayIcon.ImageIndex := 30;
    end
    else
    begin
       AnimTrayStartCopyIndex := 3; //dark blue "busy"
-      frmMain.mmHideTrayIcon.ImageIndex := 23;
    end;
 
    c := ColorToRGB(BckItemColor);
@@ -18814,7 +18808,7 @@ begin
          Application.ProcessMessages;
       end;
       TrayIcon.BalloonHint := GetLangTextFormatDef(idxMain, ['Messages', 'AppMinToTray'], ['Virtual Machine USB Boot'],
-         '%s is now minimized to tray'#13#10'Click on the icon to restore it...');
+         '%s is now minimized to tray.'#13#10'Click on the icon to restore it...');
       TrayIcon.ShowBalloonHint;
       tmCloseHint.Interval := 5000;
       tmCloseHint.Enabled := False;

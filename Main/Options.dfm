@@ -54,7 +54,7 @@ object frmOptions: TfrmOptions
       TabOrder = 0
       object General: TTabSheet
         Caption = 'General'
-        ImageIndex = 31
+        ImageIndex = 29
         object pnlGeneral: TPanel
           Left = 0
           Top = 0
@@ -629,7 +629,6 @@ object frmOptions: TfrmOptions
           ParentColor = True
           ParentFont = False
           TabOrder = 0
-          ExplicitTop = 6
           DesignSize = (
             559
             312)

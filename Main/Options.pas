@@ -361,6 +361,8 @@ begin
    edtDefaultParameters.Hint := GetLangTextDef(idxOptions, ['Hints', 'DefaultParam'], 'Basic parameters for x86/x64 version');
    cbHideConsoleWindow.Caption := GetLangTextDef(idxOptions, ['Checkboxes', 'HideConsoleWindow'], 'Hide console window');
    gbEmulationBusType.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'EmulationBusType'], 'Emulation bus type:');
+   rbIDE.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'IDEBusType'], 'IDE (slow, more compatible)');
+   rbSCSI.Caption := GetLangTextDef(idxOptions, ['Groupboxes', 'SCSIBusType'], 'SCSI (fast, less compatible)');
 
    case SystemIconSize of
       -2147483647..18:
@@ -370,8 +372,8 @@ begin
             sbQEMU.PngImage := frmMain.imlBtn16.PngImages[9].PngImage;
             btnOK.PngImage := frmMain.imlBtn16.PngImages[14].PngImage;
             btnCancel.PngImage := frmMain.imlBtn16.PngImages[15].PngImage;
-            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
-            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[30].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[30].PngImage;
          end;
       19..22:
          begin
@@ -381,8 +383,8 @@ begin
             PageControl.Images := frmMain.imlBtn20;
             btnOK.PngImage := frmMain.imlBtn20.PngImages[14].PngImage;
             btnCancel.PngImage := frmMain.imlBtn20.PngImages[15].PngImage;
-            btnBrowseForVBExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
-            btnBrowseForQExe.PngImage := frmMain.imlBtn24.PngImages[32].PngImage;
+            btnBrowseForVBExe.PngImage := frmMain.imlBtn28.PngImages[0].PngImage;
+            btnBrowseForQExe.PngImage := frmMain.imlBtn28.PngImages[0].PngImage;
          end;
       23..2147483647:
          begin
