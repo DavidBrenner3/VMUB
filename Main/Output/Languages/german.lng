@@ -106,7 +106,9 @@
       <WarnBootDrive>Es scheint, diese VM nicht in der Lage,vom Laufwerk (%s)\r\nWeil andere(m) Laufwerk(e) ist/sind verbunden sind zum Festplatten Controller in vorheriger(en) Positionen(en).\r\n\r\nMein Rat ist, einen Anschluss in der Speicher-Controller, vor den andere Festplatte(n) zu lösen. (s).\r\nDu kannst das tun indem Du den VirtualBox Manager startest, editierst die VM Festplatten management\r\nund bewegst der anderen Festplatte(n) in nachfolgende Port(s) VM-Festplatten-Controller.\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</WarnBootDrive>
       <WarnChangeBootDriveAndOther>In order to boot the VM from the "%s" drive,\r\nit must be set as the first internal hard disk, but the first position is currently taken by another drive.\r\n\r\nClick on Yes to automatically shift up the other drives in subsequent positions\r\nor do it manually and click on Retry</WarnChangeBootDriveAndOther>
       <ErrorVBMan>Ende der Zeit zum warten auf VBoxManage.exe um den actuellen Vorgang zu ende zu bringen (%s) !\r\n\r\nVorgang = %s\r\n\r\nDas ist ein VirtualBox bug. Mein Rat ist 20..30 secunden zu warten und es nochmal zu versuchen...</ErrorVBMan>
+      <VBManOutput>VBoxManage output:</VBManOutput>
       <HardwareVirtOp>Wechseln der Hardware virtualization</HardwareVirtOp>
+      <PowerOffDef>setting Power Off as the default close action</PowerOffDef>
       <VBManErrorCode>VBoxManage.exe gibt Errorcode %d zurück für den actuellen Vorgang (%s) !\r\n\r\nVorgang = %s</VBManErrorCode>
       <VBManExitError>Error gibt den exit code für den actuellen VBox manage Vorgang (%s) !\r\n\r\nVorgang = %s</VBManExitError>
       <VBManUnableLaunch>Unmöglich VBoxManage.exe zu starten !\r\n\r\nSystemmeldung: %s</VBManUnableLaunch>
@@ -154,9 +156,11 @@
       <CouldNotUnreg>Could not automatically unregister the VirtualBox%s dlls, infs and services !\r\n\r\nReason:</CouldNotUnreg>
       <ProblemStopSrv>problem stopping %s service\r\n\r\nSystem message:</ProblemStopSrv>
       <ProblemRemSrv>problem removing VBoxNetAdp service\r\n\r\nSystem message:</ProblemRemSrv>
-      <AppMinToTray>%s is now minimized to tray\r\nClick on the icon to restore it</AppMinToTray>
+      <AppMinToTray>%s is now minimized to tray.\r\nClick on the icon to restore it...</AppMinToTray>
       <AppStartedWithTray>%s tray icon is now active...</AppStartedWithTray>
       <VMStarting>Starting "%s" VM...</VMStarting>
+      <VMStateRunning>wird ausgeführt</VMStateRunning>
+      <AreYouSureCont>Bist Du dir sicher wweiter zu machen (NICHT Empfehlenswert)...?</AreYouSureCont>
     </Messages>
   </Main>
   <AddEdit>
@@ -184,7 +188,7 @@
       <Type>Type:</Type>
       <VMName>VM Name:</VMName>
       <VMPath>VM Pfad:</VMPath>
-      <UseHostCache>Use host I/O cache:</UseHostCache>
+      <UseHostCache>Host I/O-Cache verwenden:</UseHostCache>
     </Labels>
     <Dialogs>
       <LoadVM>
@@ -285,6 +289,8 @@
       <DefaultVMType>Standard-VM-Typ beim hinzufügen eines neuen Eintrags:</DefaultVMType>
       <UpdateVMMethod>Methode zum aktualisieren der VM-Konfiguration-Datei (*.vbox)</UpdateVMMethod>
       <EmulationBusType>Emulation bus type:</EmulationBusType>
+      <IDEBusType>IDE (slow, more compatible)</IDEBusType>
+      <SCSIBusType>SCSI (fast, less compatible)</SCSIBusType>
     </Groupboxes>
     <Messages>
       <ProperWaitTime>Bitte stellen Sie einen geeigneten Wert für die Wartezeit ein (0..20000) !</ProperWaitTime>
