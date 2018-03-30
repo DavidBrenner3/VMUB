@@ -37,6 +37,16 @@
         <ShowHideMainWindow>Show hide main window</ShowHideMainWindow>
         <HideTrayIcon>Hide tray icon</HideTrayIcon>
         <Exit>Exit</Exit>
+        <BringToTop>Bring to top</BringToTop>
+        <OpenInExplorer>Open in Explorer</OpenInExplorer>
+        <SmartDisconnect>Smart disconnect</SmartDisconnect>
+        <CloseProcess>Close process</CloseProcess>
+        <SuspendProcess>Suspend process</SuspendProcess>
+        <ResumePprocess>Resume process</ResumePprocess>
+        <KillProcess>Kill process</KillProcess>
+        <CloseProcessFiles>Close process files</CloseProcessFiles>
+        <CloseFile>Close file</CloseFile>
+        <CloseFolder>Close folder</CloseFolder>
       </Menu>
     </List>
     <Messages>
@@ -79,7 +89,8 @@
       <SecDriveWUsb>The second drive (%s) doesn't seem to exist on this system,\r\nit isn't accessible or is not a USB drive !\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</SecDriveWUsb>
       <SecDrive>The second drive (%s) doesn't seem\r\nto exist on this system or it isn't accessible !\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</SecDrive>
       <CantAccessVolume>Unable to access volume '%s' on "%s" !\r\n\r\nSystem message: %s\r\n\r\nAre you sure you want to continue...?</CantAccessVolume>
-      <UnableLockVolume>Unable to lock volume '%s' on "%s" !\r\n\r\nSystem message: %s\r\n\r\nAre you sure you want to continue...?</UnableLockVolume>
+      <UnableLockVolume>Unable to lock volume '%s' on "%s" !\r\n\r\nSystem message: %s\r\n\r\nLooks like there is a hidden OS process accessing the volume.\r\nYou can choose to standby/sleep the computer for a few seconds or to restart\r\nthe OS so the process would be stopped or you can choose to ignore it...\r\n\r\nAre you sure you want to continue...?</UnableLockVolume>
+      <UnableLockVolumeHnd>Unable to lock volume '%s' on "%s" !\r\n\r\nSystem message: %s\r\n\r\nHere is a list of processes with opened files/folders on '%s'.\r\nUse right click to select an action ("Smart disconnect" recommended):</UnableLockVolumeHnd>
       <UnableDismVolume>Unable to dismount volume '%s' on "%s" !\r\n\r\nSystem message: %s\r\n\r\nAre you sure you want to continue...?</UnableDismVolume>
       <UnableFindDevice>Unable to find "%s" !\r\n\r\nAre you sure you want to continue...?</UnableFindDevice>
       <CannotAccessCDROM>Cannot access the "%s" !\r\n\r\nAre you sure you want to continue...?</CannotAccessCDROM>

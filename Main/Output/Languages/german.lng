@@ -37,6 +37,16 @@
         <ShowHideMainWindow>Zeige Verstecken Hauptfenster</ShowHideMainWindow>
         <HideTrayIcon>Ausblenden Tray-Icon</HideTrayIcon>
         <Exit>Verlassen</Exit>
+        <BringToTop>Bring to top</BringToTop>
+        <OpenInExplorer>Open in Explorer</OpenInExplorer>
+        <SmartDisconnect>Smart disconnect</SmartDisconnect>
+        <CloseProcess>Close process</CloseProcess>
+        <SuspendProcess>Suspend process</SuspendProcess>
+        <ResumePprocess>Resume process</ResumePprocess>
+        <KillProcess>Kill process</KillProcess>
+        <CloseProcessFiles>Close process files</CloseProcessFiles>
+        <CloseFile>Close file</CloseFile>
+        <CloseFolder>Close folder</CloseFolder>
       </Menu>
     </List>
     <Messages>
@@ -79,7 +89,8 @@
       <SecDriveWUsb>Das zweite Laufwerk (%s) scheint nicht auf dem System zu existieren,\r\nist nicht zugreifbar oder kein USB-Laufwerk !\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</SecDriveWUsb>
       <SecDrive>Das zweite Laufwerk (%s) scheint\r\nnicht auf dem System vorhanden oder nicht zugänglich ist!\r\n\r\nYou can choose to abort the VM startup,\r\ntry again or choose another drive...</SecDrive>
       <CantAccessVolume>Kann nicht auf'%s' on "%s" zugreifen !\r\n\r\nSystemmeldung: %s\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</CantAccessVolume>
-      <UnableLockVolume>Kann nicht '%s' on "%s" abschließen !\r\n\r\nSystemmeldung: %s\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableLockVolume>
+      <UnableLockVolume>Kann nicht '%s' on "%s" abschließen !\r\n\r\nSystemmeldung: %s\r\n\r\nLooks like there is a hidden OS process accessing the volume.\r\nYou can choose to standby/sleep the computer for a few seconds or to restart\r\nthe OS so the process would be stopped or you can choose to ignore it.\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableLockVolume>
+      <UnableLockVolumeHnd>Kann nicht '%s' on "%s" abschließen !\r\n\r\nSystemmeldung: %s\r\n\r\nHere is a list of processes with opened files/folders on '%s'.\r\nUse right click to select an action ("Smart disconnect" recommended):</UnableLockVolumeHnd>
       <UnableDismVolume>Kann nicht '%s' on "%s" entfernen !\r\n\r\nSystemmeldung: %s\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableDismVolume>
       <UnableFindDevice>Kann nicht "%s" finden !\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</UnableFindDevice>
       <CannotAccessCDROM>Cannot access the "%s" !\r\n\r\nSind Sie sicher, dass Sie fortfahren möchten ...?</CannotAccessCDROM>
