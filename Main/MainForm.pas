@@ -11,7 +11,7 @@ uses
    Winapi.ShlObj, Vcl.Themes, Winapi.UxTheme,
    Clipbrd, Vcl.Extctrls, VirtualTrees, VirtualTrees.Utils, PngImageList, Vcl.ImgList,
    System.UITypes, uFLDThread, uPrestartThread, uPrecacheThread, uEjectThread, uRegisterThread, uUnregisterThread,
-   System.ImageList, Vcl.Buttons, PngSpeedButton, PngImage, PngBitBtn, Syncobjs;
+   System.ImageList, Vcl.Buttons, PngSpeedButton, PngImage, PngBitBtn, Syncobjs, uGetHandlesThread, uRescanThread;
 
 type
 
@@ -67,12 +67,12 @@ function GenGuid: AnsiString;
 function GenID: AnsiString;
 procedure Replacebks(var ws: string; const len: Integer);
 procedure GetVBVersion;
-function GetLangTextDef(const IntBaseParam: Integer; const StrParams: array of AnsiString; const DefStr: AnsiString): string;
-function GetLangTextFormatDef(const IntBaseParam: Integer; const StrParams: array of AnsiString; const VarRec: array of TVarRec; const DefStr: AnsiString): string;
+function GetLangTextDef(const IntBaseParam: Integer; const StrParams: array of string; const DefStr: string): string;
+function GetLangTextFormatDef(const IntBaseParam: Integer; const StrParams: array of string; const VarRec: array of TVarRec; const DefStr: string): string;
 function CStyleEscapes(const InputText: string): string;
 function IsAppNotStartedByAdmin(const ProcessID: THandle): Boolean;
 function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; var IsMember: BOOL): BOOL; stdcall; external advapi32;
-function CustomMessageBox(const OwnerHandle: THandle; const Msg: string; const Caption: string; DlgType: TMsgDlgType; Buttons: TMsgDlgButtons; DefaultButton: TMsgDlgBtn; const CbText: string = ''): Integer;
+function CustomMessageBox(const OwnerHandle: THandle; const Msg: string; const Caption: string; DlgType: TMsgDlgType; Buttons: TMsgDlgButtons; DefaultButton: TMsgDlgBtn; const CbText: string = ''; useEdit: Boolean = False): Integer;
 function GetStrBusType(const BusType: Byte): string;
 function GetIntBusType(const BusType: string): Byte;
 function IsAeroEnabled: Boolean;
@@ -94,6 +94,7 @@ function GetProcessHandleFromID(ID: DWORD): THandle;
 function InstallInf(const PathToInf, HardwareID: string): Smallint;
 function UninstallInf(HardwareID: string): Smallint;
 function CheckInstalledInf(HardwareID: string): Smallint;
+function IsProcessSuspended(const ProcessID: DWORD): Boolean;
 
 type
    VolumeInfo = record
@@ -145,8 +146,24 @@ type
       dbcc_name: array[0..255] of Char;
    end;
 
-type
    TVirtualStringTree = class(VirtualTrees.TVirtualStringTree)
+   end;
+
+   TFileData = record
+      FileName: string;
+      isFolder: Boolean;
+      FileHandle: THandle;
+      AccessType: Cardinal;
+   end;
+
+   TOpenHandleInfo = record
+      Process: string;
+      ProcessFullPath: string;
+      ProcessID: DWORD;
+      ProductName: string;
+      ProcessIcon: TIcon;
+      FilesData: array of TFileData;
+      Delete: Boolean;
    end;
 
 type
@@ -181,7 +198,7 @@ type
       mmDrive: TMenuItem;
       mmSecondDrive: TMenuItem;
       tmAnimation: TTimer;
-      imlVST16: TPngImageList;
+      imlVst16: TPngImageList;
       imlVST24: TPngImageList;
       imlVST32: TPngImageList;
       btnAdd: TPngSpeedButton;
@@ -220,6 +237,17 @@ type
       imlVst28: TPngImageList;
       imlBtn32: TPngImageList;
       imlBtn28: TPngImageList;
+      pmCustomMB: TPopupMenu;
+      mmKillProcess: TMenuItem;
+      mmCloseFile: TMenuItem;
+      mmBringToTop: TMenuItem;
+      mmCloseProcess: TMenuItem;
+      mmCloseAllFiles: TMenuItem;
+      mmOpenInExplorer2: TMenuItem;
+      imlCMb: TPngImageList;
+      mmSuspendProcess: TMenuItem;
+      mmResumeProcess: TMenuItem;
+      mmSmartDisconnect: TMenuItem;
       procedure btnExitClick(Sender: TObject);
       procedure btnAddClick(Sender: TObject);
       procedure FormCreate(Sender: TObject);
@@ -244,16 +272,21 @@ type
       procedure mmRefreshClick(Sender: TObject);
       procedure AcceptFiles(var Msg: TMessage); message WM_DROPFILES;
       procedure vstVMsGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: TImageIndex);
+      procedure CusMsgGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: TImageIndex);
       procedure vstVMsGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
+      procedure CusMsgGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
       procedure vstVMsMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+      procedure CusMsgMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
       procedure vstVMsFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
       procedure vstVMsBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
+      procedure CusMGsBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
       procedure vstVMsHeaderDrawQueryElements(Sender: TVTHeader; var PaintInfo: THeaderPaintInfo; var Elements: THeaderPaintElements);
       procedure vstVMsAdvancedHeaderDraw(Sender: TVTHeader; var PaintInfo: THeaderPaintInfo; const Elements: THeaderPaintElements);
       procedure vstVMsHeaderMouseUp(Sender: TVTHeader; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
       procedure WmNclButtonDown(var Msg: TMessage); message WM_NCLBUTTONDOWN;
       procedure WmExitSizeMove(var Msg: TMessage); message WM_EXITSIZEMOVE;
       procedure vstVMsContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
+      procedure CusMgsContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
       procedure vstVMsHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
       procedure pnlBackgroundMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
       procedure vstVMsDragOver(Sender: TBaseVirtualTree; Source: TObject; Shift: TShiftState; State: TDragState; Pt: TPoint; Mode: TDropMode; var Effect: Integer; var Accept: Boolean);
@@ -267,6 +300,8 @@ type
       procedure vstVMsAfterColumnWidthTracking(Sender: TVTHeader; Column: TColumnIndex);
       procedure vstVMsMeasureItem(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
          var NodeHeight: Integer);
+      procedure CusMgsMeasureItem(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
+         var NodeHeight: Integer);
       procedure vstVMsBeforeItemErase(Sender: TBaseVirtualTree;
          TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
          var ItemColor: TColor; var EraseAction: TItemEraseAction);
@@ -276,6 +311,7 @@ type
       procedure vstVMsShowScrollBar(Sender: TBaseVirtualTree; Bar: Integer;
          Show: Boolean);
       procedure vstVMsKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+      procedure CusMGsKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
       procedure mmCloneClick(Sender: TObject);
       procedure StartManagersClick(Sender: TObject);
       procedure tmCheckCTRLTimer(Sender: TObject);
@@ -285,6 +321,7 @@ type
       procedure mmStartManagersClick(Sender: TObject);
       procedure vstVMsDblClick(Sender: TObject);
       procedure mmOpenInEXplorerClick(Sender: TObject);
+      procedure mmOpenInEXplorer2Click(Sender: TObject);
       procedure mmEjectClick(Sender: TObject);
       procedure pmTrayPopup(Sender: TObject);
       procedure mmShowHideMainWindowClick(Sender: TObject);
@@ -294,6 +331,23 @@ type
       procedure TrayIconBalloonClick(Sender: TObject);
       procedure TrayIconMouseDown(Sender: TObject; Button: TMouseButton;
          Shift: TShiftState; X, Y: Integer);
+      procedure CusMsgGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+         var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string);
+      procedure mmCloseFileClick(Sender: TObject);
+      procedure mmBringToTopClick(Sender: TObject);
+      procedure mmKillProcessClick(Sender: TObject);
+      procedure mmCloseProcessClick(Sender: TObject);
+      procedure CusMsgInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
+         var InitialStates: TVirtualNodeInitStates);
+      procedure CusMgsInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
+      procedure CusMgsGetHintKind(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+         var Kind: TVTHintKind);
+      procedure CusMgsPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
+         Column: TColumnIndex; TextType: TVSTTextType);
+      procedure mmCloseAllFilesClick(Sender: TObject);
+      procedure mmSuspendProcessClick(Sender: TObject);
+      procedure mmResumeProcessClick(Sender: TObject);
+      procedure mmSmartDisconnectClick(Sender: TObject);
    private
       { Private declarations }
       Hotkey_id: NativeUINT;
@@ -301,6 +355,7 @@ type
       procedure WMHotKey(var Msg: TWMHotKey); message WM_HOTKEY;
    public
       { Public declarations }
+      FOldWndProc: TWndMethod;
       procedure RealignColumns(const NoRedraw: Boolean = True);
       procedure LoadVMentries(const FileName: string);
       procedure SaveVMentries(const FileName: string);
@@ -330,6 +385,7 @@ type
       procedure ShowTray;
       procedure HideTray;
       procedure StartVBNewMachineWizzard;
+      procedure WMUSER1000(var Message: TMessage); message WM_USER + 1000;
    end;
 
 type
@@ -662,9 +718,10 @@ function SetupDiClassGuidsFromNameEx(const ClassName: PChar; ClassGuidList: PGUI
 function SetupDiGetDeviceInfoListDetail(DeviceInfoSet: HDEVINFO; var DeviceInfoSetDetailData: TSPDevInfoListDetailData): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiGetDeviceInfoListDetailW';
 function CM_Get_Device_ID(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; ulFlags: ULONG): CONFIGRET; stdcall; external 'Setupapi.dll' name 'CM_Get_Device_IDW';
 function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiSetClassInstallParamsW';
+function NtSuspendProcess(ProcessID: DWORD): NT_STATUS; stdcall; external 'ntdll.dll';
 
 const
-   BaseVersion = ' 1.7';
+   BaseVersion = ' 1.72 Beta 1';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -751,7 +808,7 @@ var
    TryAgain: Boolean = False;
    ColumnResized: Boolean = False;
    ConfirmationDeleteShow: Boolean = True;
-   DarkenBckColor, BrightenBckColor: TColor;
+   DarkenBckColor, BrightenBckColor, DarkenTxtColor, BrightenTxtColor: TColor;
    AlreadyRuned: Boolean = False;
    CustomMessageTop: Integer = -10000;
    CustomMessageHorzCenter: Integer = -10000;
@@ -792,6 +849,7 @@ var
    FPSJobDone: Boolean = True;
    FPCJobDone: Boolean = True;
    FEjectJobDone: Boolean = True;
+   FRescanJobDone: Boolean = True;
    FRegJobDone: Boolean = True;
    FUnregJobDone: Boolean = True;
    StartSvcToo: Boolean = False;
@@ -834,6 +892,13 @@ var
    mEvent: TEvent;
    NumberOfProcessors: Cardinal;
    EmulationBusType: Byte = 1;
+   GetHandlesThr: TGetHandlesThread;
+   RescanThr: TRescanThread;
+   OpenHandlesInfo: array of TOpenHandleInfo;
+   nObjectType: Integer = 30;
+   nFileClose: Integer;
+   AutoEdit: Boolean = False;
+   ManualEdit: Boolean = False;
 
    IconIDs: array[TMsgDlgType] of PChar = (
       IDI_EXCLAMATION,
@@ -872,6 +937,7 @@ var
       );
 
    cbConfirmationSt: Boolean = False;
+   DevPathNameMap: TStringList;
 
 implementation
 
@@ -3515,6 +3581,7 @@ var
    Path: array[0..MAX_PATH - 1] of Char;
    MySystem: TSystemInfo;
 begin
+   isProcessSuspended(GetCurrentProcessID);
    Application.OnException := AppException;
    DragAcceptFiles(WindowHandle, True);
    FIsAeroEnabled := IsAeroEnabled;
@@ -3532,7 +3599,8 @@ begin
    end;
 
    GetSystemInfo(MySystem);
-   NumberOfProcessors := Max(1, MySystem.dwNumberOfProcessors);
+   NumberOfProcessors := Min(Max(1, MySystem.dwNumberOfProcessors), 32);
+   nObjectType := GetFileFolderTypeNumber;
 
    vstVMs.DoubleBuffered := DoubleBuffered;
    vstVMs.NodeDataSize := SizeOf(TData);
@@ -3553,6 +3621,8 @@ begin
    Caption := Application.Title;
    fOldTWndMethod := WindowProc;
    WindowProc := WindProc;
+
+   DevPathNameMap := GetHDDDevicesWithDOSPath;
 
    Canvas.Font.Assign(Font);
    i := 8192;
@@ -3894,7 +3964,7 @@ begin
       -2147483647..18:
          begin
             TrayIcon.Icon.SetSize(16, 16);
-            imlVST16.GetIcon(imlVST16.Count - 1, TrayIcon.Icon);
+            imlVST16.GetIcon(96, TrayIcon.Icon);
             imlTray.BeginUpdate;
             imlTray.SetSize(16, 16);
             for i := AnimTrayStartCopyIndex to AnimTrayStartCopyIndex + 45 do
@@ -3903,11 +3973,12 @@ begin
             pmTray.Images := imlBtn16;
             pmVMs.Images := imlBtn16;
             pmManagers.Images := imlBtn16;
+            frmMain.imlVST16.AddPng(frmMain.imlBtn16.PngImages[11].PngImage);
          end;
       19..22:
          begin
             TrayIcon.Icon.SetSize(20, 20);
-            imlVST20.GetIcon(imlVST20.Count - 1, TrayIcon.Icon);
+            imlVST20.GetIcon(112, TrayIcon.Icon);
             imlTray.BeginUpdate;
             imlTray.SetSize(20, 20);
             Inc(AnimTrayStartCopyIndex, 16);
@@ -3917,11 +3988,12 @@ begin
             pmTray.Images := imlBtn20;
             pmVMs.Images := imlBtn20;
             pmManagers.Images := imlBtn20;
+            frmMain.imlVST20.AddPng(frmMain.imlBtn20.PngImages[11].PngImage);
          end;
       23..26:
          begin
             TrayIcon.Icon.SetSize(24, 24);
-            imlVST24.GetIcon(imlVST24.Count - 1, TrayIcon.Icon);
+            imlVST24.GetIcon(112, TrayIcon.Icon);
             imlTray.BeginUpdate;
             imlTray.SetSize(24, 24);
             Inc(AnimTrayStartCopyIndex, 16);
@@ -3931,11 +4003,12 @@ begin
             pmTray.Images := imlBtn24;
             pmVMs.Images := imlBtn24;
             pmManagers.Images := imlBtn24;
+            frmMain.imlVST24.AddPng(frmMain.imlBtn24.PngImages[11].PngImage);
          end;
       27..30:
          begin
             TrayIcon.Icon.SetSize(28, 28);
-            imlVST28.GetIcon(imlVST28.Count - 1, TrayIcon.Icon);
+            imlVST28.GetIcon(112, TrayIcon.Icon);
             imlTray.BeginUpdate;
             imlTray.SetSize(28, 28);
             Inc(AnimTrayStartCopyIndex, 16);
@@ -3945,11 +4018,12 @@ begin
             pmTray.Images := imlBtn24;
             pmVMs.Images := imlBtn24;
             pmManagers.Images := imlBtn24;
+            frmMain.imlVST24.AddPng(frmMain.imlBtn24.PngImages[11].PngImage);
          end;
       31..2147483647:
          begin
             TrayIcon.Icon.SetSize(32, 32);
-            imlVST32.GetIcon(imlVST32.Count - 1, TrayIcon.Icon);
+            imlVST32.GetIcon(112, TrayIcon.Icon);
             imlTray.BeginUpdate;
             imlTray.SetSize(32, 32);
             Inc(AnimTrayStartCopyIndex, 16);
@@ -3959,6 +4033,7 @@ begin
             pmTray.Images := imlBtn24;
             pmVMs.Images := imlBtn24;
             pmManagers.Images := imlBtn24;
+            frmMain.imlVST24.AddPng(frmMain.imlBtn24.PngImages[11].PngImage);
          end;
    end;
    btnStart.Top := vstVMs.Top;
@@ -4261,29 +4336,30 @@ var
    var
       i: Integer;
    begin
-      Result := False;
+      Result := True;
       try
          if FirstXMLnode.LocalName <> SecondXMLnode.LocalName then
          begin
-            //    ShowMessage(FirstXMLnode.LocalName + #13 + FirstXMLnode.LocalName);
             Result := True;
+            LastExceptionStr := '"' + FirstXMLnode.LocalName + '" is different from "' + SecondXMLnode.LocalName + '"';
             Exit;
          end;
          if FirstXMLnode.ChildNodes.Count <> SecondXMLnode.ChildNodes.Count then
          begin
-            //      ShowMessage(IntToStr(FirstXMLnode.ChildNodes.Count) + #13 + IntToStr(SecondXMLnode.ChildNodes.Count));
             Result := True;
+            LastExceptionStr := '"' + FirstXMLnode.LocalName + '" has a different number of childen nodes then "' + SecondXMLnode.LocalName + '"';
             Exit;
          end;
          for i := 0 to FirstXMLnode.ChildNodes.Count - 1 do
             if areDifferent(FirstXMLnode.ChildNodes[i], SecondXMLnode.ChildNodes[i]) then
             begin
-               //           ShowMessage(FirstXMLnode.ChildNodes[i].Text + #13 + SecondXMLnode.ChildNodes[i].Text);
                Result := True;
                Exit;
             end;
+         Result := False;
       except
-         Result := True;
+         on E: Exception do
+            LastExceptionStr := E.Message;
       end;
    end;
 
@@ -4295,6 +4371,11 @@ begin
          rs := TResourceStream.Create(0, 'ENGLISH', PChar('Languages'));
          xmlLanguage.LoadFromStream(rs);
       except
+         on E: Exception do
+            if LastExceptionStr = '' then
+               LastExceptionStr := E.Message
+            else
+               LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
       end;
       if rs <> nil then
       try
@@ -4303,7 +4384,7 @@ begin
       end;
       if not xmlLanguage.Active then
       begin
-         CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
+         CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...'#13#10#13#10'System message: ' + LastExceptionStr, 'Error', mtError, [mbOK], mbOK);
          Application.Terminate;
          Exit;
       end;
@@ -4333,6 +4414,11 @@ begin
             rs := TResourceStream.Create(0, 'ENGLISH', PChar('Languages'));
             xmlVBoxCompare.LoadFromStream(rs);
          except
+            on E: Exception do
+               if LastExceptionStr = '' then
+                  LastExceptionStr := E.Message
+               else
+                  LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
          end;
          if rs <> nil then
          try
@@ -4341,7 +4427,7 @@ begin
          end;
          if not xmlVBoxCompare.Active then
          begin
-            CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
+            CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...'#13#10#13#10'System message: ' + LastExceptionStr, 'Error', mtError, [mbOK], mbOK);
             Application.Terminate;
             Exit;
          end
@@ -4352,20 +4438,24 @@ begin
             xmlLanguage.LoadFromStream(tms);
             tms.Free;
             CurrLanguageFile := 'ENGLISH';
-            CustomMessageBox(Handle, 'Corrupt language file !'#13#10#13#10'The default language (english) was loaded...', 'Warning', mtWarning, [mbOK], mbOK);
+            CustomMessageBox(Handle, 'Corrupt language file !'#13#10#13#10'The default language (english) was loaded...'#13#10#13#10'System message: ' + LastExceptionStr, 'Warning', mtWarning, [mbOK], mbOK);
          end;
          xmlVBoxCompare.Active := False;
       end
       else
       begin
          rs := nil;
-         ResetLastError;
          try
             rs := TResourceStream.Create(0, 'ENGLISH', PChar('Languages'));
             LastError := GetLastError;
             xmlLanguage.LoadFromStream(rs);
             LastError := GetLastError;
          except
+            on E: Exception do
+               if LastExceptionStr = '' then
+                  LastExceptionStr := E.Message
+               else
+                  LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
          end;
          if rs <> nil then
          try
@@ -4374,7 +4464,7 @@ begin
          end;
          if not xmlLanguage.Active then
          begin
-            CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
+            CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...'#13#10#13#10'System message: ' + LastExceptionStr, 'Error', mtError, [mbOK], mbOK);
             Application.Terminate;
             Exit;
          end
@@ -4417,6 +4507,11 @@ begin
             rs := TResourceStream.Create(0, 'ENGLISH', PChar('Languages'));
             xmlLanguage.LoadFromStream(rs);
          except
+            on E: Exception do
+               if LastExceptionStr = '' then
+                  LastExceptionStr := E.Message
+               else
+                  LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
          end;
          if rs <> nil then
          try
@@ -4426,14 +4521,14 @@ begin
          if not xmlLanguage.Active then
          begin
             if Showing then
-               CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...', 'Error', mtError, [mbOK], mbOK);
+               CustomMessageBox(Handle, 'Corrupt application exe file !'#13#10#13#10'The application will now be terminated...'#13#10#13#10'System message: ' + LastExceptionStr, 'Error', mtError, [mbOK], mbOK);
             Application.Terminate;
             Exit;
          end
          else
          begin
             CurrLanguageFile := 'ENGLISH';
-            CustomMessageBox(Handle, 'Corrupt language resource !'#13#10#13#10'The default language (english) was loaded...', 'Warning', mtWarning, [mbOK], mbOK);
+            CustomMessageBox(Handle, 'Corrupt language resource !'#13#10#13#10'The default language (english) was loaded...'#13#10#13#10'System message: ' + LastExceptionStr, 'Warning', mtWarning, [mbOK], mbOK);
          end;
       end;
    end;
@@ -4453,7 +4548,7 @@ begin
       begin
          frmMain.Canvas.Font.Assign(TPNGSpeedButton(Components[i]).Font);
          strTemp := AnsiString(Copy(TPNGSpeedButton(Components[i]).Name, 4, Length(TPNGSpeedButton(Components[i]).Name) - 3));
-         TPNGSpeedButton(Components[i]).Caption := GetLangTextDef(idxMain, ['Buttons', strTemp], strTemp);
+         TPNGSpeedButton(Components[i]).Caption := GetLangTextDef(idxMain, ['Buttons', string(strTemp)], string(strTemp));
          GetTextExtentPoint32W(frmMain.Canvas.Handle, PWideChar(TPNGSpeedButton(Components[i]).Caption), Length(TPNGSpeedButton(Components[i]).Caption), Size);
          MaxBtnWidth := Max(MaxBtnWidth, Size.Width);
          MaxBtnHeight := Max(MaxBtnHeight, Size.Height);
@@ -4484,7 +4579,7 @@ begin
          (TPopupMenu(TMenuItem(Components[i]).GetParentMenu).Name = 'pmTray')) then
       begin
          strTemp := AnsiString(Copy(TMenuItem(Components[i]).Name, 3, Length(TMenuItem(Components[i]).Name) - 2));
-         TMenuItem(Components[i]).Caption := GetLangTextDef(idxMain, ['List', 'Menu', strTemp], CompNameToCaption(strTemp));
+         TMenuItem(Components[i]).Caption := GetLangTextDef(idxMain, ['List', 'Menu', string(strTemp)], string(CompNameToCaption(strTemp)));
       end;
    vstVMs.Header.Columns[1].Text := GetLangTextDef(idxMain, ['List', 'Header', 'VMName'], 'VM name');
    if not AddSecondDrive then
@@ -4497,6 +4592,15 @@ begin
       mmDrive.Caption := GetLangTextDef(idxMain, ['List', 'Header', 'Drive'], 'Drive')
    else
       mmDrive.Caption := GetLangTextDef(idxMain, ['List', 'Header', 'FirstDrive'], 'First drive');
+   frmMain.mmBringToTop.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'BringToTop'], 'Bring to top');
+   frmMain.mmOpenInExplorer2.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'OpenInExplorer'], 'Open in Explorer');
+   frmMain.mmSmartDisconnect.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'SmartDisconnect'], 'Smart disconnect');
+   frmMain.mmCloseProcess.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'CloseProcess'], 'Close process');
+   frmMain.mmSuspendProcess.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'SuspendProcess'], 'Suspend process');
+   frmMain.mmResumeProcess.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'ResumeProcess'], 'Resume process');
+   frmMain.mmKillProcess.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'KillProcess'], 'Kill process');
+   frmMain.mmCloseAllFiles.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'CloseProcessFiles'], 'Close process files');
+   frmMain.mmCloseFile.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'CloseFile'], 'Close file');
    if DoAlign then
       RealignColumns(False);
    SendMessage(pnlBackground.Handle, WM_SETREDRAW, wParam(True), 0);
@@ -5946,7 +6050,7 @@ begin
                for i := 0 to l - 1 do
                   if IsWindowVisible(AllWindowsList[i].Handle) then
                      if not ((pos(VMName + ' [', AllWindowsList[i].WCaption) = 1) and (Pos(string('] - Oracle VM VirtualBox'), AllWindowsList[i].WCaption) > 1)) then
-                        if GetFileNameAndThreadFromHandle(AllWindowsList[i].Handle, ProcessID) = WideLowerCase(ExtractFileName(ExeVBPath)) then
+                        if GetFileNameAndProcessIDFromHandle(AllWindowsList[i].Handle, ProcessID) = WideLowerCase(ExtractFileName(ExeVBPath)) then
                            if IsAppNotStartedByAdmin(ProcessID) then
                               Inc(j)
                            else
@@ -5961,7 +6065,7 @@ begin
                   for i := 0 to l - 1 do
                      if IsWindowVisible(AllWindowsList[i].Handle) then
                         if not ((pos(VMName + ' [', AllWindowsList[i].WCaption) = 1) and (Pos(string('] - Oracle VM VirtualBox'), AllWindowsList[i].WCaption) > 1)) then
-                           if GetFileNameAndThreadFromHandle(AllWindowsList[i].Handle, ProcessID) = WideLowerCase(ExtractFileName(ExeVBPath)) then
+                           if GetFileNameAndProcessIDFromHandle(AllWindowsList[i].Handle, ProcessID) = WideLowerCase(ExtractFileName(ExeVBPath)) then
                               if IsAppNotStartedByAdmin(ProcessID) then
                               begin
                                  if IsIconic(AllWindowsList[i].Handle) then
@@ -6333,7 +6437,7 @@ begin
                               while j < l do
                               begin
                                  if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                    if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
+                                    if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
                                     try
                                        TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ProcessID), 0);
                                     except
@@ -6824,11 +6928,46 @@ begin
                         end;
                      1:
                         begin
+                           if DoFDThread then
+                              StartFirstDriveAnimation
+                           else
+                              StartSecDriveAnimation;
                            wst := string(VolumesInfo[FLDFailedInd].Path);
                            if Length(wst) = 1 then
                               if CharInSet(wst[1], ['A'..'Z']) then
                                  wst := wst + ':';
-                           case CustomMessageBox(Handle, GetLangTextFormatDef(idxMain, ['Messages', 'UnableLockVolume'], [wst, VolumesInfo[FLDFailedInd].DriveProp, SysErrorMessage(LastError)], AnsiString('Unable to lock volume ''') + AnsiString(VolumesInfo[FLDFailedInd].Path) + AnsiString(''' on "') + AnsiString(VolumesInfo[FLDFailedInd].DriveProp) + AnsiString('" !'#13#10#13#10'System message: ') + AnsiString(SysErrorMessage(LastError)) + AnsiString(#13#10#13#10'Are you sure you want to continue...?')), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort) of
+
+                           dt := GetTickCount;
+                           GetHandlesThr := TGetHandlesThread.Create(LowerCase(wst[1])[1], False);
+                           while not GetHandlesThr.isJobDone do
+                           begin
+                              Application.ProcessMessages;
+                              if Application.Terminated then
+                                 Break;
+                              mEvent.WaitFor(1);
+                              if (GetTickCount - dt) > 30000 then
+                                 Break;
+                           end;
+                           if GetHandlesThr.isJobDone then
+                              GetHandlesThr.Terminate
+                           else
+                              TerminateThread(GetHandlesThr.Handle, 0);
+                           GetHandlesThr.Free;
+                           GetHandlesThr := nil;
+                           if Application.Terminated then
+                              Exit;
+                           if DoFDThread then
+                              StopFirstDriveAnimation
+                           else
+                              StopSecDriveAnimation;
+                           if Length(OpenHandlesInfo) = 0 then
+                              wst := GetLangTextFormatDef(idxMain, ['Messages', 'UnableLockVolume'], [wst, VolumesInfo[FLDFailedInd].DriveProp, SysErrorMessage(LastError)], 'Unable to lock volume ''' + VolumesInfo[FLDFailedInd].Path + ''' on "' + VolumesInfo[FLDFailedInd].DriveProp + '" !'#13#10#13#10'System message: ' + string(SysErrorMessage(LastError)) +
+                                 #13#10#13#10'Looks like there is a hidden OS process accessing the volume.'#13#10'You can choose to standby/sleep the computer for a few seconds or to restart' +
+                                 #13#10'the OS so the process would be stopped or you can choose to ignore it...'#13#10#13#10'Are you sure you want to continue...?')
+                           else
+                              wst := GetLangTextFormatDef(idxMain, ['Messages', 'UnableLockVolumeHnd'], [wst, VolumesInfo[FLDFailedInd].DriveProp, SysErrorMessage(LastError), wst], 'Unable to lock volume ''' + VolumesInfo[FLDFailedInd].Path + ''' on "' + VolumesInfo[FLDFailedInd].DriveProp + '" !'#13#10#13#10'System message: ' + SysErrorMessage(LastError) + #13#10#13#10'Here is a list of processes with opened files/folders on ''' + VolumesInfo[FLDFailedInd].Path + '''.' +
+                                 #13#10'Use right click to select an action ("Smart disconnect" recommended):');
+                           case CustomMessageBox(Handle, wst, GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbAbort, mbRetry, mbIgnore], mbAbort, '', Length(OpenHandlesInfo) > 0) of
                               mrRetry:
                                  begin
                                     FDLSkipTo := 0;
@@ -6842,6 +6981,49 @@ begin
                               mrIgnore:
                                  begin
                                     FDLSkipTo := 1;
+                                    FLDIndStart := FLDFailedInd;
+                                    if DoFDThread then
+                                       StartFirstDriveAnimation
+                                    else
+                                       StartSecDriveAnimation;
+                                    Continue;
+                                 end;
+                              mrYesToAll:
+                                 begin
+                                    if DoFDThread then
+                                       StartFirstDriveAnimation
+                                    else
+                                       StartSecDriveAnimation;
+                                    wst := string(VolumesInfo[FLDFailedInd].Path);
+                                    if Length(wst) = 1 then
+                                       if CharInSet(wst[1], ['A'..'Z']) then
+                                          wst := wst + ':';
+
+                                    dt := GetTickCount;
+                                    GetHandlesThr := TGetHandlesThread.Create(LowerCase(wst[1])[1], True);
+                                    while not GetHandlesThr.isJobDone do
+                                    begin
+                                       Application.ProcessMessages;
+                                       if Application.Terminated then
+                                          Break;
+                                       mEvent.WaitFor(1);
+                                       if (GetTickCount - dt) > 60000 then
+                                          Break;
+                                    end;
+                                    if GetHandlesThr.isJobDone then
+                                       GetHandlesThr.Terminate
+                                    else
+                                       TerminateThread(GetHandlesThr.Handle, 0);
+                                    GetHandlesThr.Free;
+                                    GetHandlesThr := nil;
+                                    if Application.Terminated then
+                                       Exit;
+                                    if DoFDThread then
+                                       StopFirstDriveAnimation
+                                    else
+                                       StopSecDriveAnimation;
+
+                                    FDLSkipTo := 0;
                                     FLDIndStart := FLDFailedInd;
                                     if DoFDThread then
                                        StartFirstDriveAnimation
@@ -7231,12 +7413,7 @@ begin
                                     vbmComm[High(vbmComm)][2] := GetLangTextDef(idxMain, ['Messages', 'PowerOffDef'], 'setting Power Off as the default close action');
                                  end;
                                  n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
-                                 if n3 = -1 then
-                                 begin
-                                    errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
-                                    Abort;
-                                 end
-                                 else
+                                 if n3 > -1 then
                                  begin
                                     n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
                                     if n4 > -1 then
@@ -7750,12 +7927,17 @@ begin
                                     n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
                                     if n3 = -1 then
                                     begin
-                                       errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
-                                       Abort;
-                                    end
-                                    else
+                                       ChildNodes[n1].ChildNodes[n2].AddChild('MediaRegistry');
+                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
+                                    end;
+                                    if n3 > -1 then
                                     begin
                                        n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                       if n4 = -1 then
+                                       begin
+                                          ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AddChild('HardDisks');
+                                          n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                       end;
                                        if n4 > -1 then
                                        begin
                                           if fu >= 0 then
@@ -7777,6 +7959,11 @@ begin
                                        end;
                                     end;
                                     n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
+                                    if n3 = -1 then
+                                    begin
+                                       ChildNodes[n1].ChildNodes[n2].AddChild('StorageControllers');
+                                       n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('StorageControllers');
+                                    end;
                                     isFUSet := fu < 0;
                                     isSUSet := su < 0;
                                     if n3 > -1 then
@@ -9345,7 +9532,7 @@ begin
                               begin
                                  if AllWindowsList[j].WClass = 'VBoxPowerNotifyClass' then
                                     if AllWindowsList[j].WCaption = 'VBoxPowerNotifyClass' then
-                                       if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
+                                       if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = 'vboxsvc.exe' then
                                        try
                                           TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ProcessID), 0);
                                        except
@@ -9432,12 +9619,17 @@ begin
                               n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
                               if n3 = -1 then
                               begin
-                                 errmsg := GetLangTextFormatDef(idxMain, ['Messages', 'SectionNotFound'], ['MediaRegistry'], '"%s" section not found in the vbox file !'#13#10#13#10'It seems Oracle changed the file format or you have a corrupted file.');
-                                 Abort;
-                              end
-                              else
+                                 ChildNodes[n1].ChildNodes[n2].AddChild('MediaRegistry');
+                                 n3 := ChildNodes[n1].ChildNodes[n2].ChildNodes.IndexOf('MediaRegistry');
+                              end;
+                              if n3 > -1 then
                               begin
                                  n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                 if n4 = -1 then
+                                 begin
+                                    ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].AddChild('HardDisks');
+                                    n4 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes.IndexOf('HardDisks');
+                                 end;
                                  if n4 > -1 then
                                  begin
                                     for i := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[n4].ChildNodes.Count - 1 downto 0 do
@@ -10424,10 +10616,38 @@ begin
    Finalize(Data^);
 end;
 
+procedure TfrmMain.CusMsgGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+   var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string);
+var
+   iLevel: Integer;
+begin
+   if Node = nil then
+      Exit;
+   iLevel := Sender.GetNodeLevel(Node);
+   if iLevel > 0 then
+      Exit;
+   HintText := OpenHandlesInfo[Node.Index].ProcessFullPath;
+end;
+
+procedure TfrmMain.CusMgsGetHintKind(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+   var Kind: TVTHintKind);
+var
+   iLevel: Integer;
+begin
+   if Node = nil then
+      Exit;
+   iLevel := Sender.GetNodeLevel(Node);
+   if iLevel > 0 then
+      Exit;
+   Kind := vhkText;
+end;
+
 procedure TfrmMain.vstVMsGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: TImageIndex);
 var
    Data: PData;
 begin
+   if Node = nil then
+      Exit;
    Data := vstVMs.GetNodeData(Node);
    case Column of
       1:
@@ -10445,6 +10665,34 @@ begin
             ImageIndex := SecDriveAnimImageIndex
          else
             ImageIndex := Data.FSDImageIndex;
+   end;
+end;
+
+procedure TfrmMain.CusMsgGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: TImageIndex);
+var
+   iLevel: Integer;
+begin
+   if Node = nil then
+      Exit;
+   iLevel := Sender.GetNodeLevel(Node);
+   if iLevel = 0 then
+   begin
+      if Column = 0 then
+         ImageIndex := 3 + Node.Index
+      else
+         ImageIndex := -1;
+   end
+   else
+   begin
+      if Column = 0 then
+      begin
+         if OpenHandlesInfo[Node.Parent.Index].FilesData[Node.Index].isFolder then
+            ImageIndex := 2
+         else
+            ImageIndex := 1;
+      end
+      else
+         ImageIndex := -1;
    end;
 end;
 
@@ -10477,10 +10725,39 @@ begin
    end;
 end;
 
+procedure TfrmMain.CusMsgGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
+var
+   iLevel: integer;
+begin
+   iLevel := Sender.GetNodeLevel(Node);
+   if Column = 0 then
+   begin
+      case iLevel of
+         0:
+            CellText := OpenHandlesInfo[Node.Index].Process;
+         1:
+            CellText := OpenHandlesInfo[Node.Parent.Index].FilesData[Node.Index].FileName;
+      end;
+   end
+   else
+      case iLevel of
+         0:
+            CellText := OpenHandlesInfo[Node.Index].ProductName;
+         1:
+            CellText := '';
+      end;
+end;
+
 procedure TfrmMain.vstVMsMeasureItem(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
    var NodeHeight: Integer);
 begin
    NodeHeight := Round(1.1 * Max(imlVST_items.Height, TargetCanvas.TextHeight('Hg')) + 1.6);
+end;
+
+procedure TfrmMain.CusMgsMeasureItem(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
+   var NodeHeight: Integer);
+begin
+   NodeHeight := Round(1.1 * Max(imlCMB.Height, TargetCanvas.TextHeight('Hg')) + 1.6);
 end;
 
 procedure TfrmMain.vstVMsMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -10508,6 +10785,43 @@ begin
    begin
       vstVMs.Selected[Node] := False;
       vstVMs.FocusedNode := nil;
+   end;
+end;
+
+procedure TfrmMain.CusMgsPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
+   Column: TColumnIndex; TextType: TVSTTextType);
+begin
+   if Node = nil then
+      Exit;
+   if Sender.GetNodeLevel(Node) = 0 then
+      TargetCanvas.Font.Color := DarkenTxtColor
+   else
+      TargetCanvas.Font.Color := BrightenTxtColor;
+end;
+
+procedure TfrmMain.CusMsgMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+   Node: PVirtualNode;
+   p: TPoint;
+   lvc: Integer;
+begin
+   if (Button <> mbLeft) and (Button <> mbRight) then
+      Exit;
+   p.X := X;
+   p.Y := Y;
+   Node := (Sender as TVirtualStringTree).GetNodeAt(p);
+   if Node <> nil then
+   begin
+      lvc := (Sender as TVirtualStringTree).Header.Columns.GetLastVisibleColumn;
+      if lvc > -1 then
+         if (Sender as TVirtualStringTree).Header.Columns[lvc].GetRect.Right >= X then
+            Exit;
+   end;
+   Node := (Sender as TVirtualStringTree).GetFirstSelected;
+   if Node <> nil then
+   begin
+      (Sender as TVirtualStringTree).Selected[Node] := False;
+      (Sender as TVirtualStringTree).FocusedNode := nil;
    end;
 end;
 
@@ -11363,6 +11677,20 @@ begin
    TargetCanvas.FillRect(r);
 end;
 
+procedure TfrmMain.CusMGsBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
+var
+   r: TRect;
+begin
+   if (Sender as TVirtualStringTree).RootNodeCount < 1 then
+      Exit;
+   if (Sender as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+      TargetCanvas.Brush.Color := DarkenBckColor
+   else
+      TargetCanvas.Brush.Color := BrightenBckColor;
+   IntersectRect(r, CellRect, (Sender as TVirtualStringTree).ClientRect);
+   TargetCanvas.FillRect(r);
+end;
+
 procedure TfrmMain.vstVMsBeforeColumnWidthTracking(Sender: TVTHeader; Column: TColumnIndex; Shift: TShiftState);
 begin
    if Column = Sender.Columns.GetLastVisibleColumn then
@@ -11679,6 +12007,280 @@ begin
    end;
 end;
 
+type
+   PUNICODE_STRING = ^UNICODE_STRING;
+
+   UNICODE_STRING = record
+      Length: USHORT;
+      MaximumLength: USHORT;
+      Buffer: PWideChar;
+   end;
+
+   CLIENT_ID = record
+      UniqueProcess: THandle;
+      UniqueThread: THandle;
+   end;
+
+   PCLIENT_ID = ^CLIENT_ID;
+
+   KPRIORITY = Integer;
+
+   _KWAIT_REASON = (
+      Executive,
+      FreePage,
+      PageIn,
+      PoolAllocation,
+      DelayExecution,
+      Suspended,
+      UserRequest,
+      WrExecutive,
+      WrFreePage,
+      WrPageIn,
+      WrPoolAllocation,
+      WrDelayExecution,
+      WrSuspended,
+      WrUserRequest,
+      WrEventPair,
+      WrQueue,
+      WrLpcReceive,
+      WrLpcReply,
+      WrVirtualMemory,
+      WrPageOut,
+      WrRendezvous,
+      WrKeyedEvent,
+      WrTerminated,
+      WrProcessInSwap,
+      WrCpuRateControl,
+      WrCalloutStack,
+      WrKernel,
+      WrResource,
+      WrPushLock,
+      WrMutex,
+      WrQuantumEnd,
+      WrDispatchInt,
+      WrPreempted,
+      WrYieldExecution,
+      WrFastMutex,
+      WrGuardedMutex,
+      WrRundown,
+      MaximumWaitReason);
+   KWAIT_REASON = _KWAIT_REASON;
+
+   SYSTEM_THREADS = record
+      KernelTime: FILETIME;
+      UserTime: FILETIME;
+      CreateTime: FILETIME;
+      WaitTime: ULONG;
+      StartAddress: PVOID;
+      ClientId: CLIENT_ID;
+      Priority: KPRIORITY;
+      BasePriority: LONG;
+      ContextSwitches: ULONG;
+      ThreadState: ULONG;
+      WaitReason: KWAIT_REASON;
+   end;
+   PSYSTEM_THREAD = ^SYSTEM_THREADS;
+
+   SYSTEM_PROCESS_INFORMATION = record
+      NextEntryOffset: ULONG;
+      NumberOfThreads: ULONG;
+      WorkingSetPrivateSize: Int64;
+      HardFaultCount: ULONG;
+      NumberOfThreadsHighWatermark: ULONG;
+      CycleTime: ULONGLONG;
+      CreateTime: FILETIME;
+      UserTime: FILETIME;
+      KernelTime: FILETIME;
+      ImageName: UNICODE_STRING;
+      BasePriority: KPRIORITY;
+      UniqueProcessId: THandle;
+      InheritedFromUniqueProcessId: THandle;
+      HandleCount: ULONG;
+      SessionId: ULONG;
+      UniqueProcessKey: ULONG_PTR;
+      PeakVirtualSize: SIZE_T;
+      VirtualSize: SIZE_T;
+      PageFaultCount: ULONG;
+      PeakWorkingSetSize: SIZE_T;
+      WorkingSetSize: SIZE_T;
+      QuotaPeakPagedPoolUsage: SIZE_T;
+      QuotaPagedPoolUsage: SIZE_T;
+      QuotaPeakNonPagedPoolUsage: SIZE_T;
+      QuotaNonPagedPoolUsage: SIZE_T;
+      PagefileUsage: SIZE_T;
+      PeakPagefileUsage: SIZE_T;
+      PrivatePageCountp: SIZE_T;
+      ReadOperationCount: Int64;
+      WriteOperationCount: Int64;
+      OtherOperationCount: Int64;
+      ReadTransferCount: Int64;
+      WriteTransferCount: Int64;
+      OtherTransferCount: Int64;
+      Threads: array[0..0] of SYSTEM_THREADS;
+   end;
+
+   PSYSTEM_PROCESS_INFORMATION = ^SYSTEM_PROCESS_INFORMATION;
+
+function NtQuerySystemInformation(SystemInformationClass: DWORD; SystemInformation: pointer; SystemInformationLength: DWORD; ReturnLength: PDWORD): cardinal; stdcall; external 'ntdll';
+
+function IsProcessSuspended(const ProcessID: DWORD): Boolean;
+const
+   STATUS_INFO_LENGTH_MISMATCH = $C0000004;
+var
+   spi: PSYSTEM_PROCESS_INFORMATION;
+   crt: PSYSTEM_PROCESS_INFORMATION;
+   PThreadInfo: PSYSTEM_THREAD;
+   Size, nt_res: DWORD;
+   j: Integer;
+   LastProcess: Boolean;
+begin
+   Result := False; // Default result, will be also returned if any error arises.
+   nt_res := 0;
+   try
+      nt_res := NtQuerySystemInformation(5, nil, 0, @Size);
+   except
+   end;
+   if (nt_res = STATUS_INFO_LENGTH_MISMATCH) and (Size > 0) then
+   begin
+      GetMem(spi, Size);
+      try
+         nt_res := 1;
+         try
+            nt_res := NtQuerySystemInformation(5, spi, Size, @Size);
+         except
+         end;
+         if nt_res = 0 then
+         begin
+            // ————————————————-
+            crt := spi;
+            LastProcess := False;
+            while not LastProcess do
+            begin
+               LastProcess := crt^.NextEntryOffset = 0;
+               if crt^.UniqueProcessId = ProcessID then
+               begin
+                  //                  ShowMessage('bingo');
+                                    // ————————————————–
+                  for j := 0 to crt^.NumberOfThreads - 1 do
+                  begin
+                     PThreadInfo := PSYSTEM_THREAD(@crt^.Threads[j]);
+                     if PThreadInfo^.WaitReason = Suspended then
+                        Exit(True) // the thread is suspended
+                     else
+                        Exit(False); // the thread is not suspended
+                     Break;
+                  end;
+                  // ————————————————–
+                  Break;
+               end;
+               crt := Pointer(DWORD(crt) + crt^.NextEntryOffset);
+            end;
+            // ————————————————-
+         end
+         else
+            Exit; // failed listing processes!
+      finally
+         FreeMem(spi);
+      end;
+   end;
+end;
+
+procedure TfrmMain.CusMgsContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
+var
+   Node, tNode: PVirtualNode;
+   p: TPoint;
+   R: TRect;
+   lvc: Integer;
+   i, j, iLevel: Integer;
+begin
+   Handled := True;
+   if (MousePos.X = -1) and (MousePos.Y = -1) and ((Sender as TVirtualStringTree).GetFirstSelected <> nil) then
+   begin
+      R := (Sender as TVirtualStringTree).GetDisplayRect((Sender as TVirtualStringTree).GetFirstSelected, -1, False, False, False);
+      MousePos.X := R.Left + R.Width div 2;
+      MousePos.Y := R.Top + R.Height div 2;
+   end;
+   p := (Sender as TVirtualStringTree).ClientToScreen(MousePos);
+   if PtInRect((Sender as TVirtualStringTree).ClientRect, MousePos) then
+   begin
+      try
+         Node := (Sender as TVirtualStringTree).GetNodeAt(MousePos.X, MousePos.Y);
+         if Node = nil then
+            Exit;
+         tNode := (Sender as TVirtualStringTree).GetFirst;
+         i := -1;
+         j := 0;
+         while Assigned(tNode) do
+         begin
+            if (Sender as TVirtualStringTree).GetNodeLevel(tNode) = 0 then
+            begin
+               Inc(i);
+               j := -1;
+            end
+            else
+               Inc(j);
+            if Node = tNode then
+               Break;
+            tNode := (Sender as TVirtualStringTree).GetNext(tNode);
+         end;
+         lvc := (Sender as TVirtualStringTree).Header.Columns.GetLastVisibleColumn;
+         if (lvc <= -1) or ((Sender as TVirtualStringTree).Header.Columns[lvc].GetRect.Right < MousePos.X) then
+            Exit;
+         iLevel := (Sender as TVirtualStringTree).GetNodeLevel(Node);
+         if iLevel = 0 then
+         begin
+            mmBringToTop.Visible := True;
+            mmSmartDisconnect.Visible := True;
+            mmCloseProcess.Visible := True;
+            mmKillProcess.Visible := True;
+            mmCloseFile.Visible := False;
+            mmCloseAllFiles.Visible := True;
+            if not isProcessSuspended(OpenHandlesInfo[i].ProcessID) then
+            begin
+               mmSuspendProcess.Visible := True;
+               mmResumeProcess.Visible := False;
+            end
+            else
+            begin
+               mmSuspendProcess.Visible := False;
+               mmResumeProcess.Visible := True;
+            end;
+         end
+         else
+         begin
+            mmBringToTop.Visible := False;
+            mmSmartDisconnect.Visible := False;
+            mmCloseProcess.Visible := False;
+            mmKillProcess.Visible := False;
+            mmSuspendProcess.Visible := False;
+            mmResumeProcess.Visible := False;
+            mmCloseFile.Visible := True;
+            if OpenHandlesInfo[i].FilesData[j].isFolder then
+            begin
+               mmCloseFile.ImageIndex := nFileClose + 1;
+               frmMain.mmCloseFile.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'CloseFolder'], 'Close folder');
+            end
+            else
+            begin
+               mmCloseFile.ImageIndex := nFileClose;
+               frmMain.mmCloseFile.Caption := GetLangTextDef(idxMain, ['List', 'Menu', 'CloseFile'], 'Close file');
+            end;
+            mmCloseAllFiles.Visible := False;
+         end;
+         if (Sender as TVirtualStringTree).GetFirstSelected <> Node then
+         begin
+            if not (Sender as TVirtualStringTree).Focused then
+               (Sender as TVirtualStringTree).SetFocus;
+            (Sender as TVirtualStringTree).Selected[Node] := True;
+            (Sender as TVirtualStringTree).FocusedNode := Node;
+         end;
+         pmCustomMB.PopupComponent := TComponent(Sender);
+         pmCustomMB.Popup(p.X, p.Y);
+      except
+      end;
+   end;
+end;
+
 procedure TfrmMain.ModEnd(Sender: TObject);
 begin
    try
@@ -11728,6 +12330,60 @@ begin
       vstVMs.TreeOptions.PaintOptions := vstVMs.TreeOptions.PaintOptions - [toHideFocusRect];
    vstVMs.Invalidate;
    inherited;
+end;
+
+procedure TfrmMain.mmBringToTopClick(Sender: TObject);
+var
+   Edit: TObject;
+   Node: PVirtualNode;
+   i: Integer;
+   wasMinimized: Boolean;
+   dt: Cardinal;
+begin
+   Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   Node := (Edit as TVirtualStringTree).GetFirst;
+   while Node <> nil do
+   begin
+      if ((Edit as TVirtualStringTree).GetNodeLevel(Node) = 0) and ((Edit as TVirtualStringTree).Selected[Node]) then
+      begin
+         GetProcessIDWindowsList(OpenHandlesInfo[Node.Index].ProcessID);
+         wasMinimized := False;
+         for i := 0 to FCount - 1 do
+         begin
+            if isIconic(AllWindowsList[i].Handle) then
+            begin
+               wasMinimized := True;
+               PostMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+               dt := GetTickCount;
+               while isIconic(AllWindowsList[i].Handle) do
+               begin
+                  mEvent.WaitFor(1);
+                  Application.ProcessMessages;
+                  if (GetTickCount - dt) > 3000 then
+                     Break;
+               end;
+            end;
+         end;
+         if wasMinimized then
+            GetProcessIDWindowsList(OpenHandlesInfo[Node.Index].ProcessID);
+         for i := 0 to FCount - 1 do
+            if not isWindowEnabled(AllWindowsList[i].Handle) then
+            begin
+               SetForegroundWindow(AllWindowsList[i].Handle);
+               SetActiveWindow(AllWindowsList[i].Handle);
+            end;
+         for i := 0 to FCount - 1 do
+            if isWindowEnabled(AllWindowsList[i].Handle) then
+            begin
+               SetForegroundWindow(AllWindowsList[i].Handle);
+               SetActiveWindow(AllWindowsList[i].Handle);
+            end;
+         Exit;
+      end;
+      Node := (Edit as TVirtualStringTree).GetNext(Node);
+   end;
 end;
 
 procedure TfrmMain.mmCloneClick(Sender: TObject);
@@ -11809,6 +12465,260 @@ begin
    vstVMs.EndUpdate; //
    vstVMs.Invalidate;
    SaveVMentries(VMentriesFile);
+end;
+
+procedure TfrmMain.mmCloseAllFilesClick(Sender: TObject);
+var
+   Edit: TObject;
+   Node, Child: PVirtualNode;
+   strMess: string;
+   hProcess: THandle;
+   i, j, k: Integer;
+begin
+   if AutoEdit then
+      Exit;
+   Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   ManualEdit := True;
+   try
+      Node := (Edit as TVirtualStringTree).GetFirst;
+      i := -1;
+      while Assigned(Node) do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+         begin
+            Inc(i);
+            if (Edit as TVirtualStringTree).Selected[Node] then
+               Break;
+         end;
+         Node := (Edit as TVirtualStringTree).GetNext(Node);
+      end;
+      LastError := 0;
+      hProcess := 0;
+      try
+         hProcess := OpenProcess(PROCESS_DUP_HANDLE, FALSE, OpenHandlesInfo[i].ProcessID);
+         LastError := GetLastError;
+      except
+         on E: Exception do
+            LastExceptionStr := E.Message;
+      end;
+      if LastError > 0 then
+         strMess := SysErrorMessage(LastError)
+      else
+      begin
+         if LastExceptionStr <> '' then
+            strMess := LastExceptionStr
+         else
+            strMess := '';
+      end;
+      if hProcess <> 0 then
+      begin
+         Child := (Edit as TVirtualStringTree).GetFirstChild(Node);
+         j := 0;
+         while j <= High(OpenHandlesInfo[i].FilesData) do
+         begin
+            try
+               DuplicateHandle(hProcess, OpenHandlesInfo[i].FilesData[j].FileHandle, 0, nil, 0, False, DUPLICATE_CLOSE_SOURCE);
+               LastError := GetLastError;
+            except
+               on E: Exception do
+                  LastExceptionStr := E.Message;
+            end;
+            if LastError > 0 then
+               strMess := SysErrorMessage(LastError)
+            else
+            begin
+               if LastExceptionStr <> '' then
+                  strMess := LastExceptionStr
+               else
+                  strMess := '';
+            end;
+            if strMess <> '' then
+            begin
+               if OpenHandlesInfo[i].FilesData[j].isFolder then
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the folder!' +
+                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING)
+               else
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the file!' +
+                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+               Break;
+            end
+            else
+            begin
+               for k := j + 1 to High(OpenHandlesInfo[i].FilesData) do
+                  OpenHandlesInfo[i].FilesData[k - 1] := OpenHandlesInfo[i].FilesData[k];
+               SetLength(OpenHandlesInfo[i].FilesData, Length(OpenHandlesInfo[i].FilesData) - 1);
+               (Edit as TVirtualStringTree).DeleteNode(Child);
+            end;
+            Inc(j);
+         end;
+      end;
+   finally
+      ManualEdit := False;
+   end;
+end;
+
+procedure TfrmMain.mmCloseFileClick(Sender: TObject);
+var
+   Edit: TObject;
+   tNode, NextSelNode: PVirtualNode;
+   strMess: string;
+   hProcess: THandle;
+   i, j, k: Integer;
+   swtFD: TFileData;
+begin
+   if AutoEdit then
+      Exit;
+   if Sender is TVirtualStringTree then
+      Edit := Sender
+   else
+      Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   ManualEdit := True;
+   try
+      tNode := (Edit as TVirtualStringTree).GetFirst;
+      i := -1;
+      j := -1;
+      while Assigned(tNode) do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(tNode) = 0 then
+         begin
+            Inc(i);
+            j := -1;
+         end
+         else
+            Inc(j);
+         if (Edit as TVirtualStringTree).Selected[tNode] then
+            Break;
+         tNode := (Edit as TVirtualStringTree).GetNext(tNode);
+      end;
+      if Assigned((Edit as TVirtualStringTree).GetNext(tNode)) then
+         NextSelNode := (Edit as TVirtualStringTree).GetNext(tNode)
+      else if Assigned((Edit as TVirtualStringTree).GetPrevious(tNode)) then
+         NextSelNode := (Edit as TVirtualStringTree).GetPrevious(tNode)
+      else
+         NextSelNode := nil;
+      LastError := 0;
+      hProcess := 0;
+      try
+         hProcess := OpenProcess(PROCESS_DUP_HANDLE, FALSE, OpenHandlesInfo[i].ProcessID);
+         LastError := GetLastError;
+      except
+         on E: Exception do
+            LastExceptionStr := E.Message;
+      end;
+      if LastError > 0 then
+         strMess := SysErrorMessage(LastError)
+      else
+      begin
+         if LastExceptionStr <> '' then
+            strMess := LastExceptionStr
+         else
+            strMess := '';
+      end;
+      if hProcess <> 0 then
+      begin
+         try
+            DuplicateHandle(hProcess, OpenHandlesInfo[i].FilesData[j].FileHandle, 0, nil, 0, False, DUPLICATE_CLOSE_SOURCE);
+            LastError := GetLastError;
+         except
+            on E: Exception do
+               LastExceptionStr := E.Message;
+         end;
+         if LastError > 0 then
+            strMess := SysErrorMessage(LastError)
+         else
+         begin
+            if LastExceptionStr <> '' then
+               strMess := LastExceptionStr
+            else
+               strMess := '';
+         end;
+      end;
+      if strMess <> '' then
+      begin
+         if OpenHandlesInfo[i].FilesData[j].isFolder then
+            MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the folder!' +
+               #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING)
+         else
+            MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the file!' +
+               #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+      end
+      else
+      begin
+         for k := j + 1 to High(OpenHandlesInfo[i].FilesData) do
+         begin
+            swtFD := OpenHandlesInfo[i].FilesData[k - 1];
+            OpenHandlesInfo[i].FilesData[k - 1] := OpenHandlesInfo[i].FilesData[k];
+            OpenHandlesInfo[i].FilesData[k] := swtFD;
+         end;
+         //         OpenHandlesInfo[i].FilesData[High(OpenHandlesInfo[i].FilesData)] := nil;
+         SetLength(OpenHandlesInfo[i].FilesData, Length(OpenHandlesInfo[i].FilesData) - 1);
+         (Edit as TVirtualStringTree).DeleteNode(tNode);
+         if Assigned(NextSelNode) then
+            (Edit as TVirtualStringTree).Selected[NextSelNode] := True;
+      end;
+   finally
+      ManualEdit := False;
+   end;
+end;
+
+function GetProcessImageFileName(hProcess: THandle; lpImageFileName: LPCWSTR; nSize: DWORD): DWORD; stdcall; external 'PSAPI.dll' name 'GetProcessImageFileNameW';
+
+function ProcessExists(const aIndex: Integer): Boolean;
+var
+   hProcess: THandle;
+   lpszProcess: PChar;
+begin
+   Result := False;
+   try
+      hProcess := OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, OpenHandlesInfo[aIndex].ProcessID);
+   except
+      hProcess := 0;
+   end;
+   if hProcess <> 0 then
+   begin
+      lpszProcess := AllocMem(MAX_PATH);
+      try
+         if GetProcessImageFileName(hProcess, lpszProcess, 2 * MAX_PATH) <= 0 then
+            Exit;
+         Result := OpenHandlesInfo[aIndex].ProcessFullPath = ConvertPhysicalNameToVirtualPathName(string(lpszProcess));
+      finally
+         FreeMem(lpszProcess);
+         CloseHandle(hProcess);
+      end;
+   end;
+end;
+
+procedure TfrmMain.mmCloseProcessClick(Sender: TObject);
+var
+   Edit: TObject;
+   Node: PVirtualNode;
+   i: Integer;
+begin
+   if AutoEdit then
+      Exit;
+   Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   Node := (Edit as TVirtualStringTree).GetFirst;
+   while Node <> nil do
+   begin
+      if ((Edit as TVirtualStringTree).GetNodeLevel(Node) = 0) and ((Edit as TVirtualStringTree).Selected[Node]) then
+      begin
+         GetProcessIDWindowsList(OpenHandlesInfo[Node.Index].ProcessID);
+         for i := 0 to FCount - 1 do
+            if isIconic(AllWindowsList[i].Handle) then
+               PostMessage(AllWindowsList[i].Handle, WM_CLOSE, 0, 0);
+         for i := 0 to FCount - 1 do
+            if not isIconic(AllWindowsList[i].Handle) then
+               PostMessage(AllWindowsList[i].Handle, WM_CLOSE, 0, 0);
+         Exit;
+      end;
+      Node := (Edit as TVirtualStringTree).GetNext(Node);
+   end;
 end;
 
 procedure TfrmMain.mmDownClick(Sender: TObject);
@@ -14752,6 +15662,123 @@ begin
    end
 end;
 
+procedure TfrmMain.mmKillProcessClick(Sender: TObject);
+var
+   Edit: TObject;
+   Node, NextSelNode: PVirtualNode;
+   strMess: string;
+   hProcess: THandle;
+   i, j: Integer;
+   swtItem: TOpenHandleInfo;
+begin
+   if AutoEdit then
+      Exit;
+   if Sender is TVirtualStringTree then
+      Edit := Sender
+   else
+      Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   ManualEdit := True;
+   try
+      Node := (Edit as TVirtualStringTree).GetFirst;
+      i := -1;
+      while Node <> nil do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+         begin
+            Inc(i);
+            if (Edit as TVirtualStringTree).Selected[Node] then
+            begin
+               NextSelNode := (Edit as TVirtualStringTree).GetNext(Node);
+               while Assigned(NextSelNode) and ((Edit as TVirtualStringTree).GetNodeLevel(NextSelNode) > 0) do
+                  NextSelNode := (Edit as TVirtualStringTree).GetNext(NextSelNode);
+
+               if not Assigned(NextSelNode) then
+               begin
+                  NextSelNode := (Edit as TVirtualStringTree).GetPrevious(Node);
+                  while Assigned(NextSelNode) and ((Edit as TVirtualStringTree).GetNodeLevel(NextSelNode) > 0) do
+                     NextSelNode := (Edit as TVirtualStringTree).GetPrevious(NextSelNode);
+               end;
+               LastError := 0;
+               hProcess := 0;
+               try
+                  hProcess := OpenProcess(PROCESS_TERMINATE, FALSE, OpenHandlesInfo[Node.Index].ProcessID);
+                  LastError := GetLastError;
+               except
+                  on E: Exception do
+                     LastExceptionStr := E.Message;
+               end;
+               if LastError > 0 then
+                  strMess := SysErrorMessage(LastError)
+               else
+               begin
+                  if LastExceptionStr <> '' then
+                     strMess := LastExceptionStr
+                  else
+                     strMess := '';
+               end;
+               if hProcess <> 0 then
+               begin
+                  try
+                     TerminateProcess(hProcess, 0);
+                     LastError := GetLastError;
+                  except
+                     on E: Exception do
+                        LastExceptionStr := E.Message;
+                  end;
+                  if LastError > 0 then
+                     strMess := SysErrorMessage(LastError)
+                  else
+                  begin
+                     if LastExceptionStr <> '' then
+                        strMess := LastExceptionStr
+                     else
+                        strMess := '';
+                  end;
+               end;
+               if strMess <> '' then
+               begin
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically kill the process!' +
+                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+               end
+               else
+               begin
+                  (Edit as TVirtualStringTree).BeginUpdate;
+
+                  for j := i + 1 to High(OpenHandlesInfo) do
+                  begin
+                     swtItem := OpenHandlesInfo[j - 1];
+                     OpenHandlesInfo[j - 1] := OpenHandlesInfo[j];
+                     OpenHandlesInfo[j] := swtItem;
+                  end;
+                  SetLength(OpenHandlesInfo[High(OpenHandlesInfo)].FilesData, 0);
+                  if Assigned(OpenHandlesInfo[High(OpenHandlesInfo)].ProcessIcon) then
+                  begin
+                     OpenHandlesInfo[High(OpenHandlesInfo)].ProcessIcon.Free;
+                     OpenHandlesInfo[High(OpenHandlesInfo)].ProcessIcon := nil;
+                  end;
+                  Setlength(OpenHandlesInfo, Length(OpenHandlesInfo) - 1);
+                  imlCMb.Delete(i + 3);
+                  (Edit as TVirtualStringTree).DeleteChildren(Node);
+                  (Edit as TVirtualStringTree).DeleteNode(Node);
+
+                  (Edit as TVirtualStringTree).EndUpdate;
+                  (Edit as TVirtualStringTree).Invalidate;
+
+                  if Assigned(NextSelNode) then
+                     (Edit as TVirtualStringTree).Selected[NextSelNode] := True;
+               end;
+               Exit;
+            end;
+         end;
+         Node := (Edit as TVirtualStringTree).GetNext(Node);
+      end;
+   finally
+      ManualEdit := False;
+   end;
+end;
+
 procedure TfrmMain.mmOptionsClick(Sender: TObject);
 begin
    btnOptions.Click;
@@ -15020,6 +16047,84 @@ begin
    vstVMs.Invalidate;
 end;
 
+function NtResumeProcess(ProcessID: DWORD): NT_STATUS; stdcall; external 'ntdll.dll';
+
+procedure TfrmMain.mmResumeProcessClick(Sender: TObject);
+const
+   PROCESS_SUSPEND_RESUME = $0800;
+var
+   Edit: TObject;
+   Node: PVirtualNode;
+   strMess: string;
+   hProcess: THandle;
+   i: Integer;
+begin
+   if AutoEdit then
+      Exit;
+   Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   ManualEdit := True;
+   try
+      Node := (Edit as TVirtualStringTree).GetFirst;
+      i := -1;
+      while Node <> nil do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+         begin
+            Inc(i);
+            if (Edit as TVirtualStringTree).Selected[Node] then
+            begin
+               LastError := 0;
+               hProcess := 0;
+               try
+                  hProcess := OpenProcess(PROCESS_SUSPEND_RESUME, False, OpenHandlesInfo[i].ProcessID);
+                  LastError := GetLastError;
+               except
+                  on E: Exception do
+                     LastExceptionStr := E.Message;
+               end;
+               if LastError > 0 then
+                  strMess := SysErrorMessage(LastError)
+               else
+               begin
+                  if LastExceptionStr <> '' then
+                     strMess := LastExceptionStr
+                  else
+                     strMess := '';
+               end;
+               if hProcess <> 0 then
+               begin
+                  try
+                     NtResumeProcess(hProcess);
+                     LastError := GetLastError;
+                  except
+                     on E: Exception do
+                        LastExceptionStr := E.Message;
+                  end;
+                  if LastError > 0 then
+                     strMess := SysErrorMessage(LastError)
+                  else
+                  begin
+                     if LastExceptionStr <> '' then
+                        strMess := LastExceptionStr
+                     else
+                        strMess := '';
+                  end;
+               end;
+               if strMess <> '' then
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically resume the process!' +
+                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+               Exit;
+            end;
+         end;
+         Node := (Edit as TVirtualStringTree).GetNext(Node);
+      end;
+   finally
+      ManualEdit := False;
+   end;
+end;
+
 procedure TfrmMain.mmShowHideMainWindowClick(Sender: TObject);
 var
    dt: Cardinal;
@@ -15049,6 +16154,89 @@ begin
       Hide;
 end;
 
+procedure TfrmMain.mmSmartDisconnectClick(Sender: TObject);
+const
+   PROCESS_SUSPEND_RESUME = $0800;
+var
+   Edit: TObject;
+   Node: PVirtualNode;
+   strMess: string;
+   hProcess: THandle;
+   i: Integer;
+begin
+   if AutoEdit then
+      Exit;
+   ManualEdit := True;
+   try
+      Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+      if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+         Exit;
+      i := -1;
+      Node := (Edit as TVirtualStringTree).GetFirst;
+      while Node <> nil do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+         begin
+            Inc(i);
+            if ((Edit as TVirtualStringTree).Selected[Node]) then
+            begin
+               //suspend process
+               LastError := 0;
+               hProcess := 0;
+               try
+                  hProcess := OpenProcess(PROCESS_SUSPEND_RESUME or PROCESS_DUP_HANDLE or PROCESS_TERMINATE, False, OpenHandlesInfo[i].ProcessID);
+                  LastError := GetLastError;
+               except
+                  on E: Exception do
+                     LastExceptionStr := E.Message;
+               end;
+               if LastError > 0 then
+                  strMess := SysErrorMessage(LastError)
+               else
+               begin
+                  if LastExceptionStr <> '' then
+                     strMess := LastExceptionStr
+                  else
+                     strMess := '';
+               end;
+               if hProcess <> 0 then
+               begin
+                  try
+                     NtSuspendProcess(hProcess);
+                     LastError := GetLastError;
+                  except
+                     on E: Exception do
+                        LastExceptionStr := E.Message;
+                  end;
+                  if LastError > 0 then
+                     strMess := SysErrorMessage(LastError)
+                  else
+                  begin
+                     if LastExceptionStr <> '' then
+                        strMess := LastExceptionStr
+                     else
+                        strMess := '';
+                  end;
+               end;
+               if strMess <> '' then
+               begin
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically suspend the process!' +
+                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+                  Exit;
+               end;
+               FhProcess := hProcess;
+               FprocessID := OpenHandlesInfo[i].ProcessID;
+               TCustomForm((Edit as TVirtualStringTree).Parent).ModalResult := mrYesToAll;
+            end;
+            Exit;
+         end;
+         Node := (Edit as TVirtualStringTree).GetNext(Node);
+      end;
+   finally
+      ManualEdit := False;
+   end;
+end;
+
 procedure TfrmMain.mmStartManagersClick(Sender: TObject);
 var
    Data: PData;
@@ -15062,6 +16250,82 @@ begin
          StartManagersClick(mmVirtualBoxManager)
       else
          StartManagersClick(mmQEMUManager);
+   end;
+end;
+
+procedure TfrmMain.mmSuspendProcessClick(Sender: TObject);
+const
+   PROCESS_SUSPEND_RESUME = $0800;
+var
+   Edit: TObject;
+   Node: PVirtualNode;
+   strMess: string;
+   hProcess: THandle;
+   i: Integer;
+begin
+   if AutoEdit then
+      Exit;
+   Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   ManualEdit := True;
+   try
+      i := -1;
+      Node := (Edit as TVirtualStringTree).GetFirst;
+      while Node <> nil do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+         begin
+            Inc(i);
+            if ((Edit as TVirtualStringTree).Selected[Node]) then
+            begin
+               LastError := 0;
+               hProcess := 0;
+               try
+                  hProcess := OpenProcess(PROCESS_SUSPEND_RESUME, False, OpenHandlesInfo[i].ProcessID);
+                  LastError := GetLastError;
+               except
+                  on E: Exception do
+                     LastExceptionStr := E.Message;
+               end;
+               if LastError > 0 then
+                  strMess := SysErrorMessage(LastError)
+               else
+               begin
+                  if LastExceptionStr <> '' then
+                     strMess := LastExceptionStr
+                  else
+                     strMess := '';
+               end;
+               if hProcess <> 0 then
+               begin
+                  try
+                     NtSuspendProcess(hProcess);
+                     LastError := GetLastError;
+                  except
+                     on E: Exception do
+                        LastExceptionStr := E.Message;
+                  end;
+                  if LastError > 0 then
+                     strMess := SysErrorMessage(LastError)
+                  else
+                  begin
+                     if LastExceptionStr <> '' then
+                        strMess := LastExceptionStr
+                     else
+                        strMess := '';
+                  end;
+               end;
+               if strMess <> '' then
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically suspend the process!' +
+                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+               Exit;
+            end;
+         end;
+         Node := (Edit as TVirtualStringTree).GetNext(Node);
+      end;
+   finally
+      ManualEdit := False;
    end;
 end;
 
@@ -15136,7 +16400,7 @@ begin
          begin
             if IsWindowVisible(AllWindowsList[j].Handle) then
                if Pos('Oracle VM VirtualBox ', AllWindowsList[j].WCaption) = 1 then
-                  if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                  if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
                      if not IsAppNotStartedByAdmin(ProcessID) then
                      begin
                         if IsIconic(AllWindowsList[j].Handle) then
@@ -15199,7 +16463,7 @@ begin
                begin
                   if IsWindowVisible(AllWindowsList[j].Handle) then
                      if Pos('Oracle VM VirtualBox ', AllWindowsList[j].WCaption) = 1 then
-                        if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                        if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
                            if not IsAppNotStartedByAdmin(ProcessID) then
                               Break;
                   Inc(j);
@@ -15237,7 +16501,7 @@ begin
          begin
             if IsWindowVisible(AllWindowsList[j].Handle) or IsIconic(AllWindowsList[j].Handle) then
                if Pos('Qemu Manager', AllWindowsList[j].WCaption) > 0 then
-                  if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(exeQManager)) then
+                  if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(exeQManager)) then
                      if not IsAppNotStartedByAdmin(ProcessID) then
                      begin
                         if IsIconic(AllWindowsList[j].Handle) then
@@ -15303,7 +16567,7 @@ begin
                begin
                   if IsWindowVisible(AllWindowsList[j].Handle) then
                      if Pos('Qemu Manager', AllWindowsList[j].WCaption) > 0 then
-                        if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(exeQManager)) then
+                        if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(exeQManager)) then
                            if not IsAppNotStartedByAdmin(ProcessID) then
                               Break;
                   Inc(j);
@@ -16361,7 +17625,7 @@ begin
    SetLength(Result, j - 1);
 end;
 
-function GetLangTextDef(const IntBaseParam: Integer; const StrParams: array of AnsiString; const DefStr: AnsiString): string;
+function GetLangTextDef(const IntBaseParam: Integer; const StrParams: array of string; const DefStr: string): string;
 var
    i: Integer;
    XN: IXMLNode;
@@ -16369,14 +17633,14 @@ begin
    try
       XN := frmMain.xmlLanguage.ChildNodes[idxInterface].ChildNodes[IntBaseParam];
       for i := 0 to High(StrParams) do
-         XN := XN.ChildNodes.FindNode(string(StrParams[i]));
+         XN := XN.ChildNodes.FindNode(StrParams[i]);
       Result := CStyleEscapes(XN.Text);
    except
       Result := string(DefStr);
    end;
 end;
 
-function GetLangTextFormatDef(const IntBaseParam: Integer; const StrParams: array of AnsiString; const VarRec: array of TVarRec; const DefStr: AnsiString): string;
+function GetLangTextFormatDef(const IntBaseParam: Integer; const StrParams: array of string; const VarRec: array of TVarRec; const DefStr: string): string;
 var
    i: Integer;
    XN: IXMLNode;
@@ -16384,11 +17648,11 @@ begin
    try
       XN := frmMain.xmlLanguage.ChildNodes[idxInterface].ChildNodes[IntBaseParam];
       for i := 0 to High(StrParams) do
-         XN := XN.ChildNodes.FindNode(string(StrParams[i]));
+         XN := XN.ChildNodes.FindNode(StrParams[i]);
       Result := Format(CStyleEscapes(XN.Text), VarRec);
    except
       try
-         Result := Format(string(DefStr), VarRec);
+         Result := Format(DefStr, VarRec);
       except
          Result := 'Internal error';
       end;
@@ -16500,7 +17764,7 @@ begin
    Result.Y := tm.tmHeight;
 end;
 
-function CustomMessageBox(const OwnerHandle: THandle; const Msg: string; const Caption: string; DlgType: TMsgDlgType; Buttons: TMsgDlgButtons; DefaultButton: TMsgDlgBtn; const CbText: string = ''): Integer;
+function CustomMessageBox(const OwnerHandle: THandle; const Msg: string; const Caption: string; DlgType: TMsgDlgType; Buttons: TMsgDlgButtons; DefaultButton: TMsgDlgBtn; const CbText: string = ''; useEdit: Boolean = False): Integer;
 const
    mcHorzMargin = 8;
    mcVertMargin = 8;
@@ -16513,15 +17777,18 @@ const
 var
    msgForm: TForm;
    DialogUnits: TPoint;
-   HorzMargin, VertMargin, HorzSpacing, VertSpacing, ButtonWidth, ButtonHeight, ButtonMargin, ButtonSpacing, ButtonCount, ButtonGroupWidth, IconTextWidth, IconTextHeight, X, ALeft, wImg: Integer;
+   HorzMargin, VertMargin, HorzSpacing, VertSpacing, VertEdit, HorzEdit, ButtonWidth, ButtonHeight, ButtonMargin, ButtonSpacing, ButtonCount, ButtonGroupWidth, IconTextWidth, IconTextHeight, X, ALeft, wImg: Integer;
    b, CancelButton: TMsgDlgBtn;
    IconID: PChar;
    OwnerRect, ATextRect: TRect;
    Owner: TWinControl;
    ThisButtonWidth: Integer;
    LButton: TPngBitBtn;
+   LEdit: TVirtualStringTree;
    AddCb, Snap: Boolean;
-   ImgSize: Integer;
+   i, ImgSize, EditSpacing, minWidth, minWidth1, minWidth2, minHeight: Integer;
+   Node: PVirtualNode;
+   rectAll, rectText: TRect;
    dt: Cardinal;
 begin
    Snap := False;
@@ -16569,7 +17836,7 @@ begin
          if b in Buttons then
          begin
             ATextRect := Rect(0, 0, 0, 0);
-            DrawText(Canvas.Handle, PChar(GetLangTextDef(idxMessages, ['Buttons', AnsiString(ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', ''))], AnsiString(ButtonNames[b]))), -1, ATextRect, DT_CALCRECT or DT_LEFT or DT_SINGLELINE or DrawTextBiDiModeFlagsReadingOnly);
+            DrawText(Canvas.Handle, PChar(GetLangTextDef(idxMessages, ['Buttons', ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', '')], ButtonNames[b])), -1, ATextRect, DT_CALCRECT or DT_LEFT or DT_SINGLELINE or DrawTextBiDiModeFlagsReadingOnly);
             with ATextRect do
                ThisButtonWidth := Right - Left;
             if ThisButtonWidth > ButtonWidth then
@@ -16662,6 +17929,218 @@ begin
          ClientWidth := Max(IconTextWidth, ButtonGroupWidth + TMessageForm(msgForm).cbConfirmation.Width + 20) + HorzMargin * 2;
       end;
 
+      if mbCancel in Buttons then
+         CancelButton := mbCancel
+      else if mbNo in Buttons then
+         CancelButton := mbNo
+      else if mbIgnore in Buttons then
+         CancelButton := mbIgnore
+      else if mbAbort in Buttons then
+         CancelButton := mbAbort
+      else
+         CancelButton := mbOk;
+      if useEdit then
+      begin
+         LEdit := TVirtualStringTree.Create(msgForm);
+         LEdit.Parent := msgForm;
+         LEdit.Header.Font.Size := 10;
+         case SystemIconSize of
+            -2147483647..18:
+               begin
+                  LEdit.Header.Images := frmMain.imlVst16;
+                  LEdit.Header.DefaultHeight := 27;
+                  LEdit.Header.Height := 27;
+                  LEdit.DefaultNodeHeight := 22;
+                  frmMain.imlCMb.SetSize(16, 16);
+                  frmMain.imlCMb.Clear;
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn16.PngImages[30].PngImage);
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn16.PngImages[31].PngImage);
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn16.PngImages[32].PngImage);
+                  LEdit.Images := frmMain.imlCMb;
+                  for i := 0 to High(OpenHandlesInfo) do
+                     if Assigned(OpenHandlesInfo[i].ProcessIcon) then
+                        frmMain.imlCMb.AddIcon(OpenHandlesInfo[i].ProcessIcon)
+                     else
+                        frmMain.imlCMb.AddPng(frmMain.imlCMb.PngImages[0].PngImage);
+                  frmMain.pmCustomMB.Images := frmMain.imlVst16;
+                  frmMain.mmBringToTop.ImageIndex := 102;
+                  frmMain.mmCloseProcess.ImageIndex := 98;
+                  frmMain.mmSuspendProcess.ImageIndex := 100;
+                  frmMain.mmResumeProcess.ImageIndex := 101;
+                  frmMain.mmKillProcess.ImageIndex := 99;
+                  frmMain.mmCloseFile.ImageIndex := 103;
+                  frmMain.mmCloseAllFiles.ImageIndex := 103;
+                  frmMain.mmSmartDisconnect.ImageIndex := 105;
+                  frmMain.mmOpenInExplorer2.ImageIndex := frmMain.imlVst16.Count - 1;
+                  nFileClose := 103;
+               end;
+            19..22:
+               begin
+                  LEdit.Header.Images := frmMain.imlVst20;
+                  LEdit.Header.DefaultHeight := 38;
+                  LEdit.Header.Height := 38;
+                  LEdit.DefaultNodeHeight := 28;
+                  frmMain.imlCMb.SetSize(20, 20);
+                  frmMain.imlCMb.Clear;
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn20.PngImages[30].PngImage);
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn20.PngImages[31].PngImage);
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn20.PngImages[32].PngImage);
+                  LEdit.Images := frmMain.imlCMb;
+                  for i := 0 to High(OpenHandlesInfo) do
+                     if Assigned(OpenHandlesInfo[i].ProcessIcon) then
+                        frmMain.imlCMb.AddIcon(OpenHandlesInfo[i].ProcessIcon)
+                     else
+                        frmMain.imlCMb.AddPng(frmMain.imlCMb.PngImages[0].PngImage);
+                  frmMain.pmCustomMB.Images := frmMain.imlVst20;
+                  frmMain.mmBringToTop.ImageIndex := 118;
+                  frmMain.mmCloseProcess.ImageIndex := 114;
+                  frmMain.mmSuspendProcess.ImageIndex := 116;
+                  frmMain.mmResumeProcess.ImageIndex := 117;
+                  frmMain.mmKillProcess.ImageIndex := 115;
+                  frmMain.mmCloseFile.ImageIndex := 119;
+                  frmMain.mmCloseAllFiles.ImageIndex := 119;
+                  frmMain.mmSmartDisconnect.ImageIndex := 121;
+                  frmMain.mmOpenInExplorer2.ImageIndex := frmMain.imlVst20.Count - 1;
+                  nFileClose := 119;
+               end;
+            23..2147483647:
+               begin
+                  LEdit.Header.Images := frmMain.imlVst24;
+                  LEdit.Header.DefaultHeight := 45;
+                  LEdit.Header.Height := 45;
+                  LEdit.DefaultNodeHeight := 35;
+                  frmMain.imlCMb.SetSize(24, 24);
+                  frmMain.imlCMb.Clear;
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn24.PngImages[31].PngImage);
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn24.PngImages[32].PngImage);
+                  frmMain.imlCMb.AddPng(frmMain.imlBtn24.PngImages[33].PngImage);
+                  LEdit.Images := frmMain.imlCMb;
+                  for i := 0 to High(OpenHandlesInfo) do
+                     if Assigned(OpenHandlesInfo[i].ProcessIcon) then
+                        frmMain.imlCMb.AddIcon(OpenHandlesInfo[i].ProcessIcon)
+                     else
+                        frmMain.imlCMb.AddPng(frmMain.imlCMb.PngImages[0].PngImage);
+                  frmMain.pmCustomMB.Images := frmMain.imlVst24;
+                  frmMain.mmBringToTop.ImageIndex := 118;
+                  frmMain.mmCloseProcess.ImageIndex := 114;
+                  frmMain.mmSuspendProcess.ImageIndex := 116;
+                  frmMain.mmResumeProcess.ImageIndex := 117;
+                  frmMain.mmKillProcess.ImageIndex := 115;
+                  frmMain.mmCloseFile.ImageIndex := 119;
+                  frmMain.mmCloseAllFiles.ImageIndex := 119;
+                  frmMain.mmSmartDisconnect.ImageIndex := 121;
+                  frmMain.mmOpenInExplorer2.ImageIndex := frmMain.imlVst24.Count - 1;
+                  nFileClose := 119;
+               end;
+         end;
+         LEdit.Header.Style := hsFlatButtons;
+         LEdit.TreeOptions.AutoOptions := [toAutoDropExpand, toAutoScrollOnExpand, toAutoSort, toAutoTristateTracking, toAutoChangeScale, toAutoSpanColumns];
+         LEdit.TreeOptions.PaintOptions := [toShowRoot, toShowTreeLines, toShowButtons, toHideFocusRect, toPopupMode, toShowDropmark, toThemeAware, toUseBlendedImages, toUseBlendedSelection, toUseExplorerTheme];
+         LEdit.TreeOptions.MiscOptions := [toAcceptOLEDrop, toEditable, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning];
+         LEdit.TreeOptions.SelectionOptions := [toExtendedFocus, toFullRowSelect, toRightClickSelect];
+         LEdit.Header.Columns.Add;
+         LEdit.Header.Columns[0].Text := 'Process';
+         case SystemIconSize of
+            -2147483647..18: LEdit.Header.Columns[0].ImageIndex := 97;
+            else
+               LEdit.Header.Columns[0].ImageIndex := 113;
+         end;
+         LEdit.Header.Columns[0].Margin := 2;
+         LEdit.Header.Columns[0].Spacing := 7;
+         LEdit.Header.Columns[0].Options := [coEnabled, coParentBidiMode, coParentColor, coResizable, coVisible];
+         LEdit.Header.Columns[0].Width := Screen.WorkAreaWidth div 2;
+         LEdit.Header.Columns.Add;
+         LEdit.Header.Columns[1].Text := 'Description';
+         LEdit.Header.Columns[1].Options := [coEnabled, coParentBidiMode, coParentColor, coResizable, coVisible];
+         LEdit.OnAdvancedHeaderDraw := frmMain.vstVMsAdvancedHeaderDraw;
+         LEdit.Header.Columns[1].Margin := 8;
+         LEdit.Header.Columns[1].Width := Screen.WorkAreaWidth div 2;
+         LEDit.OnHeaderDrawQueryElements := frmMain.vstVMsHeaderDrawQueryElements;
+         LEdit.Header.Options := [hoColumnResize, hoOwnerDraw, hoShowImages, hoVisible];
+         LEdit.OnMeasureItem := frmMain.CusMgsMeasureItem;
+         LEdit.OnGetText := frmMain.CusMsgGetText;
+         LEdit.OnGetImageIndex := frmMain.CusMsgGetImageIndex;
+         LEDit.PopupMenu := frmMain.pmCustomMB;
+         LEDit.OnMouseDown := frmMain.CusMsgMouseDown;
+         LEdit.OnContextPopup := frmMain.CusMgsContextPopup;
+         LEdit.HintMode := hmHint;
+         LEdit.ParentShowHint := False;
+         LEdit.ParentCustomHint := False;
+         LEdit.ShowHint := True;
+         LEdit.OnGetHint := frmMain.CusMsgGetHint;
+         LEdit.OnInitNode := frmMain.CusMsgInitNode;
+         LEdit.OnInitChildren := frmMain.CusMgsInitChildren;
+         LEdit.OnGetHintKind := frmMain.CusMgsGetHintKind;
+         LEdit.OnPaintText := frmMain.CusMGsPaintText;
+         LEdit.RootNodeCount := Length(OpenHandlesInfo);
+         LEdit.OnBeforeCellPaint := frmMain.CusMGsBeforeCellPaint;
+         LEdit.OnKeyDown := frmMain.CusMGsKeyDown;
+         Application.HintHidePause := 4 * Application.HintHidePause;
+
+         minWidth := 0;
+         minWidth1 := 0;
+         minWidth2 := 0;
+         Node := LEdit.GetFirst;
+         minHeight := 0;
+         while Assigned(Node) do
+         begin
+            if LEdit.GetNodeLevel(Node) = 0 then
+            begin
+               rectAll := LEdit.GetDisplayRect(Node, 0, False, True, True);
+               rectText := LEdit.GetDisplayRect(Node, 0, True, True, True);
+               minWidth1 := Max(minWidth1, rectText.Width + (rectText.Left - rectAll.Left) + LEdit.Margin);
+               Inc(minHeight, rectAll.Height);
+               rectAll := LEdit.GetDisplayRect(Node, 1, False, True, True);
+               rectText := LEdit.GetDisplayRect(Node, 1, True, True, True);
+               minWidth2 := Max(minWidth2, rectText.Width + (rectText.Left - rectAll.Left) + LEdit.Margin);
+            end
+            else
+            begin
+               rectAll := LEdit.GetDisplayRect(Node, 0, False, True, True);
+               rectText := LEdit.GetDisplayRect(Node, 0, True, True, True);
+               minWidth := Max(minWidth, rectText.Width + rectText.Left + LEdit.Margin);
+               Inc(minHeight, rectAll.Height);
+            end;
+            Node := LEdit.GetNext(Node);
+         end;
+         if minWidth1 >= minWidth then
+            minWidth := minWidth1 + minWidth2
+         else
+         begin
+            minWidth1 := Round((minWidth - minWidth1 - 0.5 * minWidth2) + minWidth1);
+            minWidth := minWidth1 + minWidth2;
+         end;
+         if minHeight > (Screen.WorkAreaHeight div 2) then
+         begin
+            VertEdit := Screen.WorkAreaHeight div 2;
+            Inc(minWidth2, GetSystemMetrics(SM_CYVSCROLL));
+            Inc(minWidth, GetSystemMetrics(SM_CYVSCROLL));
+         end
+         else
+            VertEdit := minHeight;
+         LEDit.Header.Columns[0].Width := minWidth1;
+         LEDit.Header.Columns[1].Width := minWidth2;
+         HorzEdit := minWidth;
+         EditSpacing := (IconTextHeight + VertMargin + VertSpacing - (TMessageForm(msgForm).lbMessage.Top + TMessageForm(msgForm).lbMessage.Height)) div 2;
+         Inc(VertEdit, LEdit.Height - LEdit.ClientHeight);
+         Inc(HorzEdit, LEdit.Width - LEdit.ClientWidth);
+         LEDit.Header.Columns[0].Options := LEDit.Header.Columns[0].Options + [coSmartResize];
+         LEDit.Header.AutoSizeIndex := 0;
+         LEdit.Header.Options := LEdit.Header.Options + [hoAutoResize];
+         LEdit.SetBounds(ALeft, 2 * EditSpacing + TMessageForm(msgForm).lbMessage.Top + TMessageForm(msgForm).lbMessage.Height, Max(HorzEdit, ATextRect.Right), VertEdit);
+         LEDit.Header.Columns[1].Width := minWidth2;
+         Inc(VertEdit, 3 * EditSpacing);
+         ClientHeight := ClientHeight + VertEdit;
+         ClientWidth := ClientWidth + Max(HorzEdit, TMessageForm(msgForm).lbMessage.Width) - TMessageForm(msgForm).lbMessage.Width;
+         ButtonSpacing := ButtonSpacing + Round(1.0 / (ButtonCount - 1) * (Max(HorzEdit, TMessageForm(msgForm).lbMessage.Width) - TMessageForm(msgForm).lbMessage.Width));
+         ButtonGroupWidth := ButtonGroupWidth + Max(HorzEdit, TMessageForm(msgForm).lbMessage.Width) - TMessageForm(msgForm).lbMessage.Width;
+         TMessageForm(msgForm).lbMessage.Left := TMessageForm(msgForm).lbMessage.Left - (Max(HorzEdit, TMessageForm(msgForm).lbMessage.Width) - TMessageForm(msgForm).lbMessage.Width);
+         TMessageForm(msgForm).lbMessage.Width := Max(HorzEdit, TMessageForm(msgForm).lbMessage.Width);
+         LEdit.ScrollIntoView(Ledit.GetFirst, True);
+         RescanThr := TRescanThread.Create(msgForm.Handle, LEdit.Handle);
+      end
+      else
+         VertEdit := 0;
       if (CustomMessageTop <> -10000) and (CustomMessageHorzCenter <> -10000) then
       begin
          Left := CustomMessageHorzCenter - (Width div 2);
@@ -16692,16 +18171,6 @@ begin
          Left := Screen.WorkAreaLeft + DlgOffsPos
       else if (Left + Width) > Screen.WorkAreaRect.Right then
          Left := Screen.WorkAreaRect.Right - Width - DlgOffsPos;
-      if mbCancel in Buttons then
-         CancelButton := mbCancel
-      else if mbNo in Buttons then
-         CancelButton := mbNo
-      else if mbIgnore in Buttons then
-         CancelButton := mbIgnore
-      else if mbAbort in Buttons then
-         CancelButton := mbAbort
-      else
-         CancelButton := mbOk;
       if not AddCb then
          X := (ClientWidth - ButtonGroupWidth) div 2
       else
@@ -16714,11 +18183,11 @@ begin
             begin
                Name := ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', '');
                Parent := msgForm;
-               DrawText(Canvas.Handle, PChar(GetLangTextDef(idxMessages, ['Buttons', AnsiString(ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', ''))], AnsiString(ButtonNames[b]))), -1, ATextRect, DT_CALCRECT or DT_LEFT or DT_SINGLELINE or DrawTextBiDiModeFlagsReadingOnly);
+               DrawText(Canvas.Handle, PChar(GetLangTextDef(idxMessages, ['Buttons', ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', '')], ButtonNames[b])), -1, ATextRect, DT_CALCRECT or DT_LEFT or DT_SINGLELINE or DrawTextBiDiModeFlagsReadingOnly);
                with ATextRect do
                   Spacing := Max(0, ButtonWidth - ButtonMargin - wImg - Right + Left) div 2;
                Margin := ButtonMargin;
-               Caption := GetLangTextDef(idxMessages, ['Buttons', AnsiString(ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', ''))], AnsiString(ButtonNames[b]));
+               Caption := GetLangTextDef(idxMessages, ['Buttons', ReplaceStr(ReplaceStr(ButtonNames[b], '&', ''), ' ', '')], ButtonNames[b]);
                case wImg of
                   16:
                      case b of
@@ -16774,7 +18243,7 @@ begin
                end;
                if b = CancelButton then
                   Cancel := True;
-               SetBounds(X, IconTextHeight + VertMargin + VertSpacing, ButtonWidth, ButtonHeight);
+               SetBounds(X, IconTextHeight + VertMargin + VertSpacing + VertEdit, ButtonWidth, ButtonHeight);
                Inc(X, ButtonWidth + ButtonSpacing);
                if b = mbHelp then
                   OnClick := TMessageForm(msgForm).HelpButtonClick;
@@ -16785,8 +18254,24 @@ begin
          end;
       MessageBeep(Sounds[DlgType]);
       Result := ShowModal;
+      if useEdit then
+      begin
+         Application.HintHidePause := Application.HintHidePause div 4;
+         frmMain.imlCMb.Clear;
+      end;
       if AddCb then
          cbConfirmationSt := TMessageForm(msgForm).cbConfirmation.Checked;
+      if Assigned(RescanThr) then
+      begin
+         RescanThr.Terminate;
+         dt := GetTickCount;
+         while ((GetTickCount - dt) <= 1000) and (not FRescanJobDone) do
+            mEvent.WaitFor(1);
+         if not FRescanJobDone then
+            TerminateThread(RescanThr.Handle, 0);
+         RescanThr.Free;
+         RescanThr := nil;
+      end;
       try
          msgForm.Free;
       except
@@ -16948,9 +18433,8 @@ var
 begin
    if hpeBackground in Elements then
    begin
-      IntersectRect(r, PaintInfo.PaintRectangle, vstVMs.HeaderRect);
       Tree := TVirtualStringTree(Sender.Treeview);
-
+      IntersectRect(r, PaintInfo.PaintRectangle, Tree.HeaderRect);
       // if there is no column assigned, the header background is painted
       if not Assigned(PaintInfo.Column) then
       begin
@@ -17095,6 +18579,34 @@ begin
       HideAutoSustainScrollbars;
       SaveCFG(CfgFile);
    end;
+end;
+
+procedure TfrmMain.CusMgsInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
+begin
+   ChildCount := Length(OpenHandlesInfo[Node.Index].FilesData);
+end;
+
+procedure TfrmMain.CusMsgInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
+   var InitialStates: TVirtualNodeInitStates);
+begin
+   if ParentNode = nil then
+      InitialStates := InitialStates + [ivsHasChildren] + [ivsExpanded];
+end;
+
+procedure TfrmMain.CusMGsKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+   if AutoEdit then
+      Exit;
+   if Key <> VK_DELETE then
+      Exit;
+   if Shift <> [] then
+      Exit;
+   if (Sender as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   if (Sender as TVirtualStringTree).GetNodeLevel((Sender as TVirtualStringTree).GetFirstSelected) = 0 then
+      mmKillProcessClick(Sender)
+   else
+      mmCloseFileClick(Sender);
 end;
 
 procedure TfrmMain.vstVMsKeyDown(Sender: TObject; var Key: Word;
@@ -17375,24 +18887,26 @@ procedure SetThemeDependantParams;
 
 const
    divisor: Integer = 255 * 60;
-   BckRange = 5;
 var
    Delta: Integer;
+   BckRange: Integer;
    MinValue: Integer;
    r, g, b, c, h, s, v, v1, v2, f, hTemp, p, q, t: Integer;
-   SelBckItemColor, BckItemColor, TaskbarColor: TColor;
+   SelBckItemColor, BckItemColor, TaskbarColor, TextColor: TColor;
 begin
    if StyleServices.Enabled then
    begin
       SelBckItemColor := StyleServices.GetSystemColor(frmMain.vstVMs.Colors.SelectionRectangleBlendColor);
       BckItemColor := StyleServices.GetStyleColor(scTreeView);
       TaskbarColor := StyleServices.GetStyleColor(scButtonNormal);
+      TextColor := StyleServices.GetSystemColor(frmMain.vstVMs.Colors.NodeFontColor);
    end
    else
    begin
       SelBckItemColor := frmMain.vstVMs.Colors.SelectionRectangleBlendColor;
       BckItemColor := frmMain.vstVMs.Color;
       TaskbarColor := clBtnFace;
+      TextColor := frmMain.vstVMs.Colors.NodeFontColor;
    end;
 
    SelBckItemColor := Blend(SelBckItemColor, BckItemColor, frmMain.vstVMs.SelectionBlendFactor);
@@ -17428,6 +18942,7 @@ begin
       AnimTrayStartCopyIndex := 3; //dark blue "busy"
    end;
 
+   BckRange := 5;
    c := ColorToRGB(BckItemColor);
    r := GetRValue(c);
    g := GetGValue(c);
@@ -17624,6 +19139,205 @@ begin
       end
    end;
    BrightenBckColor := RGB(r, g, b);
+
+   BckRange := 25;
+
+   c := ColorToRGB(TextColor);
+   r := GetRValue(c);
+   g := GetGValue(c);
+   b := GetBValue(c);
+   MinMax3(r, g, b, MinValue, v);
+   Delta := v - MinValue;
+   h := 0;
+   if v = 0 then
+      s := 0
+   else
+      s := (255 * Delta) div v;
+   if s = 0 then
+      h := 0
+   else
+   begin
+      if r = v then
+         h := (60 * (g - b)) div Delta
+      else if g = v then
+         h := 120 + (60 * (b - r)) div Delta
+      else if b = v then
+         h := 240 + (60 * (r - g)) div Delta;
+
+      if h < 0 then
+         h := h + 360;
+   end;
+
+   if v > 127 then
+   begin
+      if (v >= BckRange) and (v <= (255 - BckRange)) then
+      begin
+         v1 := v - BckRange;
+         v2 := v + BckRange;
+      end
+      else if v > 245 then
+      begin
+         v1 := 255 - 2 * BckRange;
+         v2 := 255;
+      end
+      else
+      begin
+         v1 := 0;
+         v2 := 2 * 7;
+      end;
+   end
+   else
+   begin
+      if (v >= BckRange) and (v <= (255 - BckRange)) then
+      begin
+         v1 := v + BckRange;
+         v2 := v - BckRange;
+      end
+      else if v > (255 - BckRange) then
+      begin
+         v1 := 255;
+         v2 := 255 - 2 * BckRange;
+      end
+      else
+      begin
+         v1 := 2 * BckRange;
+         v2 := 0;
+      end;
+   end;
+
+   if s = 0 then
+   begin
+      r := v1;
+      g := v1;
+      b := v1;
+   end
+   else
+   begin
+      if h = 360 then
+         hTemp := 0
+      else
+         hTemp := h;
+
+      f := hTemp mod 60;
+      hTemp := hTemp div 60;
+
+      p := v1 - v1 * s div 255;
+      q := v1 - (v1 * s * f) div divisor;
+      t := v1 - (v1 * s * (60 - f)) div divisor;
+
+      case hTemp of
+         0:
+            begin
+               r := v1;
+               g := t;
+               b := p;
+            end;
+         1:
+            begin
+               r := q;
+               g := v1;
+               b := p;
+            end;
+         2:
+            begin
+               r := p;
+               g := v1;
+               b := t;
+            end;
+         3:
+            begin
+               r := p;
+               g := q;
+               b := v1;
+            end;
+         4:
+            begin
+               r := t;
+               g := p;
+               b := v1;
+            end;
+         5:
+            begin
+               r := v1;
+               g := p;
+               b := q;
+            end;
+         else
+            begin
+               r := v1;
+               g := v1;
+               b := v1;
+            end
+      end
+   end;
+   BrightenTxtColor := RGB(r, g, b);
+
+   if s = 0 then
+   begin
+      r := v2;
+      g := v2;
+      b := v2;
+   end
+   else
+   begin
+      if h = 360 then
+         hTemp := 0
+      else
+         hTemp := h;
+
+      f := hTemp mod 60;
+      hTemp := hTemp div 60;
+
+      p := v2 - v2 * s div 255;
+      q := v2 - (v2 * s * f) div divisor;
+      t := v2 - (v2 * s * (60 - f)) div divisor;
+
+      case hTemp of
+         0:
+            begin
+               r := v2;
+               g := t;
+               b := p;
+            end;
+         1:
+            begin
+               r := q;
+               g := v2;
+               b := p;
+            end;
+         2:
+            begin
+               r := p;
+               g := v2;
+               b := t;
+            end;
+         3:
+            begin
+               r := p;
+               g := q;
+               b := v2;
+            end;
+         4:
+            begin
+               r := t;
+               g := p;
+               b := v2;
+            end;
+         5:
+            begin
+               r := v2;
+               g := p;
+               b := q;
+            end;
+         else
+            begin
+               r := v2;
+               g := v2;
+               b := v2;
+            end
+      end
+   end;
+   DarkenTxtColor := RGB(r, g, b);
 end;
 
 procedure TfrmMain.mmOpenInEXplorerClick(Sender: TObject);
@@ -17661,6 +19375,76 @@ begin
       end;
    finally
 
+   end;
+end;
+
+procedure TfrmMain.mmOpenInEXplorer2Click(Sender: TObject);
+var
+   eStartupInfo: TStartupInfo;
+   eProcessInfo: TProcessInformation;
+   exeCmd, dirName: string;
+   Edit: TObject;
+   tNode: PVirtualNode;
+   i, j: Integer;
+begin
+   if AutoEdit then
+      Exit;
+   Edit := ((Sender as TMenuItem).GetParentMenu as TPopupMenu).PopupComponent;
+   if (Edit as TVirtualStringTree).SelectedCount <= 0 then
+      Exit;
+   ManualEdit := True;
+   try
+      tNode := (Edit as TVirtualStringTree).GetFirst;
+      i := -1;
+      j := 0;
+      while Assigned(tNode) do
+      begin
+         if (Edit as TVirtualStringTree).GetNodeLevel(tNode) = 0 then
+         begin
+            Inc(i);
+            j := -1;
+         end
+         else
+            Inc(j);
+         if (Edit as TVirtualStringTree).Selected[tNode] then
+            Break;
+         tNode := (Edit as TVirtualStringTree).GetNext(tNode);
+      end;
+      if j = -1 then
+         dirName := OpenHandlesInfo[i].ProcessFullPath
+      else
+         dirName := OpenHandlesInfo[i].FilesData[j].FileName;
+      FillChar(eStartupInfo, SizeOf(eStartupInfo), #0);
+      eStartupInfo.dwFlags := STARTF_USESHOWWINDOW;
+      eStartupInfo.cb := SizeOf(eStartupInfo);
+      eStartupInfo.wShowWindow := SW_SHOW;
+      exeCmd := 'explorer.exe /n,/select,"' + dirName + '"';
+      UniqueString(exeCmd);
+      dirName := ExtractFilePath(dirName);
+      UniqueString(dirName);
+      if CreateProcess(nil, PChar(exeCmd), nil, nil, False, CREATE_NEW_CONSOLE or NORMAL_PRIORITY_CLASS, nil, PChar(dirName), eStartupInfo, eProcessInfo) then
+      begin
+         i := 0;
+         while (WaitForInputIdle(eProcessInfo.hProcess, 50) = WAIT_TIMEOUT) and (i < 100) do
+         begin
+            Application.ProcessMessages;
+            if Application.Terminated then
+               Exit;
+            Inc(i);
+         end;
+         try
+            CloseHandle(eProcessInfo.hProcess);
+            CloseHandle(eProcessInfo.hThread);
+         except
+         end;
+      end
+      else
+      begin
+         LastError := GetLastError;
+         CustomMessageBox(Handle, (GetLangTextFormatDef(idxMain, ['Messages', 'ExplorerUnableLaunch'], [SysErrorMessage(LastError)], 'Unable to launch Windows Explorer!'#13#10#13#10'System message: %s')), (GetLangTextDef(idxMessages, ['Types', 'Error'], 'Error')), mtError, [mbOk], mbOk);
+      end;
+   finally
+      ManualEdit := False;
    end;
 end;
 
@@ -18742,15 +20526,15 @@ begin
    Icon := TIcon.Create;
    case imlTray.Width of
       16:
-         imlVST16.GetIcon(imlVST16.Count - 2 + Integer(VMisOff), Icon);
+         imlVST16.GetIcon(95 + Integer(VMisOff), Icon);
       20:
-         imlVST20.GetIcon(imlVST20.Count - 2 + Integer(VMisOff), Icon);
+         imlVST20.GetIcon(111 + Integer(VMisOff), Icon);
       24:
-         imlVST24.GetIcon(imlVST24.Count - 2 + Integer(VMisOff), Icon);
+         imlVST24.GetIcon(111 + Integer(VMisOff), Icon);
       28:
-         imlVST28.GetIcon(imlVST28.Count - 2 + Integer(VMisOff), Icon);
+         imlVST28.GetIcon(111 + Integer(VMisOff), Icon);
       32:
-         imlVST32.GetIcon(imlVST32.Count - 2 + Integer(VMisOff), Icon);
+         imlVST32.GetIcon(111 + Integer(VMisOff), Icon);
    end;
    TrayIcon.Icon := Icon;
    Icon.Free;
@@ -18775,15 +20559,15 @@ begin
       TrayIcon.Animate := False;
       case imlTray.Width of
          16:
-            imlVST16.GetIcon(imlVST16.Count - 1, TrayIcon.Icon);
+            imlVST16.GetIcon(06, TrayIcon.Icon);
          20:
-            imlVST20.GetIcon(imlVST20.Count - 1, TrayIcon.Icon);
+            imlVST20.GetIcon(112, TrayIcon.Icon);
          24:
-            imlVST24.GetIcon(imlVST24.Count - 1, TrayIcon.Icon);
+            imlVST24.GetIcon(112, TrayIcon.Icon);
          28:
-            imlVST28.GetIcon(imlVST28.Count - 1, TrayIcon.Icon);
+            imlVST28.GetIcon(112, TrayIcon.Icon);
          32:
-            imlVST32.GetIcon(imlVST32.Count - 1, TrayIcon.Icon);
+            imlVST32.GetIcon(112, TrayIcon.Icon);
       end;
    end;
    TrayIcon.Visible := False;
@@ -18891,7 +20675,7 @@ begin
       begin
          if IsWindowVisible(AllWindowsList[j].Handle) then
             if Pos('Oracle VM VirtualBox ', AllWindowsList[j].WCaption) = 1 then
-               if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+               if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
                   if not IsAppNotStartedByAdmin(ProcessID) then
                   begin
                      if IsIconic(AllWindowsList[j].Handle) then
@@ -18917,7 +20701,7 @@ begin
                            if IsWindowVisible(AllWindowsList[k].Handle) then
                               if j <> k then
                                  if IsWindowEnabled(AllWindowsList[k].Handle) then
-                                    if GetFileNameAndThreadFromHandle(AllWindowsList[k].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                                    if GetFileNameAndProcessIDFromHandle(AllWindowsList[k].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
                                        if not IsAppNotStartedByAdmin(ProcessID) then
                                        begin
                                           SetForegroundWindow(AllWindowsList[k].Handle);
@@ -18978,7 +20762,7 @@ begin
             begin
                if IsWindowVisible(AllWindowsList[j].Handle) then
                   if Pos('Oracle VM VirtualBox ', AllWindowsList[j].WCaption) = 1 then
-                     if GetFileNameAndThreadFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
+                     if GetFileNameAndProcessIDFromHandle(AllWindowsList[j].Handle, ProcessID) = LowerCase(ExtractFileName(ExeVBPath)) then
                         if not IsAppNotStartedByAdmin(ProcessID) then
                            Break;
                Inc(j);
@@ -19037,6 +20821,91 @@ begin
       end;
       //  ts := Now - ts;
         //ShowMessage('Starting VB Manager = ' + FormatDateTime('ss.zzz', ts));
+   end;
+end;
+
+procedure TFrmMain.WMUSER1000(var Message: TMessage);
+var
+   i, j, k, m: Integer;
+   dt: Cardinal;
+   Node: PVirtualNode;
+   swtItem: TOpenHandleInfo;
+begin
+   if ManualEdit then
+      Exit;
+   AutoEdit := True;
+   try
+      if Assigned(RescanThr) then
+      begin
+         RescanThr.Terminate;
+         dt := GetTickCount;
+         while ((GetTickCount - dt) <= 1000) and (not FRescanJobDone) do
+            mEvent.WaitFor(1);
+         if not FRescanJobDone then
+            TerminateThread(RescanThr.Handle, 0);
+         RescanThr.Free;
+         RescanThr := nil;
+      end;
+      i := 0;
+      while i < ComponentCount do
+      begin
+         if Components[i] is TForm then
+            if (Components[i] as TForm).Handle = THandle(Message.WParam) then
+               Break;
+         Inc(i);
+      end;
+      if i >= ComponentCount then
+         Exit;
+
+      j := 0;
+      while j < (Components[i] as TForm).ComponentCount do
+      begin
+         if (Components[i] as TForm).Components[j] is TVirtualStringTree then
+            if ((Components[i] as TForm).Components[j] as TVirtualStringTree).Handle = THandle(Message.LParam) then
+               Break;
+         Inc(j);
+      end;
+      if j >= (Components[i] as TForm).ComponentCount then
+         Exit;
+
+      ((Components[i] as TForm).Components[j] as TVirtualStringTree).BeginUpdate;
+      Node := ((Components[i] as TForm).Components[j] as TVirtualStringTree).GetLast;
+      k := Length(OpenHandlesInfo);
+
+      while Assigned(Node) do
+      begin
+         if ((Components[i] as TForm).Components[j] as TVirtualStringTree).GetNodeLevel(Node) = 0 then
+         begin
+            Dec(k);
+            if OpenHandlesInfo[k].Delete then
+            begin
+               for m := k + 1 to High(OpenHandlesInfo) do
+               begin
+                  swtItem := OpenHandlesInfo[m - 1];
+                  OpenHandlesInfo[m - 1] := OpenHandlesInfo[m];
+                  OpenHandlesInfo[m] := swtItem;
+               end;
+               SetLength(OpenHandlesInfo[High(OpenHandlesInfo)].FilesData, 0);
+               if Assigned(OpenHandlesInfo[High(OpenHandlesInfo)].ProcessIcon) then
+               begin
+                  OpenHandlesInfo[High(OpenHandlesInfo)].ProcessIcon.Free;
+                  OpenHandlesInfo[High(OpenHandlesInfo)].ProcessIcon := nil;
+               end;
+               Setlength(OpenHandlesInfo, Length(OpenHandlesInfo) - 1);
+               imlCMb.Delete(k + 3);
+               ((Components[i] as TForm).Components[j] as TVirtualStringTree).DeleteChildren(Node);
+               ((Components[i] as TForm).Components[j] as TVirtualStringTree).DeleteNode(Node);
+            end;
+         end;
+         Node := ((Components[i] as TForm).Components[j] as TVirtualStringTree).GetPrevious(Node);
+      end;
+      ((Components[i] as TForm).Components[j] as TVirtualStringTree).EndUpdate;
+      ((Components[i] as TForm).Components[j] as TVirtualStringTree).Invalidate;
+
+      if Length(OpenHandlesInfo) > 0 then
+         RescanThr := TRescanThread.Create(Message.WParam, Message.LParam);
+   finally
+      AutoEdit := False;
    end;
 end;
 

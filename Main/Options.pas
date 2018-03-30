@@ -11,7 +11,7 @@ uses
 type
    TfrmOptions = class(TForm)
       pnlAll: TPanel;
-    pnlVirtualBoxAll: TPanel;
+      pnlVirtualBoxAll: TPanel;
       lblVBExePath: TLabel;
       edtVBExePath: TEdit;
       cbUseVboxmanage: TCheckBox;
@@ -37,34 +37,34 @@ type
       General: TTabSheet;
       VirtualBox: TTabSheet;
       QEMU: TTabSheet;
-    pnlQemuAll: TPanel;
-    lblQExePath: TLabel;
-    lblDefaultParameters: TLabel;
-    btnBrowseForQExe: TPngSpeedButton;
-    edtQExePath: TEdit;
-    edtDefaultParameters: TEdit;
-    cmbExeVersion: TComboBox;
-    cbHideConsoleWindow: TCheckBox;
-    pnlGeneral: TPanel;
-    lblWaitTime: TLabel;
-    lblLanguage: TLabel;
-    lblDefaultVMType: TLabel;
-    lblKeyCombination: TLabel;
-    cbLock: TCheckBox;
-    cbSecondDrive: TCheckBox;
-    edtWaitTime: TEdit;
-    cbListOnlyUSBDrives: TCheckBox;
-    cbAutomaticFont: TCheckBox;
-    cmbLanguage: TComboBox;
-    btnChooseFont: TPngBitBtn;
-    pnlQEMU: TPanel;
-    sbQEMU: TPngSpeedButton;
-    pnlVirtualBox: TPanel;
-    sbVirtualBox: TPngSpeedButton;
-    hkStart: THotKey;
-    gbEmulationBusType: TGroupBox;
-    rbIDE: TRadioButton;
-    rbSCSI: TRadioButton;
+      pnlQemuAll: TPanel;
+      lblQExePath: TLabel;
+      lblDefaultParameters: TLabel;
+      btnBrowseForQExe: TPngSpeedButton;
+      edtQExePath: TEdit;
+      edtDefaultParameters: TEdit;
+      cmbExeVersion: TComboBox;
+      cbHideConsoleWindow: TCheckBox;
+      pnlGeneral: TPanel;
+      lblWaitTime: TLabel;
+      lblLanguage: TLabel;
+      lblDefaultVMType: TLabel;
+      lblKeyCombination: TLabel;
+      cbLock: TCheckBox;
+      cbSecondDrive: TCheckBox;
+      edtWaitTime: TEdit;
+      cbListOnlyUSBDrives: TCheckBox;
+      cbAutomaticFont: TCheckBox;
+      cmbLanguage: TComboBox;
+      btnChooseFont: TPngBitBtn;
+      pnlQEMU: TPanel;
+      sbQEMU: TPngSpeedButton;
+      pnlVirtualBox: TPanel;
+      sbVirtualBox: TPngSpeedButton;
+      hkStart: THotKey;
+      gbEmulationBusType: TGroupBox;
+      rbIDE: TRadioButton;
+      rbSCSI: TRadioButton;
       procedure cbUseVboxmanageClick(Sender: TObject);
       procedure cbDirectlyClick(Sender: TObject);
       procedure btnBrowseForVBExeClick(Sender: TObject);
@@ -320,7 +320,7 @@ var
 begin
    SetWindowLong(Handle, GWL_EXSTYLE, GetWindowLong(Handle, GWL_EXSTYLE) and not WS_EX_TOOLWINDOW);
 
-   NewWidth := Round(0.0001 * Width * Min(Max(StrToIntDef(GetLangTextDef(idxOptions, ['Width'], AnsiString(IntToStr(10000))), 10000), 1000), 100000));
+   NewWidth := Round(0.0001 * Width * Min(Max(StrToIntDef(GetLangTextDef(idxOptions, ['Width'], IntToStr(10000)), 10000), 1000), 100000));
 
    Caption := GetLangTextDef(idxOptions, ['Caption'], 'Options');
    lblWaitTime.Caption := GetLangTextDef(idxOptions, ['Labels', 'WaitTime'], 'Wait time to flush system data before dismounting (ms):');

@@ -19,10 +19,12 @@ uses
    Options in 'Options.pas' {frmOptions},
    uPrestartThread in 'uPrestartThread.pas',
    uPrecacheThread in 'uPrecacheThread.pas',
-   uEjectThread in 'uEjectThread.pas',
+   uRescanThread in 'uRescanThread.pas',
    uFLDThread in 'uFLDThread.pas',
    uRegisterThread in 'uRegisterThread.pas',
-   uUnregisterThread in 'uUnregisterThread.pas';
+   uUnregisterThread in 'uUnregisterThread.pas',
+   uGetHandlesThread in 'uGetHandlesThread.pas',
+   uEjectThread in 'uEjectThread.pas';
 
 // {$R *.res}
 {$R AdminComctl6.res}
@@ -90,7 +92,7 @@ begin
    Application.Initialize;
    Application.MainFormOnTaskbar := False;
    Application.Title := 'Virtual Machine USB Boot';
-   isInstalledVersion := False;
+   isInstalledVersion := True;
 
    {$IFDEF WIN32}
    AppGenExePath := ExtractFilePath(ParamStr(0)) + StringReplace(StringReplace(ExtractFileName(ParamStr(0)), '_', ' ', [rfReplaceAll, rfIgnoreCase]), '.x86.exe', '.exe', [rfIgnoreCase]);
@@ -134,7 +136,7 @@ begin
                      begin
                         if IsWindow(AllWindowsList[i].Handle) then
                         begin
-                           GetFileNameAndThreadFromHandle(AllWindowsList[i].Handle, ThreadID);
+                           GetFileNameAndProcessIDFromHandle(AllWindowsList[i].Handle, ThreadID);
                            try
                               TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ThreadID), 0);
                            except

@@ -16,6 +16,7 @@ var
    AllWindowsList: array of TWindowItem;
    FCount, FCapacity, lcw1, lcw2: Integer;
    WClassToFind1, WClassToFind2: string;
+   FProcessId: DWORD;
 
 function EnumWindowsProc(hWnd: HWND; lParam: LPARAM): Bool; stdcall;
 function EnumWindowsClassProc(hWnd: HWND; lParam: LPARAM): Bool; stdcall;
@@ -24,7 +25,9 @@ procedure GetAllWindowsList(const WClassToFind1: string = ''; const WClassToFind
 function EnumThreadWndProc(HWND: HWND; aParam: LongInt): Boolean; stdcall;
 procedure GetWndThrList(const ThreadID: THandle);
 function GetFileNameFromHandle(Handle: Int64): string;
-function GetFileNameAndThreadFromHandle(Handle: Int64; var ProcessID: THandle): string;
+function GetFileNameAndProcessIDFromHandle(Handle: Int64; var ProcessID: THandle): string;
+procedure GetProcessIDWindowsList(const ProcessID: DWORD);
+function EnumWindowsProcessProc(hWnd: HWND; lParam: LPARAM): Bool; stdcall;
 
 implementation
 
@@ -231,7 +234,7 @@ begin
    CloseHandle(aSnapShotHandle);
 end;
 
-function GetFileNameAndThreadFromHandle(Handle: Int64; var ProcessID: THandle): string;
+function GetFileNameAndProcessIDFromHandle(Handle: Int64; var ProcessID: THandle): string;
 var
    PID: DWord;
    aSnapShotHandle: THandle;
@@ -253,6 +256,66 @@ begin
       ContinueLoop := Process32Next(aSnapShotHandle, aProcessEntry32);
    end;
    CloseHandle(aSnapShotHandle);
+end;
+
+function GetFileNameFromPID(PID: DWord): string;
+var
+   aSnapShotHandle: THandle;
+   ContinueLoop: Boolean;
+   aProcessEntry32: TProcessEntry32W;
+begin
+   aSnapShotHandle := CreateToolHelp32SnapShot(TH32CS_SNAPPROCESS, 0);
+   aProcessEntry32.dwSize := SizeOf(aProcessEntry32);
+   ContinueLoop := Process32First(aSnapShotHandle, aProcessEntry32);
+   while Integer(ContinueLoop) <> 0 do
+   begin
+      if aProcessEntry32.th32ProcessID = PID then
+      begin
+         Result := WideLowerCase(aProcessEntry32.szExeFile);
+         Break;
+      end;
+      ContinueLoop := Process32Next(aSnapShotHandle, aProcessEntry32);
+   end;
+   CloseHandle(aSnapShotHandle);
+end;
+
+procedure GetProcessIDWindowsList(const ProcessID: DWORD);
+begin
+   if Length(AllWindowsList) > 0 then
+      SetLength(AllWindowsList, 0);
+   SetLength(AllWindowsList, 100);
+   FCount := 0;
+   FCapacity := 100;
+   FProcessID := ProcessID;
+   EnumWindows(@EnumWindowsProcessProc, 0);
+   if Length(AllWindowsList) <> FCount then
+      SetLength(AllWindowsList, FCount);
+end;
+
+function EnumWindowsProcessProc(hWnd: HWND; lParam: LPARAM): Bool;
+var
+   WCaption, WClass: array[0..255] of Char;
+   PID: DWORD;
+begin
+   try
+      GetWindowThreadProcessID(hWnd, @PID);
+      if FProcessID = PID then
+      begin
+         GetWindowText(hWnd, WCaption, 255);
+         GetClassName(hwnd, WClass, 255);
+         Inc(FCount);
+         if FCount > FCapacity then
+         begin
+            FCapacity := Ceil(1.1 * FCount);
+            SetLength(AllWindowsList, FCapacity);
+         end;
+         AllWindowsList[FCount - 1].WCaption := WCaption;
+         AllWindowsList[FCount - 1].WClass := WClass;
+         AllWindowsList[FCount - 1].Handle := hWnd;
+      end;
+   except
+   end;
+   Result := True;
 end;
 
 end.

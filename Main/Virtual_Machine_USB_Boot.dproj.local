@@ -1,20 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
-    <Transaction>1899.12.30 00:00:00.000.714,=D:\VMUB 1.6 Delphi 10\Main\uFLDThread.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.790,=D:\VMUB 1.6 Delphi 10\Main\uPrecacheThread.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.452,D:\VMUB 1.6 Delphi 10\Main\uExecFromMem.pas=</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.707,=D:\VMUB 1.6 Delphi 10\Main\uPrestartThread.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.528,=D:\VMUB 1.6 Delphi 10\Main\uEjectThread.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.360,D:\VMUB 1.52 10\Main\Progress.pas=</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.411,=D:\VMUB 1.6 Delphi 10\Main\uUnregisterThread.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.708,=D:\VMUB 1.6 Delphi 10\Main\uExecFromMem.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.904,D:\VMUB\Unit1.pas=</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.442,=D:\VMUB\Unit1.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.388,=D:\VMUB 1.6 Delphi 10\Main\uRegisterThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.411,=D:\VMUB 1.6 Delphi 10\Main\uUnregisterThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.538,D:\VMUB\Main\uRescanThread.pas=D:\VMUB\Main\uEjectThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.360,D:\VMUB 1.52 10\Main\Progress.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.763,=D:\VMUB\Main\uGetHandlesThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.714,=D:\VMUB 1.6 Delphi 10\Main\uFLDThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.707,=D:\VMUB 1.6 Delphi 10\Main\uPrestartThread.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.885,=D:\VMUB\capbtn.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.211,D:\VMUB\uTrayIconCmd.pas=</Transaction>
     <Transaction>1899.12.30 00:00:00.000.864,=D:\VMUB\uTrayIconCmd.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.388,=D:\VMUB 1.6 Delphi 10\Main\uRegisterThread.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.516,D:\VMUB\capbtn.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.211,D:\VMUB\uTrayIconCmd.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.528,=D:\VMUB 1.6 Delphi 10\Main\uEjectThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.442,=D:\VMUB\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.790,=D:\VMUB 1.6 Delphi 10\Main\uPrecacheThread.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.756,=D:\VMUB\Main\uEjectThread.pas</Transaction>
   </Transactions>
 </BorlandProject>

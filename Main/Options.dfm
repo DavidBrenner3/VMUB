@@ -55,6 +55,10 @@ object frmOptions: TfrmOptions
       object General: TTabSheet
         Caption = 'General'
         ImageIndex = 29
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object pnlGeneral: TPanel
           Left = 0
           Top = 0
@@ -347,6 +351,10 @@ object frmOptions: TfrmOptions
       object VirtualBox: TTabSheet
         Caption = 'VirtualBox'
         ImageIndex = 8
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object pnlVirtualBoxAll: TPanel
           Left = 0
           Top = 0
@@ -614,6 +622,10 @@ object frmOptions: TfrmOptions
       object QEMU: TTabSheet
         Caption = 'QEMU'
         ImageIndex = 9
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object pnlQemuAll: TPanel
           Left = 0
           Top = 0
