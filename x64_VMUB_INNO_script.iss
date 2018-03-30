@@ -7,7 +7,7 @@
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 AppId={{A905BA2A-2D24-4D44-AAFA-02B974775A00}
 AppName=Virtual Machine USB Boot
-AppVersion=1.7 x64
+AppVersion=1.72 Beta 1 x64
 AppVerName={#SetupSetting("AppName")} {#SetupSetting("AppVersion")}
 AppPublisher=DavidB
 AppPublisherURL=http://reboot.pro/user/61891-davidb/
