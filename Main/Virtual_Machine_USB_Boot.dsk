@@ -16,22 +16,30 @@ File_13=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL
 File_14=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.ShellAPI.pas',0,1,860,3,876,0,0,,
 
 [Modules]
-Module0=D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj
-Module1=D:\VMUB\Main\MainForm.pas
-Module2=D:\VMUB\Main\uGetHandlesThread.pas
-Module3=D:\VMUB\Main\uFLDThread.pas
-Module4=D:\VMUB\Main\uRescanThread.pas
-Module5=default.htm
+Module0=D:\VMUB\Main\MainForm.pas
+Module1=D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj
+Module2=D:\VMUB\Main\uRescanThread.pas
+Module3=default.htm
+Module4=D:\VMUB\Main\uGetHandlesThread.pas
+Module5=D:\VMUB\Main\uFLDThread.pas
 Count=6
 EditWindowCount=1
-
-[D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj]
-ModuleType=TBaseProject
 
 [D:\VMUB\Main\MainForm.pas]
 ModuleType=TSourceModule
 FormState=1
 FormOnTop=0
+
+[D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj]
+ModuleType=TBaseProject
+
+[D:\VMUB\Main\uRescanThread.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[default.htm]
+ModuleType=TURLModule
 
 [D:\VMUB\Main\uGetHandlesThread.pas]
 ModuleType=TSourceModule
@@ -43,17 +51,9 @@ ModuleType=TSourceModule
 FormState=0
 FormOnTop=0
 
-[D:\VMUB\Main\uRescanThread.pas]
-ModuleType=TSourceModule
-FormState=0
-FormOnTop=0
-
-[default.htm]
-ModuleType=TURLModule
-
 [EditWindow0]
 ViewCount=6
-CurrentEditView=D:\VMUB\Main\Virtual_Machine_USB_Boot.dpr
+CurrentEditView=D:\VMUB\Main\MainForm.pas
 View0=0
 View1=1
 View2=2
@@ -64,15 +64,17 @@ PercentageSizes=1
 Create=1
 Visible=1
 Docked=0
-State=0
-Left=1684
+State=2
+Left=1699
 Top=934
 Width=6522
 Height=9066
 MaxLeft=0
-MaxTop=714
-ClientWidth=6404
-ClientHeight=8530
+MaxTop=324
+MaxWidth=6522
+MaxHeight=9066
+ClientWidth=10000
+ClientHeight=8860
 DockedToMainForm=0
 BorlandEditorCodeExplorer=BorlandEditorCodeExplorer@EditWindow0
 TopPanelSize=0
@@ -81,9 +83,9 @@ LeftPanelClients=BorlandEditorCodeExplorer@EditWindow0
 LeftPanelData=0000080001000100000019000000426F726C616E64456469746F72436F64654578706C6F726572B70C00000000000000E201000000000000FFFFFFFF
 RightPanelSize=0
 BottomPanelSize=0
-BottomMiddlePanelSize=0
+BottomMiddlePanelSize=938
 BottomMiddlePanelClients=DockSite0,ToDo List,MessageView
-BottomMiddelPanelData=0000080001020300000009000000446F636B53697465300E000000546F446F4C69737457696E646F770F0000004D65737361676556696577466F726D2C4500000000000002B20200000000000001000000002C4500000F0000004D65737361676556696577466F726DFFFFFFFF
+BottomMiddelPanelData=0000080001020200000009000000446F636B53697465300E000000546F446F4C69737457696E646F772C4500000000000002AA0300000000000001000000002C4500000F0000004D65737361676556696577466F726DFFFFFFFF
 
 [View0]
 CustomEditViewType=TWelcomePageView
@@ -92,12 +94,12 @@ WelcomePageURL=bds:/default.htm
 [View1]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\MainForm.pas
-CursorX=76
-CursorY=4556
-TopLine=4533
+CursorX=3
+CursorY=10224
+TopLine=10210
 LeftCol=1
 Elisions=
-Bookmarks={0,4408,9}
+Bookmarks={0,8521,76}
 EditViewName=D:\VMUB\Main\MainForm.pas
 
 [View2]
@@ -105,7 +107,7 @@ CustomEditViewType=TEditView
 Module=D:\VMUB\Main\uRescanThread.pas
 CursorX=1
 CursorY=94
-TopLine=63
+TopLine=12
 LeftCol=1
 Elisions=
 Bookmarks=
@@ -114,9 +116,9 @@ EditViewName=D:\VMUB\Main\uRescanThread.pas
 [View3]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\Virtual_Machine_USB_Boot.dpr
-CursorX=90
+CursorX=30
 CursorY=95
-TopLine=82
+TopLine=75
 LeftCol=1
 Elisions=
 Bookmarks=
@@ -195,14 +197,16 @@ PercentageSizes=1
 Create=1
 Visible=1
 Docked=0
-State=0
+State=2
 Left=0
 Top=0
 Width=10000
 Height=934
-MaxLeft=-7
-MaxTop=-14
-ClientWidth=9882
+MaxLeft=-59
+MaxTop=-110
+MaxWidth=10000
+MaxHeight=934
+ClientWidth=10000
 ClientHeight=398
 BottomPanelSize=0
 
@@ -228,18 +232,18 @@ StayOnTop=0
 [MessageView]
 PercentageSizes=1
 Create=1
-Visible=0
+Visible=1
 Docked=1
 State=0
 Left=0
 Top=23
 Width=10000
-Height=412
+Height=673
 MaxLeft=-1
 MaxTop=-1
 ClientWidth=10000
-ClientHeight=412
-TBDockHeight=412
+ClientHeight=673
+TBDockHeight=673
 LRDockWidth=3522
 Dockable=1
 StayOnTop=0

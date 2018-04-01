@@ -721,7 +721,7 @@ function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: P
 function NtSuspendProcess(ProcessID: DWORD): NT_STATUS; stdcall; external 'ntdll.dll';
 
 const
-   BaseVersion = ' 1.72 Beta 1';
+   BaseVersion = ' 1.72 Beta 2';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -1256,7 +1256,7 @@ begin
    if frmMain.vstVMs.RootNodeCount = 0 then
       Exit;
    Node := frmMain.vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       Data := frmMain.vstVMs.GetNodeData(Node);
       Data^.FirstDriveFound := False;
@@ -1328,7 +1328,7 @@ begin
          end;
          l := Length(strTemp);
          Node := frmMain.vstVMs.GetFirst;
-         while Node <> nil do
+         while Assigned(Node) do
          begin
             Data := frmMain.vstVMs.GetNodeData(Node);
             if Length(Data^.FirstDriveName) = l then
@@ -1442,7 +1442,7 @@ begin
                                                    if sdn.DeviceNumber = OSDrive then
                                                       Continue;
                                                    Node := frmMain.vstVMs.GetFirst;
-                                                   while Node <> nil do
+                                                   while Assigned(Node) do
                                                    begin
                                                       Data := frmMain.vstVMs.GetNodeData(Node);
                                                       if Smallint(sdn.DeviceNumber) = Data^.FirstDriveNumber then
@@ -1495,7 +1495,7 @@ begin
    end;
 
    Node := frmMain.vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       Data := frmMain.vstVMs.GetNodeData(Node);
       if Length(Data^.FDMountPointsStr) > 1 then
@@ -2159,7 +2159,7 @@ begin
          end;
    end;
    Node := vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       try
          Data := vstVMs.GetNodeData(Node);
@@ -2207,7 +2207,7 @@ var
 begin
    s := #65279;
    Node := vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       Data := vstVMs.GetNodeData(Node);
       with Data^ do
@@ -2875,7 +2875,7 @@ begin
          ColWereAligned := vstVMs.Header.Columns.TotalWidth = vstVMs.ClientWidth;
          with frmAddEdit do
          begin
-            if frmAddEdit = nil then
+            if not Assigned(frmAddEdit) then
                Application.CreateForm(TfrmAddEdit, frmAddEdit)
             else
             begin
@@ -3375,7 +3375,7 @@ begin
                   vstVMs.Header.Columns[0].MaxWidth := mmCrt.Tag;
                   vstVMs.Header.Columns[0].Width := mmCrt.Tag;
                   Node := vstVMs.GetFirst;
-                  while Node <> nil do
+                  while Assigned(Node) do
                   begin
                      Data := vstVMs.GetNodeData(Node);
                      if (vstVMs.RootNodeCount < 10) or (Node.Index > 8) then
@@ -4076,7 +4076,7 @@ begin
          FindDrives;
          vstVMs.BeginUpdate;
          Node := vstVMs.GetFirst;
-         while Node <> nil do
+         while Assigned(Node) do
          begin
             Data := vstVMs.GetNodeData(Node);
             i := Node.Index;
@@ -4377,7 +4377,7 @@ begin
             else
                LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
       end;
-      if rs <> nil then
+      if Assigned(rs) then
       try
          rs.Free;
       except
@@ -4402,7 +4402,7 @@ begin
          on E: Exception do
             LastExceptionStr := E.Message;
       end;
-      if tfs <> nil then
+      if Assigned(tfs) then
       try
          tfs.Free;
       except
@@ -4420,7 +4420,7 @@ begin
                else
                   LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
          end;
-         if rs <> nil then
+         if Assigned(rs) then
          try
             rs.Free;
          except
@@ -4457,7 +4457,7 @@ begin
                else
                   LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
          end;
-         if rs <> nil then
+         if Assigned(rs) then
          try
             rs.Free;
          except
@@ -4494,7 +4494,7 @@ begin
             xmlLanguage.LoadFromStream(rs);
          except
          end;
-         if rs <> nil then
+         if Assigned(rs) then
          try
             rs.Free;
          except
@@ -4513,7 +4513,7 @@ begin
                else
                   LastExceptionStr := LastExceptionStr + #13#10 + E.Message;
          end;
-         if rs <> nil then
+         if Assigned(rs) then
          try
             rs.Free;
          except
@@ -4643,7 +4643,7 @@ begin
    try
       try
          vstVMs.ScrollIntoView(vstVMs.GetFirstSelected, False);
-         if frmAddEdit = nil then
+         if not Assigned(frmAddEdit) then
             Application.CreateForm(TfrmAddEdit, frmAddEdit);
          with frmAddEdit do
          begin
@@ -5298,7 +5298,7 @@ begin
       if vstVMs.RootNodeCount > 0 then
       begin
          Node := vstVMs.GetFirst;
-         while Node <> nil do
+         while Assigned(Node) do
          begin
             Data := vstVMs.GetNodeData(Node);
             if (vstVMs.RootNodeCount < 10) or (Node.Index > 8) then
@@ -5309,7 +5309,7 @@ begin
                ToBeSelected := Node;
             Node := vstVMs.GetNext(Node);
          end;
-         if ToBeSelected <> nil then
+         if Assigned(ToBeSelected) then
          begin
             vstVMs.Selected[ToBeSelected] := True;
             vstVMs.FocusedNode := ToBeSelected;
@@ -5348,7 +5348,7 @@ begin
    Node2 := vstVMs.GetFirst;
    while True do
    begin
-      if Node2 = nil then
+      if not Assigned(Node2) then
          Break;
       if Integer(Node2.Index) = (i - 1) then
          Break;
@@ -5397,7 +5397,7 @@ begin
    Node2 := vstVMs.GetFirst;
    while True do
    begin
-      if Node2 = nil then
+      if not Assigned(Node2) then
          Break;
       if Integer(Node2.Index) = (i + 1) then
          Break;
@@ -5786,7 +5786,7 @@ begin
       vstVMs.SelectionLocked := True;
       CurSelNode := vstVMs.GetFirstSelected.Index;
 
-      if Sender <> nil then
+      if Assigned(Sender) then
          DisableLockAndDismount := GetKeyState(VK_CONTROL) < 0;
       tmCheckCTRL.Enabled := False;
 
@@ -6998,7 +6998,6 @@ begin
                                     if Length(wst) = 1 then
                                        if CharInSet(wst[1], ['A'..'Z']) then
                                           wst := wst + ':';
-
                                     dt := GetTickCount;
                                     GetHandlesThr := TGetHandlesThread.Create(LowerCase(wst[1])[1], True);
                                     while not GetHandlesThr.isJobDone do
@@ -8289,25 +8288,37 @@ begin
                                                                         if ahs[i][0] = 0 then
                                                                         begin
                                                                            if ahs[i][1] = 0 then
-                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --port 0 --device 1'
+                                                                           begin
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --port 0 --device 1';
+                                                                              ahs[i][1] := 1;
+                                                                           end
                                                                            else
+                                                                           begin
                                                                               vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 0';
+                                                                              ahs[i][0] := 1;
+                                                                              ahs[i][1] := 0;
+                                                                           end;
                                                                         end
                                                                         else
                                                                         begin
                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --port 1 --device 1';
+                                                                           ahs[i][1] := 1;
                                                                         end;
                                                                         if ahs[i][2] = 1 then
                                                                         begin
                                                                            vbmComm[j][1] := vbmComm[j][1] + ' --type hdd';
                                                                            if ahs[i][4] = 1 then
-                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on'
+                                                                           begin
+                                                                              vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational on';
+                                                                           end
                                                                            else
+                                                                           begin
                                                                               vbmComm[j][1] := vbmComm[j][1] + ' --nonrotational off';
-                                                                           {                            if ahs[i][5] = 1 then
-                                                                                                          vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
-                                                                                                       else
-                                                                                                          vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
+                                                                           end
+                                                                              {                            if ahs[i][5] = 1 then
+                                                                                                             vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable on'
+                                                                                                          else
+                                                                                                             vbmComm[j][1] := vbmComm[j][1] + ' --hotpluggable off';}
                                                                         end
                                                                         else
                                                                         begin
@@ -8330,6 +8341,13 @@ begin
                                                                      Inc(j);
                                                                      Dec(i);
                                                                   end;
+                                                                  SetLength(ahs, Length(ahs) + 1);
+                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                  for i := High(ahs) downto 1 do
+                                                                  begin
+                                                                     ahs[i] := ahs[i - 1];
+                                                                     ahsUUID[i] := ahsUUID[i - 1];
+                                                                  end;
                                                                   with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                   begin
                                                                      SetAttribute('type', 'HardDisk');
@@ -8337,11 +8355,12 @@ begin
                                                                      SetAttribute('device', 0);
                                                                      with AddChild('Image') do
                                                                         SetAttribute('uuid', '{' + fuuid + '}');
-                                                                     SetLength(ahs, Length(ahs) + 1);
-                                                                     ahs[High(ahs)][0] := 0;
-                                                                     ahs[High(ahs)][1] := 0;
-                                                                     SetLength(ahsUUID, Length(ahsUUID) + 1);
-                                                                     ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                     ahs[0][0] := 0;
+                                                                     ahs[0][1] := 0;
+                                                                     ahs[0][2] := 1;
+                                                                     ahs[0][3] := 0;
+                                                                     ahs[0][4] := 0;
+                                                                     ahsUUID[0] := '{' + string(fuuid) + '}';
                                                                      isFUSet := True;
                                                                   end;
                                                                   vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
@@ -8491,14 +8510,6 @@ begin
                                                                      ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue :=
                                                                         ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AttributeNodes[a1].NodeValue + 1;
                                                                   end;
-                                                                  i := 0;
-                                                                  while i <= High(ahs) do
-                                                                  begin
-                                                                     if ahs[i][0] <> i then
-                                                                        Break;
-                                                                     Inc(i);
-                                                                  end;
-                                                                  Dec(i);
 
                                                                   StopVMAnimation;
                                                                   TrayIcon.BalloonHint := '';
@@ -8514,16 +8525,27 @@ begin
                                                                            Exit;
                                                                         end;
                                                                   end;
+                                                                  i := 0;
+                                                                  while i <= High(ahs) do
+                                                                  begin
+                                                                     if ahs[i][0] <> i then
+                                                                        Break;
+                                                                     Inc(i);
+                                                                  end;
+                                                                  Dec(i);
                                                                   StartVMANimation;
                                                                   j := 0;
                                                                   while j < ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes.Count do
                                                                   begin
                                                                      a1 := ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes.IndexOf('port');
                                                                      if (a1 > -1) and (ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue <= ahs[i][0]) then
+                                                                     begin
                                                                         ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue :=
                                                                            ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].ChildNodes[j].AttributeNodes[a1].NodeValue + 1;
+                                                                     end;
                                                                      Inc(j);
                                                                   end;
+
                                                                   j := Length(vbmComm);
                                                                   SetLength(vbmComm, 2 * (i + 1) + j + 1);
                                                                   while i >= 0 do
@@ -8565,6 +8587,23 @@ begin
                                                                      Inc(j);
                                                                      Dec(i);
                                                                   end;
+                                                                  i := 0;
+                                                                  while i <= High(ahs) do
+                                                                  begin
+                                                                     if ahs[i][0] <> i then
+                                                                        Break
+                                                                     else
+                                                                        Inc(ahs[i][0]);
+                                                                     Inc(i);
+                                                                  end;
+
+                                                                  SetLength(ahs, Length(ahs) + 1);
+                                                                  SetLength(ahsUUID, Length(ahsUUID) + 1);
+                                                                  for i := High(ahs) downto 1 do
+                                                                  begin
+                                                                     ahs[i] := ahs[i - 1];
+                                                                     ahsUUID[i] := ahsUUID[i - 1];
+                                                                  end;
                                                                   with ChildNodes[n1].ChildNodes[n2].ChildNodes[n3].ChildNodes[sc].AddChild('AttachedDevice') do
                                                                   begin
                                                                      SetAttribute('type', 'HardDisk');
@@ -8572,11 +8611,12 @@ begin
                                                                      SetAttribute('device', '0');
                                                                      with AddChild('Image') do
                                                                         SetAttribute('uuid', '{' + fuuid + '}');
-                                                                     SetLength(ahs, Length(ahs) + 1);
-                                                                     SetLength(ahsUUID, Length(ahsUUID) + 1);
-                                                                     ahs[High(ahs)][0] := 0;
-                                                                     ahs[High(ahs)][1] := 0;
-                                                                     ahsUUID[High(ahsUUID)] := string(fuuid);
+                                                                     ahs[0][0] := 0;
+                                                                     ahs[0][1] := 0;
+                                                                     ahs[0][2] := 1;
+                                                                     ahs[0][3] := 0;
+                                                                     ahs[0][4] := 0;
+                                                                     ahsUUID[0] := '{' + string(fuuid) + '}';
                                                                      isFUSet := True;
                                                                   end;
                                                                   vbmComm[High(vbmComm)][1] := 'storageattach ' + VMID + ' --storagectl ' + mCName + ' --port 0 --device 0 --type hdd --medium "' + floc + '" --mtype normal';
@@ -9161,7 +9201,7 @@ begin
                      end;
                Inc(j);
             end;
-            if FPCThread <> nil then
+            if Assigned(FPCThread) then
             begin
                FPCThread.Terminate;
                FPCThread.Free;
@@ -10011,7 +10051,7 @@ begin
                            fsStdErr.read(strStdErr[1], Min(fsStdErr.Size, 1024));
                         except
                         end;
-                        if fsStdErr <> nil then
+                        if Assigned(fsStdErr) then
                         try
                            fsStdErr.Free;
                         except
@@ -10163,7 +10203,7 @@ begin
          PrestartVBFilesAgain := False;
          if PrestartVBExeFiles then
          begin
-            if FPSThread <> nil then
+            if Assigned(FPSThread) then
             begin
                FPSThread.Terminate;
                FPSThread.Free;
@@ -10201,7 +10241,7 @@ var
    uExitCode: Cardinal;
    dt, wt: Cardinal;
 begin
-   if FPCThread <> nil then
+   if Assigned(FPCThread) then
    begin
       if not FPCJobDone then
          FPCThread.Terminate;
@@ -10220,7 +10260,7 @@ begin
       except
       end;
    end;
-   if FPSThread <> nil then
+   if Assigned(FPSThread) then
    begin
       if not FPSJobDone then
          FPSThread.Terminate;
@@ -10239,7 +10279,7 @@ begin
       except
       end;
    end;
-   if FRegThread <> nil then
+   if Assigned(FRegThread) then
    begin
       if not FRegJobDone then
          FRegThread.Terminate;
@@ -10364,7 +10404,7 @@ begin
          attMode := amNoWhere;
    end;
 
-   if pTarget = nil then
+   if not Assigned(pTarget) then
    begin
       pTarget := vstVMs.GetFirst;
       attMode := amInsertBefore;
@@ -10379,12 +10419,12 @@ begin
          end;
       end;
    end;
-   if (pSource = nil) or (pTarget = nil) or (pSource = pTarget) or (attMode = amNoWhere) then
+   if (not Assigned(pSource)) or (not Assigned(pTarget)) or (pSource = pTarget) or (attMode = amNoWhere) then
       Exit;
    vstVMs.BeginUpdate;
    Sender.MoveTo(pSource, pTarget, attMode, False);
    Node := vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       Data := vstVMs.GetNodeData(Node);
       if (vstVMs.RootNodeCount < 10) or (Node.Index > 8) then
@@ -10407,7 +10447,7 @@ begin
       if Sender <> Source then
          Exit;
       dropItem := (Sender as TVirtualStringTree).GetNodeAt(Pt.X, Pt.Y);
-      if (dropItem <> nil) and vstVMs.Selected[dropItem] then
+      if Assigned(dropItem) and vstVMs.Selected[dropItem] then
          Exit;
       Accept := True;
    except
@@ -10621,7 +10661,7 @@ procedure TfrmMain.CusMsgGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; C
 var
    iLevel: Integer;
 begin
-   if Node = nil then
+   if not Assigned(Node) then
       Exit;
    iLevel := Sender.GetNodeLevel(Node);
    if iLevel > 0 then
@@ -10634,7 +10674,7 @@ procedure TfrmMain.CusMgsGetHintKind(Sender: TBaseVirtualTree; Node: PVirtualNod
 var
    iLevel: Integer;
 begin
-   if Node = nil then
+   if not Assigned(Node) then
       Exit;
    iLevel := Sender.GetNodeLevel(Node);
    if iLevel > 0 then
@@ -10646,7 +10686,7 @@ procedure TfrmMain.vstVMsGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualN
 var
    Data: PData;
 begin
-   if Node = nil then
+   if not Assigned(Node) then
       Exit;
    Data := vstVMs.GetNodeData(Node);
    case Column of
@@ -10672,7 +10712,7 @@ procedure TfrmMain.CusMsgGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualN
 var
    iLevel: Integer;
 begin
-   if Node = nil then
+   if not Assigned(Node) then
       Exit;
    iLevel := Sender.GetNodeLevel(Node);
    if iLevel = 0 then
@@ -10773,7 +10813,7 @@ begin
    p.X := X;
    p.Y := Y;
    Node := vstVMs.GetNodeAt(p);
-   if Node <> nil then
+   if Assigned(Node) then
    begin
       lvc := vstVMs.Header.Columns.GetLastVisibleColumn;
       if lvc > -1 then
@@ -10781,7 +10821,7 @@ begin
             Exit;
    end;
    Node := vstVMs.GetFirstSelected;
-   if Node <> nil then
+   if Assigned(Node) then
    begin
       vstVMs.Selected[Node] := False;
       vstVMs.FocusedNode := nil;
@@ -10791,7 +10831,7 @@ end;
 procedure TfrmMain.CusMgsPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
    Column: TColumnIndex; TextType: TVSTTextType);
 begin
-   if Node = nil then
+   if not Assigned(Node) then
       Exit;
    if Sender.GetNodeLevel(Node) = 0 then
       TargetCanvas.Font.Color := DarkenTxtColor
@@ -10810,7 +10850,7 @@ begin
    p.X := X;
    p.Y := Y;
    Node := (Sender as TVirtualStringTree).GetNodeAt(p);
-   if Node <> nil then
+   if Assigned(Node) then
    begin
       lvc := (Sender as TVirtualStringTree).Header.Columns.GetLastVisibleColumn;
       if lvc > -1 then
@@ -10818,7 +10858,7 @@ begin
             Exit;
    end;
    Node := (Sender as TVirtualStringTree).GetFirstSelected;
-   if Node <> nil then
+   if Assigned(Node) then
    begin
       (Sender as TVirtualStringTree).Selected[Node] := False;
       (Sender as TVirtualStringTree).FocusedNode := nil;
@@ -10906,7 +10946,7 @@ begin
                   if CustomMessageBox(frmMain.Handle, GetLangTextFormatDef(idxMain, ['Messages', 'CouldNotReg'], [''], 'Could not automatically register the VirtualBox%s dlls, infs and services !'#13#10#13#10'Reason:') + ' ' + strRegErrMsg,
                      GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbRetry, mbIgnore], mbRetry) = mrRetry then
                   begin
-                     if FRegThread <> nil then
+                     if Assigned(FRegThread) then
                      begin
                         if not FRegJobDone then
                            FRegThread.Terminate;
@@ -11355,7 +11395,7 @@ begin
             firstNode := nil;
             secNode := nil;
             Node := vstVMs.GetFirst;
-            while Node <> nil do
+            while Assigned(Node) do
             begin
                if Integer(Node.Index) = i then
                   firstNode := Node;
@@ -11363,9 +11403,9 @@ begin
                   secNode := Node;
                Node := vstVMs.GetNext(Node);
             end;
-            if firstNode = nil then
+            if not Assigned(FirstNode) then
                Continue;
-            if secNode = nil then
+            if not Assigned(Node) then
                Continue;
             firstData := vstVMs.GetNodeData(firstNode);
             secData := vstVMs.GetNodeData(secNode);
@@ -11420,7 +11460,7 @@ begin
       if WasSorted then
       begin
          Node := vstVMs.GetFirst;
-         while Node <> nil do
+         while Assigned(Node) do
          begin
             tempData := vstVMs.GetNodeData(Node);
             with tempData^ do
@@ -11521,7 +11561,7 @@ begin
    if p > -1 then
    begin
       Node := vstVMs.GetFirst;
-      while Node <> nil do
+      while Assigned(Node) do
       begin
          tempData := vstVMs.GetNodeData(Node);
          if (vstVMs.RootNodeCount < 10) or (Node.Index > 8) then
@@ -11771,7 +11811,7 @@ begin
       try
          Node := vstVMs.GetNodeAt(MousePos.X, MousePos.Y);
          lvc := vstVMs.Header.Columns.GetLastVisibleColumn;
-         if (Node <> nil) and (lvc > -1) and (vstVMs.Header.Columns[lvc].GetRect.Right >= MousePos.X) then
+         if Assigned(Node) and (lvc > -1) and (vstVMs.Header.Columns[lvc].GetRect.Right >= MousePos.X) then
          begin
             if vstVMs.GetFirstSelected <> Node then
             begin
@@ -12205,7 +12245,7 @@ begin
    begin
       try
          Node := (Sender as TVirtualStringTree).GetNodeAt(MousePos.X, MousePos.Y);
-         if Node = nil then
+         if not Assigned(Node) then
             Exit;
          tNode := (Sender as TVirtualStringTree).GetFirst;
          i := -1;
@@ -12344,7 +12384,7 @@ begin
    if (Edit as TVirtualStringTree).SelectedCount <= 0 then
       Exit;
    Node := (Edit as TVirtualStringTree).GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       if ((Edit as TVirtualStringTree).GetNodeLevel(Node) = 0) and ((Edit as TVirtualStringTree).Selected[Node]) then
       begin
@@ -12451,7 +12491,7 @@ begin
    end
    else
       SelNode := ClNode;
-   while SelNode <> nil do
+   while Assigned(SelNode) do
    begin
       SelData := vstVMs.GetNodeData(SelNode);
       if (vstVMs.RootNodeCount < 10) or (SelNode.Index > 8) then
@@ -12537,11 +12577,11 @@ begin
             if strMess <> '' then
             begin
                if OpenHandlesInfo[i].FilesData[j].isFolder then
-                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the folder!' +
-                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING)
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotCloseFolder'], [strMess], 'Could not automatically close the folder!' +
+                     #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING)
                else
-                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the file!' +
-                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotCloseFile'], [strMess], 'Could not automatically close the file!' +
+                     #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING);
                Break;
             end
             else
@@ -12640,11 +12680,11 @@ begin
       if strMess <> '' then
       begin
          if OpenHandlesInfo[i].FilesData[j].isFolder then
-            MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the folder!' +
-               #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING)
+            MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotCloseFolder'], [strMess], 'Could not automatically close the folder!' +
+               #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING)
          else
-            MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically close the file!' +
-               #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+            MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotCloseFile'], [strMess], 'Could not automatically close the file!' +
+               #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING);
       end
       else
       begin
@@ -12704,7 +12744,7 @@ begin
    if (Edit as TVirtualStringTree).SelectedCount <= 0 then
       Exit;
    Node := (Edit as TVirtualStringTree).GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       if ((Edit as TVirtualStringTree).GetNodeLevel(Node) = 0) and ((Edit as TVirtualStringTree).Selected[Node]) then
       begin
@@ -12735,7 +12775,7 @@ begin
    else
       SelectedIndex := 0;
    Node := vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       if Integer(Node.Index) = SelectedIndex then
       begin
@@ -12762,7 +12802,7 @@ begin
    else
       SelectedIndex := vstVMs.RootNodeCount - 1;
    Node := vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       if Integer(Node.Index) = SelectedIndex then
       begin
@@ -12910,7 +12950,7 @@ begin
       frmOptions.xmlTemp.LoadFromStream(rs);
    except
    end;
-   if rs <> nil then
+   if Assigned(rs) then
    try
       rs.Free;
    except
@@ -12999,7 +13039,7 @@ begin
    btnOptions.Down := True;
    try
       try
-         if frmOptions = nil then
+         if not Assigned(frmOptions) then
             Application.CreateForm(TfrmOptions, frmOptions);
          with frmOptions do
          begin
@@ -13166,7 +13206,7 @@ begin
                         else
                            vstVMs.Header.Columns[3].ImageIndex := 2;
                      Node := vstVMs.GetFirst;
-                     while Node <> nil do
+                     while Assigned(Node) do
                      begin
                         Data := vstVMs.GetNodeData(Node);
                         Data^.FSDImageIndex := -1;
@@ -13176,7 +13216,7 @@ begin
                   else
                   begin
                      Node := vstVMs.GetFirst;
-                     while Node <> nil do
+                     while Assigned(Node) do
                      begin
                         Data := vstVMs.GetNodeData(Node);
                         Data^.SecondDriveName := '';
@@ -13213,7 +13253,7 @@ begin
                   end;
                   FindDrives;
                   Node := vstVMs.GetFirst;
-                  while Node <> nil do
+                  while Assigned(Node) do
                   begin
                      Data := vstVMs.GetNodeData(Node);
                      with Data^ do
@@ -13526,7 +13566,7 @@ begin
                      if PrevHalfSpaceChar <> HalfSpaceCharVST then
                      begin
                         Node := vstVMs.GetFirst;
-                        while Node <> nil do
+                        while Assigned(Node) do
                         begin
                            Data := vstVMs.GetNodeData(Node);
                            with Data^ do
@@ -13563,7 +13603,7 @@ begin
                   if not (toVariableNodeHeight in vstVMs.TreeOptions.MiscOptions) then
                      vstVMs.TreeOptions.MiscOptions := vstVMs.TreeOptions.MiscOptions + [toVariableNodeHeight];
                   Node := vstVMs.GetFirst;
-                  while Node <> nil do
+                  while Assigned(Node) do
                   begin
                      Exclude(Node.States, vsHeightMeasured);
                      vstVMs.MeasureItemHeight(vstVMs.Canvas, Node);
@@ -13780,7 +13820,7 @@ begin
                            exeVBPathAbs := exeVBPath;
                         if cbuseLoadedFromInstalled.Checked <> useLoadedFromInstalled then
                         begin
-                           if FRegThread <> nil then
+                           if Assigned(FRegThread) then
                            begin
                               if not FRegJobDone then
                                  FRegThread.Terminate;
@@ -13799,7 +13839,7 @@ begin
                               except
                               end;
                            end;
-                           if FUnregThread <> nil then
+                           if Assigned(FUnregThread) then
                            begin
                               if not FUnregJobDone then
                                  FUnregThread.Terminate;
@@ -15222,7 +15262,7 @@ begin
                   begin
                      if isVBPortable then
                      begin
-                        if FRegThread <> nil then
+                        if Assigned(FRegThread) then
                         begin
                            if not FRegJobDone then
                               FRegThread.Terminate;
@@ -15241,7 +15281,7 @@ begin
                            except
                            end;
                         end;
-                        if FUnregThread <> nil then
+                        if Assigned(FUnregThread) then
                         begin
                            if not FUnregJobDone then
                               FUnregThread.Terminate;
@@ -15263,7 +15303,7 @@ begin
                      end;
                      if PrecacheVBFiles and cbPrecacheVBFiles.Checked then
                      begin
-                        if FPCThread <> nil then
+                        if Assigned(FPCThread) then
                         begin
                            if not FPCJobDone then
                               FPCThread.Terminate;
@@ -15400,7 +15440,7 @@ begin
                                  StartRegToo := True
                               else
                               begin
-                                 if FRegThread <> nil then
+                                 if Assigned(FRegThread) then
                                  begin
                                     if not FRegJobDone then
                                        FRegThread.Terminate;
@@ -15419,7 +15459,7 @@ begin
                                     except
                                     end;
                                  end;
-                                 if FUnregThread <> nil then
+                                 if Assigned(FUnregThread) then
                                  begin
                                     if not FUnregJobDone then
                                        FUnregThread.Terminate;
@@ -15492,7 +15532,7 @@ begin
                begin
                   if PrecacheVBFiles then
                   begin
-                     if FPCThread <> nil then
+                     if Assigned(FPCThread) then
                      begin
                         if not FPCJobDone then
                            FPCThread.Terminate;
@@ -15514,7 +15554,7 @@ begin
                begin
                   if PrestartVBExeFiles then
                   begin
-                     if FPSThread <> nil then
+                     if Assigned(FPSThread) then
                      begin
                         if not FPSJobDone then
                            FPSThread.Terminate;
@@ -15683,7 +15723,7 @@ begin
    try
       Node := (Edit as TVirtualStringTree).GetFirst;
       i := -1;
-      while Node <> nil do
+      while Assigned(Node) do
       begin
          if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
          begin
@@ -15739,8 +15779,8 @@ begin
                end;
                if strMess <> '' then
                begin
-                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically kill the process!' +
-                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotKillProcess'], [strMess], 'Could not automatically kill the process!' +
+                     #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING);
                end
                else
                begin
@@ -15950,7 +15990,7 @@ begin
    FindDrives;
    vstVMs.BeginUpdate;
    Node := vstVMs.GetFirst;
-   while Node <> nil do
+   while Assigned(Node) do
    begin
       Data := vstVMs.GetNodeData(Node);
       with Data^ do
@@ -16068,7 +16108,7 @@ begin
    try
       Node := (Edit as TVirtualStringTree).GetFirst;
       i := -1;
-      while Node <> nil do
+      while Assigned(Node) do
       begin
          if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
          begin
@@ -16113,8 +16153,8 @@ begin
                   end;
                end;
                if strMess <> '' then
-                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically resume the process!' +
-                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotResumeProcess'], [strMess], 'Could not automatically resume the process!' +
+                     #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING);
                Exit;
             end;
          end;
@@ -16173,12 +16213,12 @@ begin
          Exit;
       i := -1;
       Node := (Edit as TVirtualStringTree).GetFirst;
-      while Node <> nil do
+      while Assigned(Node) do
       begin
          if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
          begin
             Inc(i);
-            if ((Edit as TVirtualStringTree).Selected[Node]) then
+            if (Edit as TVirtualStringTree).FocusedNode = Node then
             begin
                //suspend process
                LastError := 0;
@@ -16217,18 +16257,20 @@ begin
                      else
                         strMess := '';
                   end;
-               end;
+               end
+               else if strMess = '' then
+                  strMess := 'Unknown error';
                if strMess <> '' then
                begin
-                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically suspend the process!' +
-                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotSuspendProcess'], [strMess], 'Could not automatically suspend the process!' +
+                     #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING);
                   Exit;
                end;
                FhProcess := hProcess;
                FprocessID := OpenHandlesInfo[i].ProcessID;
                TCustomForm((Edit as TVirtualStringTree).Parent).ModalResult := mrYesToAll;
+               Exit;
             end;
-            Exit;
          end;
          Node := (Edit as TVirtualStringTree).GetNext(Node);
       end;
@@ -16272,7 +16314,7 @@ begin
    try
       i := -1;
       Node := (Edit as TVirtualStringTree).GetFirst;
-      while Node <> nil do
+      while Assigned(Node) do
       begin
          if (Edit as TVirtualStringTree).GetNodeLevel(Node) = 0 then
          begin
@@ -16317,8 +16359,8 @@ begin
                   end;
                end;
                if strMess <> '' then
-                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar('Could not automatically suspend the process!' +
-                     #13#10#13#10'System message: ' + strMess), 'Warning', MB_OK or MB_ICONWARNING);
+                  MessageBox((Edit as TVirtualStringTree).GetParentHandle, PCHar(GetLangTextFormatDef(idxMain, ['List', 'Messages', 'NotSuspendProcess'], [strMess], 'Could not automatically suspend the process!' +
+                     #13#10#13#10'System message: ' + strMess)), 'Warning', MB_OK or MB_ICONWARNING);
                Exit;
             end;
          end;
@@ -16607,7 +16649,7 @@ begin
          PrestartVBFilesAgain := False;
          if PrestartVBExeFiles then
          begin
-            if FPSThread <> nil then
+            if Assigned(FPSThread) then
             begin
                FPSThread.Terminate;
                FPSThread.Free;
@@ -16720,7 +16762,7 @@ begin
          frmMain.vstVMs.BeginUpdate;
          FindDrives;
          Node := frmMain.vstVMs.GetFirst;
-         while Node <> nil do
+         while Assigned(Node) do
          begin
             Data := frmMain.vstVMs.GetNodeData(Node);
             with Data^ do
@@ -16913,7 +16955,7 @@ begin
                                     Continue;
                                  end;
                                  Node := frmMain.vstVMs.GetFirst;
-                                 while Node <> nil do
+                                 while Assigned(Node) do
                                  begin
                                     Data := frmMain.vstVMs.GetNodeData(Node);
                                     if (Data^.FirstDriveNumber = -1) or (Data^.FirstDriveNumber = Integer(sdn.DeviceNumber)) then
@@ -17033,7 +17075,7 @@ begin
                   end;
             finally
                Node := frmMain.vstVMs.GetFirst;
-               while Node <> nil do
+               while Assigned(Node) do
                begin
                   Data := frmMain.vstVMs.GetNodeData(Node);
                   with Data^ do
@@ -17161,7 +17203,7 @@ begin
                for i := 0 to High(Letters) do
                begin
                   Node := frmMain.vstVMs.GetFirst;
-                  while Node <> nil do
+                  while Assigned(Node) do
                   begin
                      Data := frmMain.vstVMs.GetNodeData(Node);
                      if Data^.FirstDriveFound then
@@ -17290,7 +17332,7 @@ begin
                end;
                l := Length(strTemp);
                Node := frmMain.vstVMs.GetFirst;
-               while Node <> nil do
+               while Assigned(Node) do
                begin
                   Data := frmMain.vstVMs.GetNodeData(Node);
                   if Length(Data^.FirstDriveName) = l then
@@ -17333,7 +17375,7 @@ begin
             end;
          end;
          Node := frmMain.vstVMs.GetFirst;
-         while Node <> nil do
+         while Assigned(Node) do
          begin
             Data := frmMain.vstVMs.GetNodeData(Node);
             with Data^ do
@@ -17808,7 +17850,7 @@ begin
          SetForegroundWindow(OwnerHandle);
       end;
    Owner := FindControl(OwnerHandle);
-   if Owner = nil then
+   if not Assigned(Owner) then
       msgForm := TMessageForm.CreateNew(Application)
    else
       msgForm := TMessageForm.CreateNew(Owner);
@@ -17872,7 +17914,7 @@ begin
       IconID := IconIDs[DlgType];
       IconTextWidth := ATextRect.Right;
       IconTextHeight := ATextRect.Bottom;
-      if IconID <> nil then
+      if Assigned(IconID) then
       begin
          Inc(IconTextWidth, ImgSize + HorzSpacing);
          if IconTextHeight < ImgSize then
@@ -17887,7 +17929,7 @@ begin
          ButtonGroupWidth := ButtonWidth * ButtonCount + ButtonSpacing * (ButtonCount - 1);
       ClientWidth := Max(IconTextWidth, ButtonGroupWidth) + HorzMargin * 2;
       ClientHeight := IconTextHeight + ButtonHeight + VertSpacing + VertMargin * 2;
-      if IconID <> nil then
+      if Assigned(IconID) then
          with TImage.Create(msgForm) do
          begin
             Name := 'Image';
@@ -18361,7 +18403,7 @@ var
 begin
    Result := -1;
    Node := vstVMs.GetFirstSelected;
-   if Node = nil then
+   if not Assigned(Node) then
       Exit;
    Result := Node.Index;
 end;
@@ -18589,7 +18631,7 @@ end;
 procedure TfrmMain.CusMsgInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
    var InitialStates: TVirtualNodeInitStates);
 begin
-   if ParentNode = nil then
+   if not Assigned(ParentNode) then
       InitialStates := InitialStates + [ivsHasChildren] + [ivsExpanded];
 end;
 
@@ -20804,7 +20846,7 @@ begin
          PrestartVBFilesAgain := False;
          if PrestartVBExeFiles then
          begin
-            if FPSThread <> nil then
+            if Assigned(FPSThread) then
             begin
                FPSThread.Terminate;
                FPSThread.Free;
