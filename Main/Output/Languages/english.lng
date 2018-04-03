@@ -173,7 +173,7 @@
       <VMStateRunning>Running</VMStateRunning>
       <AreYouSureCont>Are you sure you want to continue (not recommended)...?</AreYouSureCont>
       <NotCloseFolder>Could not automatically close the folder!\r\n\r\nSystem message: %s</NotCloseFolder>
-      <NotCloseFile>Could not automatically close the file!\r\n\r\nSystem message: %s<NotCloseFile>
+      <NotCloseFile>Could not automatically close the file!\r\n\r\nSystem message: %s</NotCloseFile>
       <NotKillProcess>Could not automatically kill the process!\r\n\r\nSystem message: %s</NotKillProcess>
       <NotResumeProcess>Could not automatically resume the process!\r\n\r\nSystem message: %s</NotResumeProcess>
       <NotSuspendProcess>Could not automatically suspend the process!\r\n\r\nSystem message: %s</NotSuspendProcess>
