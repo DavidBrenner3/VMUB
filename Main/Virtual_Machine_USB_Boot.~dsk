@@ -1,34 +1,45 @@
 ﻿[Closed Files]
-File_0=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas',0,1,35111,1,35127,0,0,,
-File_1=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\RTL\SYS\System.pas',0,1,1,1,11,0,0,,
-File_2=TSourceModule,'D:\VMUB\ThirdParty\VirtualTreeview\Source\VirtualTrees.pas',0,1,15043,1,15060,0,0,,
-File_3=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Controls.pas',0,1,2577,22,2591,0,0,,
-File_4=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Messages.pas',0,1,988,19,1002,0,0,,
-File_5=TSourceModule,'D:\VMUB\Main\ProcessViewer.pas',0,1,234,75,244,0,0,,
-File_6=TSourceModule,'D:\VMUB\Main\uEjectThread.pas',0,1,43,52,55,0,0,,
-File_7=TSourceModule,'D:\VMUB\Main\Options.pas',0,1,424,53,428,0,0,,
-File_8=TSourceModule,'D:\ee\JwaWinType.pas',0,1,403,3,417,0,0,,
-File_9=TSourceModule,'D:\ee\JwaWinternl.pas',0,1,294,53,309,0,0,,
-File_10=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\RTL\SYS\System.SysUtils.pas',0,1,49,47,65,0,0,,
-File_11=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\common\System.Classes.pas',0,1,15477,41,15490,0,0,,
-File_12=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Themes.pas',0,1,1073,89,1100,0,0,,
-File_13=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Graphics.pas',0,1,4074,38,4093,0,0,,
-File_14=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.ShellAPI.pas',0,1,860,3,876,0,0,,
+File_0=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\RTL\SYS\System.pas',0,1,1,1,11,0,0,,
+File_1=TSourceModule,'D:\VMUB\ThirdParty\VirtualTreeview\Source\VirtualTrees.pas',0,1,15043,1,15060,0,0,,
+File_2=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Controls.pas',0,1,2577,22,2591,0,0,,
+File_3=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Messages.pas',0,1,988,19,1002,0,0,,
+File_4=TSourceModule,'D:\VMUB\Main\ProcessViewer.pas',0,1,234,75,244,0,0,,
+File_5=TSourceModule,'D:\VMUB\Main\uEjectThread.pas',0,1,43,52,55,0,0,,
+File_6=TSourceModule,'D:\ee\JwaWinType.pas',0,1,403,3,417,0,0,,
+File_7=TSourceModule,'D:\ee\JwaWinternl.pas',0,1,294,53,309,0,0,,
+File_8=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\RTL\SYS\System.SysUtils.pas',0,1,49,47,65,0,0,,
+File_9=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\common\System.Classes.pas',0,1,15477,41,15490,0,0,,
+File_10=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Themes.pas',0,1,1073,89,1100,0,0,,
+File_11=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\SOURCE\VCL\Vcl.Graphics.pas',0,1,4074,38,4093,0,0,,
+File_12=TSourceModule,'c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.ShellAPI.pas',0,1,860,3,876,0,0,,
 
 [Modules]
-Module0=D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj
-Module1=D:\VMUB\Main\MainForm.pas
-Module2=D:\VMUB\Main\uGetHandlesThread.pas
-Module3=D:\VMUB\Main\uFLDThread.pas
-Module4=D:\VMUB\Main\uRescanThread.pas
+Module0=D:\VMUB\Main\MainForm.pas
+Module1=D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj
+Module2=D:\VMUB\Main\uRescanThread.pas
+Module3=D:\VMUB\Main\Options.pas
+Module4=D:\VMUB\Main\uGetHandlesThread.pas
 Module5=default.htm
-Count=6
+Module6=D:\VMUB\Main\AddEdit.pas
+Module7=c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas
+Module8=D:\VMUB\Main\uFLDThread.pas
+Count=9
 EditWindowCount=1
+
+[D:\VMUB\Main\MainForm.pas]
+ModuleType=TSourceModule
+FormState=1
+FormOnTop=0
 
 [D:\VMUB\Main\Virtual_Machine_USB_Boot.dproj]
 ModuleType=TBaseProject
 
-[D:\VMUB\Main\MainForm.pas]
+[D:\VMUB\Main\uRescanThread.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
+[D:\VMUB\Main\Options.pas]
 ModuleType=TSourceModule
 FormState=1
 FormOnTop=0
@@ -38,28 +49,36 @@ ModuleType=TSourceModule
 FormState=0
 FormOnTop=0
 
+[default.htm]
+ModuleType=TURLModule
+
+[D:\VMUB\Main\AddEdit.pas]
+ModuleType=TSourceModule
+FormState=1
+FormOnTop=0
+
+[c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas]
+ModuleType=TSourceModule
+FormState=0
+FormOnTop=0
+
 [D:\VMUB\Main\uFLDThread.pas]
 ModuleType=TSourceModule
 FormState=0
 FormOnTop=0
 
-[D:\VMUB\Main\uRescanThread.pas]
-ModuleType=TSourceModule
-FormState=0
-FormOnTop=0
-
-[default.htm]
-ModuleType=TURLModule
-
 [EditWindow0]
-ViewCount=6
-CurrentEditView=D:\VMUB\Main\Virtual_Machine_USB_Boot.dpr
+ViewCount=9
+CurrentEditView=D:\VMUB\Main\MainForm.pas
 View0=0
 View1=1
 View2=2
 View3=3
 View4=4
 View5=5
+View6=6
+View7=7
+View8=8
 PercentageSizes=1
 Create=1
 Visible=1
@@ -83,7 +102,7 @@ RightPanelSize=0
 BottomPanelSize=0
 BottomMiddlePanelSize=0
 BottomMiddlePanelClients=DockSite0,ToDo List,MessageView
-BottomMiddelPanelData=0000080001020300000009000000446F636B53697465300E000000546F446F4C69737457696E646F770F0000004D65737361676556696577466F726D2C4500000000000002B20200000000000001000000002C4500000F0000004D65737361676556696577466F726DFFFFFFFF
+BottomMiddelPanelData=0000080001020300000009000000446F636B53697465300E000000546F446F4C69737457696E646F770F0000004D65737361676556696577466F726D2C45000000000000021F0400000000000001000000002C4500000F0000004D65737361676556696577466F726DFFFFFFFF
 
 [View0]
 CustomEditViewType=TWelcomePageView
@@ -92,37 +111,70 @@ WelcomePageURL=bds:/default.htm
 [View1]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\MainForm.pas
-CursorX=76
-CursorY=4556
-TopLine=4533
+CursorX=1
+CursorY=866
+TopLine=862
 LeftCol=1
 Elisions=
-Bookmarks={0,4408,9}
+Bookmarks={0,8795,58}
 EditViewName=D:\VMUB\Main\MainForm.pas
 
 [View2]
 CustomEditViewType=TEditView
-Module=D:\VMUB\Main\uRescanThread.pas
+Module=D:\VMUB\Main\Options.pas
 CursorX=1
-CursorY=94
-TopLine=63
+CursorY=1
+TopLine=1
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=D:\VMUB\Main\Options.pas
+
+[View3]
+CustomEditViewType=TEditView
+Module=D:\VMUB\Main\AddEdit.pas
+CursorX=1
+CursorY=1
+TopLine=1
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=D:\VMUB\Main\AddEdit.pas
+
+[View4]
+CustomEditViewType=TEditView
+Module=c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas
+CursorX=1
+CursorY=35423
+TopLine=35409
+LeftCol=1
+Elisions=
+Bookmarks=
+EditViewName=c:\program files (x86)\embarcadero\studio\16.0\source\rtl\win\Winapi.Windows.pas
+
+[View5]
+CustomEditViewType=TEditView
+Module=D:\VMUB\Main\uRescanThread.pas
+CursorX=60
+CursorY=34
+TopLine=21
 LeftCol=1
 Elisions=
 Bookmarks=
 EditViewName=D:\VMUB\Main\uRescanThread.pas
 
-[View3]
+[View6]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\Virtual_Machine_USB_Boot.dpr
-CursorX=90
-CursorY=95
-TopLine=82
+CursorX=93
+CursorY=83
+TopLine=72
 LeftCol=1
 Elisions=
 Bookmarks=
 EditViewName=D:\VMUB\Main\Virtual_Machine_USB_Boot.dpr
 
-[View4]
+[View7]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\uFLDThread.pas
 CursorX=57
@@ -133,12 +185,12 @@ Elisions=
 Bookmarks=
 EditViewName=D:\VMUB\Main\uFLDThread.pas
 
-[View5]
+[View8]
 CustomEditViewType=TEditView
 Module=D:\VMUB\Main\uGetHandlesThread.pas
-CursorX=84
-CursorY=640
-TopLine=648
+CursorX=10
+CursorY=151
+TopLine=154
 LeftCol=1
 Elisions=
 Bookmarks=
@@ -234,12 +286,12 @@ State=0
 Left=0
 Top=23
 Width=10000
-Height=412
+Height=797
 MaxLeft=-1
 MaxTop=-1
 ClientWidth=10000
-ClientHeight=412
-TBDockHeight=412
+ClientHeight=797
+TBDockHeight=797
 LRDockWidth=3522
 Dockable=1
 StayOnTop=0
@@ -544,7 +596,7 @@ Visible=0
 Docked=1
 State=0
 Left=0
-Top=728
+Top=626
 Width=3669
 Height=865
 MaxLeft=-1
@@ -802,7 +854,7 @@ Dockable=1
 StayOnTop=0
 TabPosition=1
 ActiveTabID=RefactoringForm
-TabDockClients=RefactoringForm,FindReferencsForm,MetricsView,QAView
+TabDockClients=RefactoringForm,FindReferencsForm,QAView,MetricsView
 
 [DockSite1]
 DockSiteType=1

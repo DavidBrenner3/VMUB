@@ -55,6 +55,8 @@ object frmMain: TfrmMain
       Font.Style = []
       Margin = 11
       ParentFont = False
+      ParentShowHint = False
+      ShowHint = True
       Spacing = 6
       OnClick = btnAddClick
       PngImage.Data = {

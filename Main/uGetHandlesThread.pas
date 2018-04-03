@@ -18,6 +18,7 @@ type
       procedure Execute; override;
    public
       isJobDone: Boolean;
+      mEvent: TEvent;
       constructor Create(const Vol: Char; const DoCleanup: Boolean = False);
       destructor Destroy; override;
    end;
@@ -33,7 +34,6 @@ const
    STATUS_TIMEOUT = $00000102;
 
 var
-   mEvent: TEvent;
    hTest: THandle;
    FnCPU, FhCPU: SmallInt;
    FprocessID: DWORD;
@@ -44,78 +44,9 @@ type
       Value: string;
    end;
 
-   SYSTEM_HANDLE = record
-      uIdProcess: ULONG;
-      ObjectType: Byte;
-      Flags: Byte;
-      Handle: USHORT;
-      pObject: PVOID;
-      GrantedAccess: ACCESS_MASK;
-   end;
-
-   SYSTEM_HANDLE_ARRAY = array[0..0] of SYSTEM_HANDLE;
-
-   SYSTEM_HANDLE_INFORMATION = record
-      uCount: ULONG;
-      Handles: SYSTEM_HANDLE_ARRAY;
-   end;
-   PSYSTEM_HANDLE_INFORMATION = ^SYSTEM_HANDLE_INFORMATION;
-
-   NT_STATUS = Cardinal;
-
-   PFILE_NAME_INFORMATION = ^FILE_NAME_INFORMATION;
-   FILE_NAME_INFORMATION = record
-      FileNameLength: ULONG;
-      FileName: array[0..MAX_PATH - 1] of WideChar;
-   end;
-
-   PUNICODE_STRING = ^TUNICODE_STRING;
-   TUNICODE_STRING = record
-      Length: WORD;
-      MaximumLength: WORD;
-      Buffer: array[0..MAX_PATH - 1] of WideChar;
-   end;
-
-   _OBJECT_NAME_INFORMATION = record
-      Length: USHORT;
-      MaximumLength: USHORT;
-      Pad: DWORD;
-      Name: array[0..MAX_PATH - 1] of Char;
-   end;
-   OBJECT_NAME_INFORMATION = _OBJECT_NAME_INFORMATION;
-   POBJECT_NAME_INFORMATION = ^OBJECT_NAME_INFORMATION;
-
-   PIO_STATUS_BLOCK = ^IO_STATUS_BLOCK;
-   IO_STATUS_BLOCK = record
-      Status: NT_STATUS;
-      Information: DWORD;
-   end;
-
-   PGetFileNameThreadParam = ^TGetFileNameThreadParam;
-   TGetFileNameThreadParam = record
-      hFile: THandle;
-      Result: NT_STATUS;
-      FileName: array[0..MAX_PATH - 1] of WideChar;
-   end;
-
-   _FILE_ACCESS_INFORMATION = record
-      GrantedAccess: ACCESS_MASK;
-   end;
-   FILE_ACCESS_INFORMATION = _FILE_ACCESS_INFORMATION;
-
 implementation
 
 uses MainForm;
-
-function NtQueryInformationFile(FileHandle: THandle; IoStatusBlock: PIO_STATUS_BLOCK; FileInformation: Pointer; Length: DWORD; FileInformationClass: DWORD): NT_STATUS; stdcall; external 'ntdll.dll';
-
-function NtQueryObject(ObjectHandle: THandle; ObjectInformationClass: DWORD; ObjectInformation: Pointer; ObjectInformationLength: ULONG; ReturnLength: PDWORD): NT_STATUS; stdcall; external 'ntdll.dll';
-
-function NtQuerySystemInformation(SystemInformationClass: DWORD; SystemInformation: Pointer; SystemInformationLength: ULONG; ReturnLength: PULONG): NT_STATUS; stdcall; external 'ntdll.dll' name 'NtQuerySystemInformation';
-
-function GetProcessImageFileName(hProcess: THandle; lpImageFileName: LPCWSTR; nSize: DWORD): DWORD; stdcall; external 'PSAPI.dll' name 'GetProcessImageFileNameW';
-
-function PrivateExtractIcons(lpszFile: PChar; nIconIndex, cxIcon, cyIcon: integer; phicon: PHANDLE; piconid: PDWORD; nicon, flags: DWORD): DWORD; stdcall; external 'user32.dll' name 'PrivateExtractIconsW';
 
 function GetFileNameHandleThr(Data: Pointer): DWORD; stdcall;
 var
@@ -684,6 +615,7 @@ end; { TGetHandlesThread.Create }
 destructor TGetHandlesThread.Destroy;
 begin
    mEvent.Free;
+   mEvent := nil;
 end;
 
 procedure TGetHandlesThread.Execute;

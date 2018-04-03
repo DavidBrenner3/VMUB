@@ -82,6 +82,7 @@ end; { TRescanThread.Execute }
 destructor TRescanThread.Destroy;
 begin
    mEvent.Free;
+   mEvent := nil;
 end;
 
 procedure TRescanThread.Terminate;

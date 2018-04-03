@@ -8,7 +8,7 @@ uses
    ProcessViewer, ShellApi, ActiveX, ComObj, Xml.xmldom,
    Xml.XMLIntf, Xml.Win.msxmldom, Xml.XMLDoc,
    Vcl.ComCtrls, Wininet, Dialogs, MMSystem, ShLwApi, Registry, WinSvc,
-   Winapi.ShlObj, Vcl.Themes, Winapi.UxTheme,
+   Winapi.ShlObj, Vcl.Themes, Winapi.UxTheme, CommCtrl,
    Clipbrd, Vcl.Extctrls, VirtualTrees, VirtualTrees.Utils, PngImageList, Vcl.ImgList,
    System.UITypes, uFLDThread, uPrestartThread, uPrecacheThread, uEjectThread, uRegisterThread, uUnregisterThread,
    System.ImageList, Vcl.Buttons, PngSpeedButton, PngImage, PngBitBtn, Syncobjs, uGetHandlesThread, uRescanThread;
@@ -71,16 +71,11 @@ function GetLangTextDef(const IntBaseParam: Integer; const StrParams: array of s
 function GetLangTextFormatDef(const IntBaseParam: Integer; const StrParams: array of string; const VarRec: array of TVarRec; const DefStr: string): string;
 function CStyleEscapes(const InputText: string): string;
 function IsAppNotStartedByAdmin(const ProcessID: THandle): Boolean;
-function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; var IsMember: BOOL): BOOL; stdcall; external advapi32;
 function CustomMessageBox(const OwnerHandle: THandle; const Msg: string; const Caption: string; DlgType: TMsgDlgType; Buttons: TMsgDlgButtons; DefaultButton: TMsgDlgBtn; const CbText: string = ''; useEdit: Boolean = False): Integer;
 function GetStrBusType(const BusType: Byte): string;
 function GetIntBusType(const BusType: string): Byte;
 function IsAeroEnabled: Boolean;
 procedure Wait(dt: DWORD);
-function FindFirstVolumeW(lpszVolumeName: PWideChar; cchBufferLength: DWord): THandle; stdcall;
-function FindNextVolumeW(hFindVolume: THandle; lpszVolumeName: PWideChar; cchBufferLength: DWORD): BOOL; stdcall;
-function FindVolumeClose(hFindVolume: THandle): BOOL; stdcall;
-function GetVolumePathNamesForVolumeNameW(lpszVolumeName, lpszVolumePathNames: PWideChar; cchBufferLength: DWORD; var lpcchReturnLength: DWORD): BOOL; stdcall;
 procedure SetThemeDependantParams;
 procedure ResetLastError;
 function ServiceStatus(sService: string = 'VBoxDRV'): TServiceStatus;
@@ -95,6 +90,7 @@ function InstallInf(const PathToInf, HardwareID: string): Smallint;
 function UninstallInf(HardwareID: string): Smallint;
 function CheckInstalledInf(HardwareID: string): Smallint;
 function IsProcessSuspended(const ProcessID: DWORD): Boolean;
+function LoadFunctionsfromLibraries: Boolean;
 
 type
    VolumeInfo = record
@@ -165,6 +161,177 @@ type
       FilesData: array of TFileData;
       Delete: Boolean;
    end;
+
+   SYSTEM_HANDLE = record
+      uIdProcess: ULONG;
+      ObjectType: Byte;
+      Flags: Byte;
+      Handle: USHORT;
+      pObject: PVOID;
+      GrantedAccess: ACCESS_MASK;
+   end;
+
+   SYSTEM_HANDLE_ARRAY = array[0..0] of SYSTEM_HANDLE;
+
+   SYSTEM_HANDLE_INFORMATION = record
+      uCount: ULONG;
+      Handles: SYSTEM_HANDLE_ARRAY;
+   end;
+   PSYSTEM_HANDLE_INFORMATION = ^SYSTEM_HANDLE_INFORMATION;
+
+   NT_STATUS = Cardinal;
+
+   PFILE_NAME_INFORMATION = ^FILE_NAME_INFORMATION;
+   FILE_NAME_INFORMATION = record
+      FileNameLength: ULONG;
+      FileName: array[0..MAX_PATH - 1] of WideChar;
+   end;
+
+   PUNICODE_STRING = ^TUNICODE_STRING;
+   TUNICODE_STRING = record
+      Length: WORD;
+      MaximumLength: WORD;
+      Buffer: array[0..MAX_PATH - 1] of WideChar;
+   end;
+
+   _OBJECT_NAME_INFORMATION = record
+      Length: USHORT;
+      MaximumLength: USHORT;
+      Pad: DWORD;
+      Name: array[0..MAX_PATH - 1] of Char;
+   end;
+   OBJECT_NAME_INFORMATION = _OBJECT_NAME_INFORMATION;
+   POBJECT_NAME_INFORMATION = ^OBJECT_NAME_INFORMATION;
+
+   PIO_STATUS_BLOCK = ^IO_STATUS_BLOCK;
+   IO_STATUS_BLOCK = record
+      Status: NT_STATUS;
+      Information: DWORD;
+   end;
+
+   PGetFileNameThreadParam = ^TGetFileNameThreadParam;
+   TGetFileNameThreadParam = record
+      hFile: THandle;
+      Result: NT_STATUS;
+      FileName: array[0..MAX_PATH - 1] of WideChar;
+   end;
+
+   _FILE_ACCESS_INFORMATION = record
+      GrantedAccess: ACCESS_MASK;
+   end;
+   FILE_ACCESS_INFORMATION = _FILE_ACCESS_INFORMATION;
+
+type
+   UNICODE_STRING = record
+      Length: USHORT;
+      MaximumLength: USHORT;
+      Buffer: PWideChar;
+   end;
+
+   CLIENT_ID = record
+      UniqueProcess: THandle;
+      UniqueThread: THandle;
+   end;
+
+   PCLIENT_ID = ^CLIENT_ID;
+
+   KPRIORITY = Integer;
+
+   _KWAIT_REASON = (
+      Executive,
+      FreePage,
+      PageIn,
+      PoolAllocation,
+      DelayExecution,
+      Suspended,
+      UserRequest,
+      WrExecutive,
+      WrFreePage,
+      WrPageIn,
+      WrPoolAllocation,
+      WrDelayExecution,
+      WrSuspended,
+      WrUserRequest,
+      WrEventPair,
+      WrQueue,
+      WrLpcReceive,
+      WrLpcReply,
+      WrVirtualMemory,
+      WrPageOut,
+      WrRendezvous,
+      WrKeyedEvent,
+      WrTerminated,
+      WrProcessInSwap,
+      WrCpuRateControl,
+      WrCalloutStack,
+      WrKernel,
+      WrResource,
+      WrPushLock,
+      WrMutex,
+      WrQuantumEnd,
+      WrDispatchInt,
+      WrPreempted,
+      WrYieldExecution,
+      WrFastMutex,
+      WrGuardedMutex,
+      WrRundown,
+      MaximumWaitReason);
+   KWAIT_REASON = _KWAIT_REASON;
+
+   SYSTEM_THREADS = record
+      KernelTime: FILETIME;
+      UserTime: FILETIME;
+      CreateTime: FILETIME;
+      WaitTime: ULONG;
+      StartAddress: PVOID;
+      ClientId: CLIENT_ID;
+      Priority: KPRIORITY;
+      BasePriority: LONG;
+      ContextSwitches: ULONG;
+      ThreadState: ULONG;
+      WaitReason: KWAIT_REASON;
+   end;
+   PSYSTEM_THREAD = ^SYSTEM_THREADS;
+
+   SYSTEM_PROCESS_INFORMATION = record
+      NextEntryOffset: ULONG;
+      NumberOfThreads: ULONG;
+      WorkingSetPrivateSize: Int64;
+      HardFaultCount: ULONG;
+      NumberOfThreadsHighWatermark: ULONG;
+      CycleTime: ULONGLONG;
+      CreateTime: FILETIME;
+      UserTime: FILETIME;
+      KernelTime: FILETIME;
+      ImageName: UNICODE_STRING;
+      BasePriority: KPRIORITY;
+      UniqueProcessId: THandle;
+      InheritedFromUniqueProcessId: THandle;
+      HandleCount: ULONG;
+      SessionId: ULONG;
+      UniqueProcessKey: ULONG_PTR;
+      PeakVirtualSize: SIZE_T;
+      VirtualSize: SIZE_T;
+      PageFaultCount: ULONG;
+      PeakWorkingSetSize: SIZE_T;
+      WorkingSetSize: SIZE_T;
+      QuotaPeakPagedPoolUsage: SIZE_T;
+      QuotaPagedPoolUsage: SIZE_T;
+      QuotaPeakNonPagedPoolUsage: SIZE_T;
+      QuotaNonPagedPoolUsage: SIZE_T;
+      PagefileUsage: SIZE_T;
+      PeakPagefileUsage: SIZE_T;
+      PrivatePageCountp: SIZE_T;
+      ReadOperationCount: Int64;
+      WriteOperationCount: Int64;
+      OtherOperationCount: Int64;
+      ReadTransferCount: Int64;
+      WriteTransferCount: Int64;
+      OtherTransferCount: Int64;
+      Threads: array[0..0] of SYSTEM_THREADS;
+   end;
+
+   PSYSTEM_PROCESS_INFORMATION = ^SYSTEM_PROCESS_INFORMATION;
 
 type
    TfrmMain = class(TForm)
@@ -697,31 +864,9 @@ type
    PSPDevInstallParams = PSPDevInstallParamsW;
 
 function GetDrivesDevInstByDeviceNumber(DeviceNumber: Integer): DEVINST;
-function SetupDiGetClassDevs(ClassGuid: PGUID; const Enumerator: PChar; hwndParent: HWND; Flags: DWORD): HDEVINFO; stdcall; external 'Setupapi.dll' name 'SetupDiGetClassDevsW';
-function SetupDiGetDeviceRegistryProperty(DeviceInfoSet: HDEVINFO; const DeviceInfoData: TSPDevInfoData; Property_: DWORD; var PropertyRegDataType: DWORD; PropertyBuffer: PBYTE; PropertyBufferSize: DWORD; var RequiredSize: DWORD): LongBool; stdcall; external 'Setupapi.dll' name 'SetupDiGetDeviceRegistryPropertyW';
-function SetupDiDestroyDeviceInfoList(DeviceInfoSet: HDEVINFO): LongBool; stdcall; external 'Setupapi.dll' name 'SetupDiDestroyDeviceInfoList';
-function SetupDiGetINFClass(const InfName: PChar; var ClassGuid: TGUID; ClassName: PChar; ClassNameSize: DWORD; RequiredSize: PDWORD): LongBool; stdcall; external 'Setupapi.dll' name 'SetupDiGetINFClassW';
-function SetupDiCreateDeviceInfoList(ClassGuid: PGUID; hwndParent: HWND): HDEVINFO; stdcall; external 'Setupapi.dll' name 'SetupDiCreateDeviceInfoList';
-function SetupDiCreateDeviceInfo(DeviceInfoSet: HDEVINFO; const DeviceName: PChar; var ClassGuid: TGUID; const DeviceDescription: PChar; hwndParent: HWND; CreationFlags: DWORD; DeviceInfoData: PSPDevInfoData): LongBool; stdcall; external 'Setupapi.dll' name 'SetupDiCreateDeviceInfoW';
-function SetupDiSetDeviceRegistryProperty(DeviceInfoSet: HDEVINFO; var DeviceInfoData: TSPDevInfoData; Property_: DWORD; const PropertyBuffer: PBYTE; PropertyBufferSize: DWORD): LongBool; stdcall; external 'Setupapi.dll' name 'SetupDiSetDeviceRegistryPropertyW';
-function SetupDiCallClassInstaller(InstallFunction: DI_FUNCTION; DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData): Bool; stdcall; external 'Setupapi.dll' name 'SetupDiCallClassInstaller';
-function UpdateDriverForPlugAndPlayDevices(hwndParent: THandle; HardwareId: PChar; FullInfPath: PChar; InstallFlags: DWORD; bRebootRequired: PBOOL): BOOL; stdcall; external 'newdev.dll' name 'UpdateDriverForPlugAndPlayDevicesW';
-//function SetupDiClassNameFromGuid(ClassGuid: PGUID; ClassName: PChar; ClassNameSize: DWORD; RequiredSize: PDWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiClassNameFromGuidW';
-function SetupDiGetClassDevsEx(ClassGuid: PGUID; const Enumerator: PTSTR; hwndParent: HWND; Flags: DWORD; DeviceInfoSet: HDEVINFO; const MachineName: PTSTR; Reserved: Pointer): HDEVINFO; stdcall; external 'Setupapi.dll' name 'SetupDiGetClassDevsExW';
-function SetupDiEnumDeviceInfo(DeviceInfoSet: HDEVINFO; MemberIndex: DWORD; var DeviceInfoData: TSPDevInfoData): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiEnumDeviceInfo';
-//function SetupDiOpenDevRegKey(DeviceInfoSet: HDEVINFO; var DeviceInfoData: TSPDevInfoData; Scope, HwProfile, KeyType: DWORD; samDesired: REGSAM): HKEY; stdcall; external 'Setupapi.dll' name 'SetupDiOpenDevRegKey';
-function SetupDiGetDeviceInterfaceDetail(DeviceInfoSet: HDEVINFO; DeviceInterfaceData: PSPDeviceInterfaceData; DeviceInterfaceDetailData: PSPDeviceInterfaceDetailData; DeviceInterfaceDetailDataSize: DWORD; var RequiredSize: DWORD; Device: PSPDevInfoData): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiGetDeviceInterfaceDetailW';
-function CM_Request_Device_Eject(dnDevInst: DEVINST; pVetoType: PPNP_VETO_TYPE; pszVetoName: PTSTR; ulNameLength: ULONG; ulFlags: ULONG): CONFIGRET; stdcall; external 'Setupapi.dll' name 'CM_Request_Device_EjectW';
-function SetupDiEnumDeviceInterfaces(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; const InterfaceClassGuid: TGUID; MemberIndex: DWORD; var DeviceInterfaceData: TSPDeviceInterfaceData): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiEnumDeviceInterfaces';
-function CM_Get_Parent(var dnDevInstParent: DEVINST; dnDevInst: DEVINST; ulFlags: ULONG): CONFIGRET; stdcall; external 'Setupapi.dll' name 'CM_Get_Parent';
-function SetupDiClassGuidsFromNameEx(const ClassName: PChar; ClassGuidList: PGUID; ClassGuidListSize: DWORD; var RequiredSize: DWORD; const MachineName: PChar; Reserved: Pointer): LongBool; stdcall; external 'Setupapi.dll' name 'SetupDiClassGuidsFromNameExW';
-function SetupDiGetDeviceInfoListDetail(DeviceInfoSet: HDEVINFO; var DeviceInfoSetDetailData: TSPDevInfoListDetailData): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiGetDeviceInfoListDetailW';
-function CM_Get_Device_ID(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; ulFlags: ULONG): CONFIGRET; stdcall; external 'Setupapi.dll' name 'CM_Get_Device_IDW';
-function SetupDiSetClassInstallParams(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall; external 'Setupapi.dll' name 'SetupDiSetClassInstallParamsW';
-function NtSuspendProcess(ProcessID: DWORD): NT_STATUS; stdcall; external 'ntdll.dll';
 
 const
-   BaseVersion = ' 1.72 Beta 2';
+   BaseVersion = ' 1.72';
    {$IFDEF WIN32}
    appVersion = BaseVersion + ' x86';
    {$ENDIF}
@@ -741,7 +886,7 @@ const
    IOCTL_STORAGE_QUERY_PROPERTY = (IOCTL_STORAGE_BASE shl 16) or (FILE_ANY_ACCESS shl 14) or ($0500 shl 2) or (METHOD_BUFFERED);
    IOCTL_DISK_UPDATE_PROPERTIES = ((IOCTL_DISK_BASE shl 16) or (FILE_ANY_ACCESS shl 14) or ($0050 shl 2) or METHOD_BUFFERED);
    defvmdk: array[1..6] of AnsiString = ('# Disk DescriptorFile'#10'version=1'#10'CID=', #10'parentCID=ffffffff'#10'createType="fullDevice"'#10#10'# Extent description'#10'RW ', ' FLAT "\\.\PhysicalDrive', '" 0'#10#10'# The disk Data Base'#10'#DDB'#10#10'ddb.virtualHWVersion = "4"'#10'ddb.adapterType="ide"'#10'ddb.geometry.cylinders="', '"'#10'ddb.geometry.heads="16"'#10'ddb.geometry.sectors="63"'#10'ddb.uuid.image="', '"'#10'ddb.uuid.parent="00000000-0000-0000-0000-000000000000"'#10'ddb.uuid.modification="00000000-0000-0000-0000-000000000000"'#10'ddb.uuid.parentmodification="00000000-0000-0000-0000-000000000000"'#10);
-   DefSiteHelp: array[1..2] of string = ('http://reboot.pro/topic/18736-virtual-machine-usb-boot/', 'http://reboot.pro/index.php?showtopic=18736');
+   DefSiteHelp: array[1..2] of string = ('https://github.com/DavidBrenner3/VMUB/issues', 'http://reboot.pro/topic/18736-virtual-machine-usb-boot/');
    GUID_DEVINTERFACE_USB_DEVICE: TGUID = '{A5DCBF10-6530-11D2-901F-00C04FB951ED}';
    GUID_DEVINTERFACE_DISK: TGUID = '{53F56307-B6BF-11D0-94F2-00A0C91EFB8B}';
    DBT_DEVICEARRIVAL = $8000; // system detected a new device
@@ -782,7 +927,7 @@ var
    VBWinClass: string = 'QWidget';
    DriveDetect: TComponentDrive;
    FindDrivesScheduled: Boolean;
-   ListOnlyUSBDrives: Boolean = False;
+   ListOnlyUSBDrives: Boolean = True;
    CFGFoundAndLoaded: Boolean = False;
    AutomaticFont: Boolean = True;
    FontName: AnsiString;
@@ -899,6 +1044,46 @@ var
    nFileClose: Integer;
    AutoEdit: Boolean = False;
    ManualEdit: Boolean = False;
+   NtQueryInformationFile: function(FileHandle: THandle; IoStatusBlock: PIO_STATUS_BLOCK; FileInformation: Pointer; Length: DWORD; FileInformationClass: DWORD): NT_STATUS; stdcall;
+   NtQueryObject: function(ObjectHandle: THandle; ObjectInformationClass: DWORD; ObjectInformation: Pointer; ObjectInformationLength: ULONG; ReturnLength: PDWORD): NT_STATUS; stdcall;
+   NtQuerySystemInformation: function(SystemInformationClass: DWORD; SystemInformation: Pointer; SystemInformationLength: ULONG; ReturnLength: PULONG): NT_STATUS; stdcall;
+   GetProcessImageFileName: function(hProcess: THandle; lpImageFileName: LPCWSTR; nSize: DWORD): DWORD; stdcall;
+   PrivateExtractIcons: function(lpszFile: PChar; nIconIndex, cxIcon, cyIcon: integer; phicon: PHANDLE; piconid: PDWORD; nicon, flags: DWORD): DWORD; stdcall;
+   NtResumeProcess: function(ProcessID: DWORD): NT_STATUS; stdcall;
+   NtSuspendProcess: function(ProcessID: DWORD): NT_STATUS; stdcall;
+   GetModuleHandleEx: function(dwFlags: DWORD; lpModuleName: PWideChar; var hModule: HMODULE): BOOL; stdcall;
+   hNtdllLib: HMODULE = 0;
+   hPsapiLib: HMODULE = 0;
+   hKernel32Lib: HMODULE = 0;
+   hUser32Lib: HMODULE = 0;
+   FindFirstVolumeW: function(lpszVolumeName: LPWSTR; cchBufferLength: DWORD): THandle; stdcall;
+   FindNextVolumeW: function(hFindVolume: THandle; lpszVolumeName: LPWSTR; cchBufferLength: DWORD): BOOL; stdcall;
+   FindVolumeClose: function(hFindVolume: THandle): BOOL; stdcall;
+   GetVolumePathNamesForVolumeNameW: function(lpszVolumeName, lpszVolumePathNames: LPCWSTR;
+      cchBufferLength: DWORD; var lpcchReturnLength: DWORD): BOOL; stdcall;
+   hAdvapi32Lib: HMODULE = 0;
+   hSetupapiLib: HMODULE = 0;
+   hNewdevLib: HMODULE = 0;
+   CheckTokenMembership: function(TokenHandle: THandle; SidToCheck: PSID; var IsMember: BOOL): BOOL; stdcall;
+   SetupDiGetClassDevs: function(ClassGuid: PGUID; const Enumerator: PChar; hwndParent: HWND; Flags: DWORD): HDEVINFO; stdcall;
+   SetupDiGetDeviceRegistryProperty: function(DeviceInfoSet: HDEVINFO; const DeviceInfoData: TSPDevInfoData; Property_: DWORD; var PropertyRegDataType: DWORD; PropertyBuffer: PBYTE; PropertyBufferSize: DWORD; var RequiredSize: DWORD): LongBool; stdcall;
+   SetupDiDestroyDeviceInfoList: function(DeviceInfoSet: HDEVINFO): LongBool; stdcall;
+   SetupDiGetINFClass: function(const InfName: PChar; var ClassGuid: TGUID; ClassName: PChar; ClassNameSize: DWORD; RequiredSize: PDWORD): LongBool; stdcall;
+   SetupDiCreateDeviceInfoList: function(ClassGuid: PGUID; hwndParent: HWND): HDEVINFO; stdcall;
+   SetupDiCreateDeviceInfo: function(DeviceInfoSet: HDEVINFO; const DeviceName: PChar; var ClassGuid: TGUID; const DeviceDescription: PChar; hwndParent: HWND; CreationFlags: DWORD; DeviceInfoData: PSPDevInfoData): LongBool; stdcall;
+   SetupDiSetDeviceRegistryProperty: function(DeviceInfoSet: HDEVINFO; var DeviceInfoData: TSPDevInfoData; Property_: DWORD; const PropertyBuffer: PBYTE; PropertyBufferSize: DWORD): LongBool; stdcall;
+   SetupDiCallClassInstaller: function(InstallFunction: DI_FUNCTION; DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData): Bool; stdcall;
+   UpdateDriverForPlugAndPlayDevices: function(hwndParent: THandle; HardwareId: PChar; FullInfPath: PChar; InstallFlags: DWORD; bRebootRequired: PBOOL): BOOL; stdcall;
+   SetupDiGetClassDevsEx: function(ClassGuid: PGUID; const Enumerator: PTSTR; hwndParent: HWND; Flags: DWORD; DeviceInfoSet: HDEVINFO; const MachineName: PTSTR; Reserved: Pointer): HDEVINFO; stdcall;
+   SetupDiEnumDeviceInfo: function(DeviceInfoSet: HDEVINFO; MemberIndex: DWORD; var DeviceInfoData: TSPDevInfoData): BOOL; stdcall;
+   SetupDiGetDeviceInterfaceDetail: function(DeviceInfoSet: HDEVINFO; DeviceInterfaceData: PSPDeviceInterfaceData; DeviceInterfaceDetailData: PSPDeviceInterfaceDetailData; DeviceInterfaceDetailDataSize: DWORD; var RequiredSize: DWORD; Device: PSPDevInfoData): BOOL; stdcall;
+   CM_Request_Device_Eject: function(dnDevInst: DEVINST; pVetoType: PPNP_VETO_TYPE; pszVetoName: PTSTR; ulNameLength: ULONG; ulFlags: ULONG): CONFIGRET; stdcall;
+   SetupDiEnumDeviceInterfaces: function(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; const InterfaceClassGuid: TGUID; MemberIndex: DWORD; var DeviceInterfaceData: TSPDeviceInterfaceData): BOOL; stdcall;
+   CM_Get_Parent: function(var dnDevInstParent: DEVINST; dnDevInst: DEVINST; ulFlags: ULONG): CONFIGRET; stdcall;
+   SetupDiClassGuidsFromNameEx: function(const ClassName: PChar; ClassGuidList: PGUID; ClassGuidListSize: DWORD; var RequiredSize: DWORD; const MachineName: PChar; Reserved: Pointer): LongBool;
+   SetupDiGetDeviceInfoListDetail: function(DeviceInfoSet: HDEVINFO; var DeviceInfoSetDetailData: TSPDevInfoListDetailData): BOOL; stdcall;
+   CM_Get_Device_ID: function(dnDevInst: DEVINST; Buffer: PChar; BufferLen: ULONG; ulFlags: ULONG): CONFIGRET; stdcall;
+   SetupDiSetClassInstallParams: function(DeviceInfoSet: HDEVINFO; DeviceInfoData: PSPDevInfoData; ClassInstallParams: PSPClassInstallHeader; ClassInstallParamsSize: DWORD): BOOL; stdcall;
 
    IconIDs: array[TMsgDlgType] of PChar = (
       IDI_EXCLAMATION,
@@ -945,10 +1130,103 @@ uses AddEdit, Options;
 
 {$R *.dfm}
 
-function FindFirstVolumeW; external kernel32 name 'FindFirstVolumeW';
-function FindNextVolumeW; external kernel32 name 'FindNextVolumeW';
-function FindVolumeClose; external kernel32 name 'FindVolumeClose';
-function GetVolumePathNamesForVolumeNameW; external kernel32 name 'GetVolumePathNamesForVolumeNameW';
+function GetModuleHandleEx2(lpModuleName: PWideChar; var hModule: HMODULE): BOOL;
+begin
+   if Addr(GetModuleHandleEx) <> nil then
+      Result := GetModuleHandleEx(0, lpModuleName, hModule)
+   else
+   begin
+      hModule := GetModuleHandle(lpModuleName);
+      Result := hModule <> 0;
+   end;
+   if not Result then
+   begin
+      hMOdule := LoadLibraryEx(lpModuleName, 0, 0);
+      Result := hModule <> 0;
+   end;
+end;
+
+function LoadFunctionsfromLibraries: Boolean;
+begin
+   hKernel32Lib := GetModuleHandle('kernel32.dll');
+   if hKernel32Lib <> 0 then
+      @GetModuleHandleEx := GetProcAddress(hKernel32Lib, 'GetModuleHandleExW')
+   else
+   begin
+      hKernel32Lib := LoadLibraryEx('kernel32.dll', 0, 0);
+      @GetModuleHandleEx := GetProcAddress(hKernel32Lib, 'GetModuleHandleExW');
+   end;
+
+   GetModuleHandleEx2('ntdll.dll', hNtdllLib);
+   if hNtdllLib <> 0 then
+   begin
+      @NtQueryInformationFile := GetProcAddress(hNtdllLib, 'NtQueryInformationFile');
+      @NtQueryObject := GetProcAddress(hNtdllLib, 'NtQueryObject');
+      @NtQuerySystemInformation := GetProcAddress(hNtdllLib, 'NtQuerySystemInformation');
+      @NtResumeProcess := GetProcAddress(hNtdllLib, 'NtResumeProcess');
+      @NtSuspendProcess := GetProcAddress(hNtdllLib, 'NtSuspendProcess');
+   end;
+
+   GetModuleHandleEx2('psapi.dll', hPsapiLib);
+   if hPsapiLib <> 0 then
+      @GetProcessImageFileName := GetProcAddress(hPsapiLib, 'GetProcessImageFileNameW');
+
+   GetModuleHandleEx2('user32.dll', hUser32Lib);
+   if hUser32Lib <> 0 then
+      @PrivateExtractIcons := GetProcAddress(hUser32Lib, 'PrivateExtractIconsW');
+
+   if hKernel32Lib <> 0 then
+   begin
+      @FindFirstVolumeW := GetProcAddress(hKernel32Lib, 'FindFirstVolumeW');
+      @FindNextVolumeW := GetProcAddress(hKernel32Lib, 'FindNextVolumeW');
+      @FindVolumeClose := GetProcAddress(hKernel32Lib, 'FindVolumeClose');
+      @GetVolumePathNamesForVolumeNameW := GetProcAddress(hKernel32Lib, 'GetVolumePathNamesForVolumeNameW');
+   end;
+
+   GetModuleHandleEx2('advapi32.dll', hAdvapi32Lib);
+   if hAdvapi32Lib <> 0 then
+      @CheckTokenMembership := GetProcAddress(hAdvapi32Lib, 'CheckTokenMembership');
+
+   GetModuleHandleEx2('Setupapi.dll', hSetupapiLib);
+   if hSetupapiLib <> 0 then
+   begin
+      @SetupDiGetClassDevs := GetProcAddress(hSetupapiLib, 'SetupDiGetClassDevsW');
+      @SetupDiGetDeviceRegistryProperty := GetProcAddress(hSetupapiLib, 'SetupDiGetDeviceRegistryPropertyW');
+      @SetupDiDestroyDeviceInfoList := GetProcAddress(hSetupapiLib, 'SetupDiDestroyDeviceInfoList');
+      @SetupDiGetINFClass := GetProcAddress(hSetupapiLib, 'SetupDiGetINFClassW');
+      @SetupDiCreateDeviceInfoList := GetProcAddress(hSetupapiLib, 'SetupDiCreateDeviceInfoList');
+      @SetupDiCreateDeviceInfo := GetProcAddress(hSetupapiLib, 'SetupDiCreateDeviceInfoW');
+      @SetupDiSetDeviceRegistryProperty := GetProcAddress(hSetupapiLib, 'SetupDiSetDeviceRegistryPropertyW');
+      @SetupDiCallClassInstaller := GetProcAddress(hSetupapiLib, 'SetupDiCallClassInstaller');
+      @SetupDiGetClassDevsEx := GetProcAddress(hSetupapiLib, 'SetupDiGetClassDevsExW');
+      @SetupDiEnumDeviceInfo := GetProcAddress(hSetupapiLib, 'SetupDiEnumDeviceInfo');
+      @SetupDiGetDeviceInterfaceDetail := GetProcAddress(hSetupapiLib, 'SetupDiGetDeviceInterfaceDetailW');
+      @CM_Request_Device_Eject := GetProcAddress(hSetupapiLib, 'CM_Request_Device_EjectW');
+      @SetupDiEnumDeviceInterfaces := GetProcAddress(hSetupapiLib, 'SetupDiEnumDeviceInterfaces');
+      @CM_Get_Parent := GetProcAddress(hSetupapiLib, 'CM_Get_Parent');
+      @SetupDiClassGuidsFromNameEx := GetProcAddress(hSetupapiLib, 'SetupDiClassGuidsFromNameExW');
+      @SetupDiGetDeviceInfoListDetail := GetProcAddress(hSetupapiLib, 'SetupDiGetDeviceInfoListDetailW');
+      @CM_Get_Device_ID := GetProcAddress(hSetupapiLib, 'CM_Get_Device_IDW');
+      @SetupDiSetClassInstallParams := GetProcAddress(hSetupapiLib, 'SetupDiSetClassInstallParamsW');
+   end;
+
+   GetModuleHandleEx2('Newdev.dll', hNewdevLib);
+   if hNewdevLib <> 0 then
+      @UpdateDriverForPlugAndPlayDevices := GetProcAddress(hNewdevLib, 'UpdateDriverForPlugAndPlayDevicesW');
+
+   Result := (Addr(NtQueryInformationFile) <> nil) and (Addr(NtQueryObject) <> nil) and (Addr(NtQuerySystemInformation) <> nil) and
+      (Addr(NtResumeProcess) <> nil) and (Addr(NtSuspendProcess) <> nil) and (Addr(GetProcessImageFileName) <> nil) and (Addr(PrivateExtractIcons) <> nil)
+      and (Addr(FindFirstVolumeW) <> nil) and (Addr(FindNextVolumeW) <> nil) and (Addr(FindVolumeClose) <> nil) and (Addr(GetVolumePathNamesForVolumeNameW) <> nil)
+      and (Addr(CheckTokenMembership) <> nil)
+      and (Addr(SetupDiGetClassDevs) <> nil) and (Addr(SetupDiGetDeviceRegistryProperty) <> nil)
+      and (Addr(SetupDiDestroyDeviceInfoList) <> nil) and (Addr(SetupDiGetINFClass) <> nil) and (Addr(SetupDiCreateDeviceInfoList) <> nil)
+      and (Addr(SetupDiCreateDeviceInfo) <> nil) and (Addr(SetupDiSetDeviceRegistryProperty) <> nil) and (Addr(SetupDiCallClassInstaller) <> nil)
+      and (Addr(UpdateDriverForPlugAndPlayDevices) <> nil) and (Addr(SetupDiGetClassDevsEx) <> nil) and (Addr(SetupDiEnumDeviceInfo) <> nil)
+      and (Addr(SetupDiGetDeviceInterfaceDetail) <> nil)
+      and (Addr(CM_Request_Device_Eject) <> nil) and (Addr(SetupDiEnumDeviceInterfaces) <> nil) and (Addr(CM_Get_Parent) <> nil)
+      and (Addr(SetupDiClassGuidsFromNameEx) <> nil) and (Addr(SetupDiGetDeviceInfoListDetail) <> nil)
+      and (Addr(CM_Get_Device_ID) <> nil) and (Addr(SetupDiSetClassInstallParams) <> nil);
+end;
 
 procedure ResetLastError;
 begin
@@ -3581,7 +3859,6 @@ var
    Path: array[0..MAX_PATH - 1] of Char;
    MySystem: TSystemInfo;
 begin
-   isProcessSuspended(GetCurrentProcessID);
    Application.OnException := AppException;
    DragAcceptFiles(WindowHandle, True);
    FIsAeroEnabled := IsAeroEnabled;
@@ -4294,8 +4571,6 @@ begin
    end;
    VBVMWasClosed := Now - 1;
    DriveDetect := TComponentDrive.Create(frmMain);
-   {        for i := 111 to 111 do
-              imlVst20.PngImages[i].PngImage.SaveToFile('d:\ff\Icon ' + Format('%.3d', [i]) + '.png');}
 end;
 
 procedure TfrmMain.ChangeCompLang;
@@ -6936,7 +7211,6 @@ begin
                            if Length(wst) = 1 then
                               if CharInSet(wst[1], ['A'..'Z']) then
                                  wst := wst + ':';
-
                            dt := GetTickCount;
                            GetHandlesThr := TGetHandlesThread.Create(LowerCase(wst[1])[1], False);
                            while not GetHandlesThr.isJobDone do
@@ -6948,12 +7222,32 @@ begin
                               if (GetTickCount - dt) > 30000 then
                                  Break;
                            end;
-                           if GetHandlesThr.isJobDone then
-                              GetHandlesThr.Terminate
+                           if not GetHandlesThr.isJobDone then
+                           begin
+                              dt := GetTickCount;
+                              GetHandlesThr.Terminate;
+                              while not GetHandlesThr.isJobDone do
+                              begin
+                                 Application.ProcessMessages;
+                                 if Application.Terminated then
+                                    Break;
+                                 mEvent.WaitFor(1);
+                                 if (GetTickCount - dt) > 1000 then
+                                    Break;
+                              end;
+                              if not GetHandlesThr.isJobDone then
+                                 TerminateThread(GetHandlesThr.Handle, 0)
+                              else
+                              begin
+                                 GetHandlesThr.Free;
+                                 GetHandlesThr := nil;
+                              end;
+                           end
                            else
-                              TerminateThread(GetHandlesThr.Handle, 0);
-                           GetHandlesThr.Free;
-                           GetHandlesThr := nil;
+                           begin
+                              GetHandlesThr.Free;
+                              GetHandlesThr := nil;
+                           end;
                            if Application.Terminated then
                               Exit;
                            if DoFDThread then
@@ -7017,10 +7311,6 @@ begin
                                     GetHandlesThr := nil;
                                     if Application.Terminated then
                                        Exit;
-                                    if DoFDThread then
-                                       StopFirstDriveAnimation
-                                    else
-                                       StopSecDriveAnimation;
 
                                     FDLSkipTo := 0;
                                     FLDIndStart := FLDFailedInd;
@@ -7031,7 +7321,9 @@ begin
                                     Continue;
                                  end;
                               else
-                                 Exit;
+                                 begin
+                                    Exit;
+                                 end;
                            end;
                         end;
                      2:
@@ -10240,6 +10532,7 @@ var
    FARPROC: Pointer;
    uExitCode: Cardinal;
    dt, wt: Cardinal;
+   i: Integer;
 begin
    if Assigned(FPCThread) then
    begin
@@ -10369,6 +10662,13 @@ begin
       end;
    end;
    mEvent.Free;
+   if Assigned(DevPathNameMap) then
+   begin
+      for i := 0 to DevPathNameMap.Count - 1 do
+         TStrObj(DevPathNameMap.Objects[i]).Free;
+      DevPathNameMap.Free;
+      DevPathNameMap := nil;
+   end;
 end;
 
 procedure TfrmMain.vstVMsDblClick(Sender: TObject);
@@ -10923,7 +11223,7 @@ begin
                                     WM_USER + 2:
                                        OpenInternetHelp(Self.Handle, ['http://reboot.pro/user/17818-steve6375/', 'http://reboot.pro/index.php?showuser=17818']);}
                   WM_USER + 3:
-                     OpenInternetHelp(Self.Handle, ['https://github.com/DavidBrenner3/VMUB', 'http://reboot.pro/index.php?s=e6a62f6faf7bc2a4ed6d16b703166a34&app=downloads&showfile=339']);
+                     OpenInternetHelp(Self.Handle, ['https://github.com/DavidBrenner3/VMUB/releases', 'http://reboot.pro/index.php?s=e6a62f6faf7bc2a4ed6d16b703166a34&app=downloads&showfile=339']);
                   WM_USER + 4:
                      OpenInternetHelp(Self.Handle, DefSiteHelp);
                end;
@@ -12047,122 +12347,6 @@ begin
    end;
 end;
 
-type
-   PUNICODE_STRING = ^UNICODE_STRING;
-
-   UNICODE_STRING = record
-      Length: USHORT;
-      MaximumLength: USHORT;
-      Buffer: PWideChar;
-   end;
-
-   CLIENT_ID = record
-      UniqueProcess: THandle;
-      UniqueThread: THandle;
-   end;
-
-   PCLIENT_ID = ^CLIENT_ID;
-
-   KPRIORITY = Integer;
-
-   _KWAIT_REASON = (
-      Executive,
-      FreePage,
-      PageIn,
-      PoolAllocation,
-      DelayExecution,
-      Suspended,
-      UserRequest,
-      WrExecutive,
-      WrFreePage,
-      WrPageIn,
-      WrPoolAllocation,
-      WrDelayExecution,
-      WrSuspended,
-      WrUserRequest,
-      WrEventPair,
-      WrQueue,
-      WrLpcReceive,
-      WrLpcReply,
-      WrVirtualMemory,
-      WrPageOut,
-      WrRendezvous,
-      WrKeyedEvent,
-      WrTerminated,
-      WrProcessInSwap,
-      WrCpuRateControl,
-      WrCalloutStack,
-      WrKernel,
-      WrResource,
-      WrPushLock,
-      WrMutex,
-      WrQuantumEnd,
-      WrDispatchInt,
-      WrPreempted,
-      WrYieldExecution,
-      WrFastMutex,
-      WrGuardedMutex,
-      WrRundown,
-      MaximumWaitReason);
-   KWAIT_REASON = _KWAIT_REASON;
-
-   SYSTEM_THREADS = record
-      KernelTime: FILETIME;
-      UserTime: FILETIME;
-      CreateTime: FILETIME;
-      WaitTime: ULONG;
-      StartAddress: PVOID;
-      ClientId: CLIENT_ID;
-      Priority: KPRIORITY;
-      BasePriority: LONG;
-      ContextSwitches: ULONG;
-      ThreadState: ULONG;
-      WaitReason: KWAIT_REASON;
-   end;
-   PSYSTEM_THREAD = ^SYSTEM_THREADS;
-
-   SYSTEM_PROCESS_INFORMATION = record
-      NextEntryOffset: ULONG;
-      NumberOfThreads: ULONG;
-      WorkingSetPrivateSize: Int64;
-      HardFaultCount: ULONG;
-      NumberOfThreadsHighWatermark: ULONG;
-      CycleTime: ULONGLONG;
-      CreateTime: FILETIME;
-      UserTime: FILETIME;
-      KernelTime: FILETIME;
-      ImageName: UNICODE_STRING;
-      BasePriority: KPRIORITY;
-      UniqueProcessId: THandle;
-      InheritedFromUniqueProcessId: THandle;
-      HandleCount: ULONG;
-      SessionId: ULONG;
-      UniqueProcessKey: ULONG_PTR;
-      PeakVirtualSize: SIZE_T;
-      VirtualSize: SIZE_T;
-      PageFaultCount: ULONG;
-      PeakWorkingSetSize: SIZE_T;
-      WorkingSetSize: SIZE_T;
-      QuotaPeakPagedPoolUsage: SIZE_T;
-      QuotaPagedPoolUsage: SIZE_T;
-      QuotaPeakNonPagedPoolUsage: SIZE_T;
-      QuotaNonPagedPoolUsage: SIZE_T;
-      PagefileUsage: SIZE_T;
-      PeakPagefileUsage: SIZE_T;
-      PrivatePageCountp: SIZE_T;
-      ReadOperationCount: Int64;
-      WriteOperationCount: Int64;
-      OtherOperationCount: Int64;
-      ReadTransferCount: Int64;
-      WriteTransferCount: Int64;
-      OtherTransferCount: Int64;
-      Threads: array[0..0] of SYSTEM_THREADS;
-   end;
-
-   PSYSTEM_PROCESS_INFORMATION = ^SYSTEM_PROCESS_INFORMATION;
-
-function NtQuerySystemInformation(SystemInformationClass: DWORD; SystemInformation: pointer; SystemInformationLength: DWORD; ReturnLength: PDWORD): cardinal; stdcall; external 'ntdll';
-
 function IsProcessSuspended(const ProcessID: DWORD): Boolean;
 const
    STATUS_INFO_LENGTH_MISMATCH = $C0000004;
@@ -12704,8 +12888,6 @@ begin
       ManualEdit := False;
    end;
 end;
-
-function GetProcessImageFileName(hProcess: THandle; lpImageFileName: LPCWSTR; nSize: DWORD): DWORD; stdcall; external 'PSAPI.dll' name 'GetProcessImageFileNameW';
 
 function ProcessExists(const aIndex: Integer): Boolean;
 var
@@ -15630,6 +15812,8 @@ begin
                StartKeyComb := hkStart.HotKey;
                SaveCFG(CfgFile);
             end;
+            for i := 0 to cmbLanguage.Items.Count - 1 do
+               TMyObj(cmbLanguage.Items.Objects[i]).Free;
          end;
       finally
          try
@@ -16086,8 +16270,6 @@ begin
    vstVMs.EndUpdate;
    vstVMs.Invalidate;
 end;
-
-function NtResumeProcess(ProcessID: DWORD): NT_STATUS; stdcall; external 'ntdll.dll';
 
 procedure TfrmMain.mmResumeProcessClick(Sender: TObject);
 const
@@ -18300,20 +18482,26 @@ begin
       begin
          Application.HintHidePause := Application.HintHidePause div 4;
          frmMain.imlCMb.Clear;
+         if Assigned(RescanThr) then
+         begin
+            RescanThr.Terminate;
+            dt := GetTickCount;
+            while ((GetTickCount - dt) <= 1000) and (not FRescanJobDone) do
+               mEvent.WaitFor(1);
+            if not FRescanJobDone then
+               TerminateThread(RescanThr.Handle, 0);
+            RescanThr.Free;
+            RescanThr := nil;
+         end;
+         for i := 0 to High(OpenHandlesInfo) do
+            if Assigned(OpenHandlesInfo[i].ProcessIcon) then
+            begin
+               OpenHandlesInfo[i].ProcessIcon.Free;
+               OpenHandlesInfo[i].ProcessIcon := nil;
+            end;
       end;
       if AddCb then
          cbConfirmationSt := TMessageForm(msgForm).cbConfirmation.Checked;
-      if Assigned(RescanThr) then
-      begin
-         RescanThr.Terminate;
-         dt := GetTickCount;
-         while ((GetTickCount - dt) <= 1000) and (not FRescanJobDone) do
-            mEvent.WaitFor(1);
-         if not FRescanJobDone then
-            TerminateThread(RescanThr.Handle, 0);
-         RescanThr.Free;
-         RescanThr := nil;
-      end;
       try
          msgForm.Free;
       except

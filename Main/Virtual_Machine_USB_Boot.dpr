@@ -81,14 +81,13 @@ const
    CSIDL_APPDATA = $001A;
 
 var
-   i: integer;
+   i, j: integer;
    Appdata, AppGenExePath: string;
-   ThreadID: THandle;
-
-label
-   TryAgain;
+   dt: Cardinal;
+   AppHandle: THandle;
 
 begin
+  // ReportMemoryLeaksOnShutdown := True;
    Application.Initialize;
    Application.MainFormOnTaskbar := False;
    Application.Title := 'Virtual Machine USB Boot';
@@ -115,41 +114,50 @@ begin
    VMentriesFile := ChangeFileExt(VMentriesFile, '.vml');
    LngFolder := ExtractFilePath(AppGenExePath) + 'Languages';
 
-   Application.CreateForm(TfrmMain, frmMain);
-   TryAgain:
-
    if CreateFileMapping(INVALID_HANDLE_VALUE, nil, PAGE_READONLY, 0, 32, 'VirtualMachineUSBBoot') <> 0 then
    begin
       if GetLastError = ERROR_ALREADY_EXISTS then
       begin
-         GetAllWindowsList('TfrmMain');
+         GetAllWindowsList('TApplication');
          for i := 0 to High(AllWindowsList) do
             if Pos(string('Virtual Machine USB Boot '), AllWindowsList[i].WCaption) = 1 then
                if AllWindowsList[i].WCaption <> 'Virtual Machine USB Boot' then
-                  if AllWindowsList[i].Handle <> frmMain.Handle then
+                  if AllWindowsList[i].Handle <> Application.Handle then
                   begin
                      if IsIconic(AllWindowsList[i].Handle) then
-                        SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
-                     if IsWindowVisible(AllWindowsList[i].Handle) then
-                        SetForegroundWindow(AllWindowsList[i].Handle)
-                     else if CustomMessageBox(Application.Handle, GetLangTextDef(idxMain, ['Messages', 'AlreadyStarted'], 'The application is already started but the interface is hidden.'#13#10'Do you want to forcibly close that session (not recommended)?'), GetLangTextDef(idxMessages, ['Types', 'Warning'], 'Warning'), mtWarning, [mbYes, mbNo], mbYes) = mrYes then
                      begin
-                        if IsWindow(AllWindowsList[i].Handle) then
+                        SendMessage(AllWindowsList[i].Handle, WM_SYSCOMMAND, SC_RESTORE, 0);
+                        dt := GetTickCount;
+                        while isIconic(AllWindowsList[i].Handle) do
                         begin
-                           GetFileNameAndProcessIDFromHandle(AllWindowsList[i].Handle, ThreadID);
-                           try
-                              TerminateProcess(OpenProcess(PROCESS_TERMINATE, BOOL(0), ThreadID), 0);
-                           except
-                           end;
+                           mEvent.WaitFor(1);
+                           Application.ProcessMessages;
+                           if (GetTickCount - dt) > 3000 then
+                              Break;
                         end;
-                        goto TryAgain;
                      end;
-                     frmMain.OnDestroy := nil;
-                     frmMain.Free;
+                     AppHandle := AllWindowsList[i].Handle;
+                     GetAllWindowsList('TfrmMain');
+                     for j := 0 to High(AllWindowsList) do
+                        if Pos(string('Virtual Machine USB Boot '), AllWindowsList[j].WCaption) = 1 then
+                           if AllWindowsList[j].WCaption <> 'Virtual Machine USB Boot' then
+                           begin
+                              if not IsWindowVisible(AllWindowsList[j].Handle) then
+                                 ShowWindow(AllWindowsList[j].Handle, SW_SHOW);
+                              if IsWindowEnabled(AllWindowsList[j].Handle) then
+                                 SetForegroundWindow(AllWindowsList[j].Handle)
+                              else
+                                 SetForegroundWindow(AppHandle);
+                              Exit;
+                           end;
                      Exit;
                   end;
       end;
    end;
+
+   LoadFunctionsfromLibraries;
+
+   Application.CreateForm(TfrmMain, frmMain);
 
    if IsNotUserAdmin then
    begin
