@@ -1,0 +1,343 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Interface>
+  <Language>
+    <Name>Chinese Simplified</Name>
+    <Author>wwj402</Author>
+    <Version>1.0.0.0</Version>
+  </Language>
+  <Main>
+    <Buttons>
+      <Start>开始</Start>
+      <Add>添加</Add>
+      <Edit>编辑</Edit>
+      <Delete>删除</Delete>
+      <Manager>管理</Manager>
+      <Options>选项</Options>
+      <ShowTrayIcon>托盘</ShowTrayIcon>
+      <Exit>退出</Exit>
+    </Buttons>
+    <List>
+      <Header>
+        <VMName>VM名称</VMName>
+        <Drive>驱动器</Drive>
+        <FirstDrive>第一驱动器</FirstDrive>
+        <SecondDrive>第二驱动器</SecondDrive>
+      </Header>
+      <Menu>
+        <Add>添加</Add>
+        <Edit>编辑</Edit>
+        <Clone>克隆</Clone>
+        <Delete>删除</Delete>
+        <FileExplorer>在资源管理器中打开%s</FileExplorer>
+        <Eject>弹出</Eject>
+        <MoveUp>上移</MoveUp>
+        <MoveDown>下移</MoveDown>
+        <Refresh>刷新</Refresh>
+        <Start>开始</Start>
+        <ShowHideMainWindow>显示 隐藏 主窗口</ShowHideMainWindow>
+        <HideTrayIcon>隐藏托盘图标</HideTrayIcon>
+        <Exit>退出</Exit>
+        <BringToTop>去到顶部</BringToTop>
+        <OpenInExplorer>在资源管理器中打开</OpenInExplorer>
+        <SmartDisconnect>智能断开</SmartDisconnect>
+        <CloseProcess>关闭进程</CloseProcess>
+        <SuspendProcess>暂停进程</SuspendProcess>
+        <ResumeProcess>恢复进程</ResumeProcess>
+        <KillProcess>杀死进程</KillProcess>
+        <CloseProcessFiles>关闭进程文件</CloseProcessFiles>
+        <CloseFile>关闭文件</CloseFile>
+        <CloseFolder>关闭文件夹</CloseFolder>
+      </Menu>
+    </List>
+    <Messages>
+      <InfoStart>修改VM配置文件需要几秒钟\r\n还有几秒钟才能启动它。\r\n\r\n所以在我执行这些操作时请耐心等待。\r\n\r\n点击%s继续...</InfoStart>
+      <NoInternet>没有检测到互联网连接！</NoInternet>
+      <NoHelp>找不到帮助网站，打开浏览器出错或您的防病毒软件阻止连接！</NoHelp>
+      <TryLock>试图锁定卷'%s'，位于"%s"...</TryLock>
+      <CancelLock>取消（不安全）</CancelLock>
+      <CantOpenToRead>无法打开"%s"进行读取！\r\n\r\n系统消息：%s</CantOpenToRead>
+      <CantRead>无法读取"%s"！\r\n\r\n系统消息：%s</CantRead>
+      <CantCreate>无法创建"%s"！</CantCreate>
+      <CantCreateOrOpen>无法创建或打开"%s"进行写入！\r\n\r\n系统消息：%s</CantCreateOrOpen>
+      <CantWrite>无法写入"%s"！\r\n\r\n系统消息：%s</CantWrite>
+      <SureDeleteEntry>您确定要删除此条目吗？</SureDeleteEntry>
+      <UnknownError>未知错误，请向作者报告\r\n完整描述您正在做的事情。</UnknownError>
+      <ErrorRetrievingPathID>从exe参数中检索VM路径/ID出错，\r\n请修复路径/ID。</ErrorRetrievingPathID>
+      <ErrorRetrievingPath>从Virtualbox.xml检索VM路径时出错，\r\n请更换文件或允许读取。</ErrorRetrievingPath>
+      <CouldNotFindVM>在VirtualBox配置文件中找不到VM，\r\n请设置有效的VM。</CouldNotFindVM>
+      <VBManNoAdm1>为了使VBoxManage.exe能够与VirtualBox正常通信\r\n需要"以管理员身份运行"启动VirtualBox会话！\r\n\r\n你确定你要继续吗..？</VBManNoAdm1>
+      <VBManNoAdm2>为了使VBoxManage.exe能够与VirtualBox正常通信\r\n需要"以管理员身份运行"启动VirtualBox会话\r\n同时关闭所有正常的VirtualBox会话！\r\n\r\n你确定你要继续吗..？</VBManNoAdm2>
+      <VBManDetected>检测到VirtualBox Manager。\r\n强烈建议不要同时使用！\r\n\r\n我应该关闭它吗？（完全关闭需要几秒钟）</VBManDetected>
+      <CouldNotCloseVBMan>无法自动关闭VirtualBox Manager！\r\n\r\n请手动关闭它并单击%s ...（完全关闭需要几秒钟）</CouldNotCloseVBMan>
+      <ErrorVBManNotClosed>错误：VirtualBox Manager未关闭！</ErrorVBManNotClosed>
+      <AnotherVBManSession>检测到另一个VirtualBox Manager。\r\n强烈建议不要同时使用！\r\n\r\n我应该关闭它吗？（完全关闭需要几秒钟）</AnotherVBManSession>
+      <VBVMDetected>检测到VirtualBox VM。\r\n强烈建议不要同时使用！\r\n\r\n请关闭它并单击%s ...（完全关闭需要几秒钟）</VBVMDetected>
+      <AnotherVBVMDetected>检测到另一个VirtualBox VM。\r\n强烈建议不要同时使用！\r\n\r\n请关闭它并单击%s ...（完全关闭需要几秒钟）</AnotherVBVMDetected>
+      <ErrorVBVMNotClosed>错误：VirtualBox VM未关闭！</ErrorVBVMNotClosed>
+      <ErrorVBVMAlready>VirtualBox VM已启动，因此无法更新其配置。\r\n\r\n请关闭它并单击%s ...（完全关闭需要几秒钟）</ErrorVBVMAlready>
+      <WarningQEMUAlready>QEMU似乎已经加载了。建议关闭\r\n使它不会干扰当前的QEMU会话。\r\n\r\n你确定你要继续吗？</WarningQEMUAlready>
+      <WaitingVBSVCToClose>等待"VBoxSVC.exe"（一个VirtualBox组件）关闭...</WaitingVBSVCToClose>
+      <CancelHide>隐藏</CancelHide>
+      <OutOfTimeVBSVC>超时，等待"VBoxSVC.exe"（一个VirtualBox组件）关闭...！\r\n\r\n我应该强行关闭它吗？</OutOfTimeVBSVC>
+      <VBSVCStillOpened>"VBoxSVC.exe"仍然打开！\r\n\r\n退出...</VBSVCStillOpened>
+      <WaitingPrevSession>等待以前的VM会话正确关闭...</WaitingPrevSession>
+      <CancelSkip>跳过这个（不安全）</CancelSkip>
+      <FirstDriveWUsb>第一个驱动器（%s）似乎不存在于此系统上，\r\n它不可访问或不是USB驱动器！\r\n\r\n您可以选择中止VM启动，\r\n再试一次或选择其他驱动器...</FirstDriveWUsb>
+      <FirstDrive>第一个驱动器（%s）似乎\r\n不存在于此系统上或无法访问！\r\n您可以选择中止VM启动，\r\n再试一次或选择其他驱动器...</FirstDrive>
+      <DriveWUsb>此驱动器（%s）似乎不存在于此系统上，\r\n它不可访问或不是USB驱动器！\r\n\r\n您可以选择中止VM启动，\r\n再试一次或选择其他驱动器...</DriveWUsb>
+      <Drive>此驱动器（%s）似乎\r\n不存在于此系统上或无法访问！\r\n\r\n您可以选择中止VM启动，\r\n再试一次或选择其他驱动器...</Drive>
+      <SecDriveWUsb>第二个驱动器（%s）似乎不存在于此系统上，\r\n它不可访问或不是USB驱动器！\r\n\r\n您可以选择中止VM启动，\r\n再试一次或选择其他驱动器...</SecDriveWUsb>
+      <SecDrive>第二个驱动器（%s）似乎\r\n不存在于此系统上或无法访问！\r\n\r\n您可以选择中止VM启动，\r\n再试一次或选择其他驱动器...</SecDrive>
+      <CantAccessVolume>无法访问卷'%s'，位于"%s"！\r\n\r\n系统消息：%s\r\n\r\n你确定你要继续吗...？</CantAccessVolume>
+      <UnableLockVolume>无法锁定卷'%s'，位于"%s"！\r\n\r\n系统消息：%s\r\n\r\n看起来有一个隐藏的操作系统进程正在访问卷。\r\n您可以选择待机/休眠计算机几秒钟或重新启动\r\n操作系统，这样进程就会停止，或者你可以选择忽略它...\r\n\r\n你确定你要继续吗...？</UnableLockVolume>
+      <UnableLockVolumeHnd>无法锁定卷'%s'，位于"%s"！\r\n\r\n系统消息：%s\r\n\r\n以下是'%s'上已打开文件/文件夹的进程列表。\r\n使用右键单击选择操作（"智能断开"推荐）:</UnableLockVolumeHnd>
+      <UnableDismVolume>无法卸载卷'%s'，位于"%s"！\r\n\r\n系统消息：%s\r\n\r\n你确定你要继续吗...？</UnableDismVolume>
+      <UnableFindDevice>无法找到"%s"！\r\n\r\n你确定你要继续吗...？</UnableFindDevice>
+      <CannotAccessCDROM>无法访问"%s"！\r\n\r\n你确定你要继续吗...？</CannotAccessCDROM>
+      <CannotAccessMedium>无法从"%s"访问媒介！\r\n\r\n你确定你要继续吗...？</CannotAccessMedium>
+      <CDROMDoesntExist>"%s"在此系统上不存在，未加载或无法访问！\r\n\r\n你确定你要继续吗...？</CDROMDoesntExist>
+      <PleaseAllowAccess>访问"%s"时出错，\r\n请允许访问。\r\n系统消息：%s</PleaseAllowAccess>
+      <SectionNotFound>"%s"部分在vbox文件中找不到！\r\n\r\n似乎Oracle更改了文件格式，或者您的文件已损坏。</SectionNotFound>
+      <SavedStateOpen>看来这个VM处于保存状态，因此不会被修改，仅启动...\r\n\r\n正如您所知，使用真实驱动器保存VM的状态并不是一个好主意，\r\n因为它会增加破坏该驱动器数据的风险...</SavedStateOpen>
+      <SavedStateClose>看来这个VM处于保存状态，因此不会被修改，仅关闭...\r\n\r\n正如您所知，使用真实驱动器保存VM的状态并不是一个好主意，\r\n因为它会增加破坏该驱动器数据的风险...</SavedStateClose>
+      <DividedSnapshots>"%s"的内容分为%d个快照。\r\n使用真实驱动器的快照并不是一个好主意。但如果你真的想要如此，至少这样做：\r\n在进行快照/克隆操作之前，则应在存储控制器设置中，手动分离任何\r\nVMUBDrive***.vmdk驱动器；随后您创建快照或链接克隆此VM。</DividedSnapshots>
+      <RemoveDriveOp>移除此驱动器</RemoveDriveOp>
+      <DetachDriveOp>分离此驱动器</DetachDriveOp>
+      <BrokenXML>从"%s"访问xml结构时出错，\r\n请修复该文件或将其替换为备份副本。</BrokenXML>
+      <ErrorWriteProtection>写入"%s"出错，\r\n请移除写保护。\r\n\r\n系统消息：%s</ErrorWriteProtection>
+      <ErrorSpaceVolume>写入"%s"出错，\r\n请释放一些空间或检查卷'%s'是否有错误。\r\n\r\n系统消息：%s</ErrorSpaceVolume>
+      <ErrorWriteVolume>写入"%s"出错，\r\n请移除写保护或检查卷'%s'是否有错误。\r\n系统消息：%s</ErrorWriteVolume>
+      <UnableFreeInfo>无法在"VMUBDrive000..VMUBDriveFFF"范围中\r\n找到未使用的vmdk文件名。请分离并删除未使用的。\r\n您可以通过启动VirtualBox Manager，然后启动VirtualBox虚拟介质管理器来实现\r\n\r\n并删除一个或多个VMUBDrive***.vmdk。</UnableFreeInfo>
+      <FreePortAdvice>无法在VirtualBox VM中的存储控制器中找到空闲端口，\r\n请释放一个，然后再试一次。\r\n您可以通过启动VirtualBox Manager，编辑VM的存储选项来实现\r\n并增加存储控制器的端口数。</FreePortAdvice>
+      <FreePort>无法在VirtualBox VM中的存储控制器中找到空闲端口，\r\n请释放一个，然后再试一次。</FreePort>
+      <AttachDriveOp>附加此驱动器</AttachDriveOp>
+      <FreePortAdviceIde>无法在VirtualBox VM中的存储控制器中找到空闲端口，\r\n请释放一个，然后再试一次。\r\n您可以通过启动VirtualBox Manager，编辑VM的存储选项来实现\r\n并从IDE控制器中删除一个或多个驱动器。</FreePortAdviceIde>
+      <NoStorageAdvice>无法在VirtualBox VM中找到存储控制器，\r\n请添加一个，然后再试一次。\r\n您可以通过启动VirtualBox Manager，编辑VM的存储选项来实现\r\n并添加一个存储控制器。</NoStorageAdvice>
+      <WarnBootFirstDrive>看来这个VM无法从第一个驱动器启动（%s）\r\n因为其他驱动器附加到存储控制器中的优先的位置。\r\n\r\n我的建议是在存储控制器中释放一个优先于其他驱动器的端口。\r\n您可以通过启动VirtualBox Manager，编辑VM的存储选项来实现\r\n并将其他驱动器移动到存储控制器中的后续端口。\r\n\r\n你确定你要继续吗...？</WarnBootFirstDrive>
+      <WarnBootDrive>看来这个VM无法从驱动器启动（%s）\r\n因为其他驱动器附加到存储控制器中的优先的位置。\r\n\r\n我的建议是在存储控制器中释放一个优先于其他驱动器的端口。\r\n您可以通过启动VirtualBox Manager，编辑VM的存储选项来实现\r\n并将其他驱动器移动到存储控制器中的后续端口。\r\n\r\n你确定你要继续吗...？</WarnBootDrive>
+      <WarnChangeBootDriveAndOther>要从"%s"驱动器启动VM，\r\n它必须设置为第一个内部硬盘，但第一个位置当前由另一个驱动器占用。\r\n\r\n单击 是 自动向上移动，其他驱动器到后续位置\r\n或者手动完成，然后单击 重试</WarnChangeBootDriveAndOther>
+      <ErrorVBMan>超时，等待VBoxManage.exe完成当前作业的时间（%s）！\r\n\r\n作业=%s\r\n\r\n这是一个VirtualBox缺陷。我的建议是等待20..30秒再试一次...</ErrorVBMan>
+      <VBManOutput>VBoxManage输出：</VBManOutput>
+      <HardwareVirtOp>改变硬件虚拟化</HardwareVirtOp>
+      <PowerOffDef>将 关机 设置为默认关闭操作</PowerOffDef>
+      <VBManErrorCode>VBoxManage.exe返回当前作业（%s）的错误代码%d！\r\n\r\n作业=%s</VBManErrorCode>
+      <VBManExitError>获取当前VBoxManage作业（%s）的退出代码时出错！\r\n\r\n作业=%s</VBManExitError>
+      <VBManUnableLaunch>无法启动VBoxManage.exe！\r\n\r\n系统消息：%s</VBManUnableLaunch>
+      <CantAddDrives>无法自动将驱动器添加到VirtualBox VM。\r\n\r\n可能的原因：%s\r\n\r\n你确定你要继续吗（不推荐）...？</CantAddDrives>
+      <VBUnableLaunch>无法启动VirtualBox.exe！\r\n\r\n系统消息：%s</VBUnableLaunch>
+      <QMUnableLaunch>无法启动QemuManager.exe！\r\n\r\n系统消息：%s</QMUnableLaunch>
+      <ExplorerUnableLaunch>无法启动Windows资源管理器！\r\n\r\n系统消息：%s</ExplorerUnableLaunch>
+      <CantDeleteFile>无法删除文件"%s"！\r\n系统消息：%s</CantDeleteFile>
+      <CantRemoveDrives>无法从VirtualBox VM自动移除驱动器。\r\n\r\n可能的原因： </CantRemoveDrives>
+      <QEMUError>QEMU返回错误！\r\n\r\nStdErr输出：%s\r\n\r\n提示：您应该检查命令行参数\r\n查看是否有任何遗漏或拼写错误。\r\n如果您使用默认参数\r\n你应该适应你的QEMU版本。\r\n\r\n为了获得更多信息，命令行被复制到剪贴板中。\r\n创建一个新的bat/cmd文件，从剪贴板粘贴并启动它（作为管理员）。</QEMUError>
+      <QEMUStartError>无法启动QEMU！\r\n\r\n系统消息：%s</QEMUStartError>
+      <NotUSBDrive>这不是USB驱动器！</NotUSBDrive>
+      <CantReadDrive>无法从驱动器读取！\r\n\r\n系统消息：%s</CantReadDrive>
+      <ErrorAccessDrive>访问驱动器时出错！\r\n\r\n系统消息：%s</ErrorAccessDrive>
+      <CantUseOSDrive>这是操作系统驱动器，不能用！</CantUseOSDrive>
+      <ErrorGetDriveNr>获取驱动器编号时出错！\r\n\r\n系统消息：%s</ErrorGetDriveNr>
+      <ErrorAccessVolDrive>访问驱动器上的卷时出错！\r\n\r\n系统消息：%s</ErrorAccessVolDrive>
+      <ErrorAccessDrive>访问驱动器时出错！\r\n\r\n系统消息：%s</ErrorAccessDrive>
+      <NotRemFixedLocalDrive>这不是可移动或固定的本地驱动器！</NotRemFixedLocalDrive>
+      <NotVolDrive>不是卷或驱动器！</NotVolDrive>
+      <JustOneItem>一次只一个项目！</JustOneItem>
+      <StartAsAdministrator>为了能够正确检测和使用计算机的功能，\r\n此应用需要管理员权限。\r\n您可以使用"以管理员身份运行"直接启动它，也可以修改快捷方式或exe的属性。</StartAsAdministrator>
+      <AlreadyStarted>应用程序已启动但界面已隐藏。\r\n你想强行关闭那个会话吗（不推荐）？</AlreadyStarted>
+      <CantReadDrive>无法从驱动器读取！\r\n\r\n系统消息：%s</CantReadDrive>
+      <SureClose>您确定要关闭该应用程序吗？</SureClose>
+      <ErrorGetInfEject>无法检索弹出驱动器所需的信息！\r\n\r\n系统消息：%s</ErrorGetInfEject>
+      <ErrorEject>无法自动弹出驱动器！\r\n\r\n关闭访问此驱动器的应用程序，然后重试...</ErrorEject>
+      <ErrorCode>%s的错误代码，来自%s</ErrorCode>
+      <ProblemChangeEnv>更改%s环境变量的问题\r\n\r\n系统消息：</ProblemChangeEnv>
+      <ProblemUninstalling>卸载%s的问题\r\n\r\n系统消息：</ProblemUninstalling>
+      <ProblemStarting>启动%s的问题\r\n\r\n系统消息：</ProblemStarting>
+      <InvArg>无效的参数</InvArg>
+      <OleinitFld>OleInitialize失败</OleinitFld>
+      <LoadLibFld>LoadLibrary失败</LoadLibFld>
+      <GetPrcAdFld>GetProcAddress失败</GetPrcAdFld>
+      <DllRegUnregFld>DllRegisterServer或DllUnregisterServer失败</DllRegUnregFld>
+      <ProblemUnreg>取消注册%s的问题\r\n\r\n系统消息：</ProblemUnreg>
+      <ProblemReg>取消注册%s的问题\r\n\r\n系统消息：</ProblemReg>
+      <ProblemFcntDll>启动%s函数，来自%s\r\n\r\n系统消息：</ProblemFcntDll>
+      <ProblemCreateSrv>创建%s服务的问题\r\n\r\n系统消息：</ProblemCreateSrv>
+      <ProblemStartSrv>启动%s服务的问题\r\n\r\n系统消息：</ProblemStartSrv>
+      <ProblemInstalling>安装%s的问题\r\n\r\n系统消息：</ProblemInstalling>
+      <ProperRegUnreg>为了正确取消注册VirtualBox dll，驱动inf和服务\r\n对于便携式版本，所有VirtualBox窗口都必须关闭！\r\n\r\n您可以选择 放弃，手动关闭所有VirtualBox窗口并单击 重试，\r\n单击 忽略，不取消注册或单击 全部关闭，以自动关闭它们</ProperRegUnreg>
+      <CouldNotReg>无法自动注册VirtualBox%s的dll，驱动inf和服务！\r\n\r\n原因：</CouldNotReg>
+      <CouldNotUnreg>无法自动取消注册VirtualBox%s的dll，驱动inf和服务！\r\n\r\n原因：</CouldNotUnreg>
+      <ProblemStopSrv>停止%s服务的问题\r\n\r\n系统消息：</ProblemStopSrv>
+      <ProblemRemSrv>删除VBoxNetAdp服务的问题\r\n\r\n系统消息：</ProblemRemSrv>
+      <AppMinToTray>%s现在最小化到托盘。\r\n单击图标将其还原...</AppMinToTray>
+      <AppStartedWithTray>%s托盘图标现已激活...</AppStartedWithTray>
+      <VMStarting>启动"%s" VM...</VMStarting>
+      <VMStateRunning>运行</VMStateRunning>
+      <AreYouSureCont>你确定你要继续（不推荐）...？</AreYouSureCont>
+      <NotCloseFolder>无法自动关闭文件夹！\r\n\r\n系统消息：%s</NotCloseFolder>
+      <NotCloseFile>无法自动关闭文件！\r\n\r\n系统消息：%s</NotCloseFile>
+      <NotKillProcess>无法自动杀死进程！\r\n\r\n系统消息：%s</NotKillProcess>
+      <NotResumeProcess>无法自动恢复进程！\r\n\r\n系统消息：%s</NotResumeProcess>
+      <NotSuspendProcess>无法自动暂停该进程！\r\n\r\n系统消息：%s</NotSuspendProcess>
+    </Messages>
+  </Main>
+  <AddEdit>
+    <Caption>
+      <Add>添加</Add>
+      <Edit>编辑</Edit>
+    </Caption>
+    <Buttons>
+      <OK>确定(&amp;O)</OK>
+      <Cancel>取消(&amp;C)</Cancel>
+    </Buttons>
+    <Labels>
+      <Audio>音频：</Audio>
+      <CDROM>CD/DVD设备：</CDROM>
+      <EnableCPUVirtualization>启用VT-x/AMD-V：</EnableCPUVirtualization>
+      <ExeParams>exe参数：</ExeParams>
+      <FirstDrive>第一个驱动器添加并启动：</FirstDrive>
+      <Drive>驱动器添加并启动：</Drive>
+      <HDD>内置硬盘：</HDD>
+      <Memory>内存（MB）:</Memory>
+      <Mode>加载VM的模式：</Mode>
+      <Priority>CPU优先级：</Priority>
+      <Run>运行：</Run>
+      <SecondDrive>第二个驱动器添加（可选）:</SecondDrive>
+      <Type>类型：</Type>
+      <VMName>VM名称：</VMName>
+      <VMPath>VM路径：</VMPath>
+      <UseHostCache>使用主机I/O缓存：</UseHostCache>
+    </Labels>
+    <Dialogs>
+      <LoadVM>
+        <Title>加载</Title>
+        <Filter>VirtualBox VM（*.vbox）|*.vbox|所有文件（*.*）|*.*</Filter>
+      </LoadVM>
+      <LoadHDDImage>
+        <Title>加载</Title>
+        <Filter>QEMU磁盘映像|*.img; *.qcow; *.qcow2; *.qed; *.qcow; *.cow; *.vdi; *.vmdk; *.vpc|所有文件|*.*</Filter>
+      </LoadHDDImage>
+      <LoadISO>
+        <Title>加载</Title>
+        <Filter>ISO文件|*.iso|所有文件|*.*</Filter>
+      </LoadISO>
+    </Dialogs>
+    <Comboboxes>
+      <NoneText>无</NoneText>
+      <CreateNewVM>创建新的VM</CreateNewVM>
+      <EnableCPUVirtualization>不变\r\n开\r\n关\r\n切换</EnableCPUVirtualization>
+      <Mode>VM名称\r\nVM路径\r\nExe参数</Mode>
+      <Priority>低于正常\r\n正常\r\n高于正常\r\n高</Priority>
+      <WindowSize>
+        <VirtualBox>正常\r\n最小化\r\n最大化\r\n全屏</VirtualBox>
+        <QEMU>正常\r\n最小化\r\n最大化\r\n全屏</QEMU>
+      </WindowSize>
+      <LoadISO>Load ISO file...</LoadISO>
+    </Comboboxes>
+    <Messages>
+      <SetVMPath>请设置VM路径！</SetVMPath>
+      <VMNotFound>无法在VirtualBox配置文件中找到此VM！\r\n请确保已正确安装VirtualBox\r\n并且VM已在VirtualBox Manager中正确注册。</VMNotFound>
+      <SetExeParam>请设置exe参数！</SetExeParam>
+      <SetExeParamCor>请正确设置exe参数！\r\n只需使用&lt;&lt;--startvm "Path_to_VM"或"GUID"&gt;&gt;（不含&lt;&lt;&gt;&gt;）</SetExeParamCor>
+      <SetVMName>请设置VM名称！</SetVMName>
+      <NoVMsFound>请在VirtualBox Manager中添加VM或解决问题\r\n使用VirtualBox安装，以便您可以设置VM名称！</NoVMsFound>
+      <ChooseFirstDrive>请选择第一个驱动器！</ChooseFirstDrive>
+      <ChooseDrive>请选择驱动器！</ChooseDrive>
+      <DifSecDrive>请设置不同的第二个驱动器！</DifSecDrive>
+      <MemoryRange>请在1..65535间隔内设置内存值！</MemoryRange>
+      <MoreThanHalfRam>你已经分配了50%以上的\r\n总物理RAM大小（%d来自%d MB）！\r\n\r\n你确定那是明智的...？</MoreThanHalfRam>
+      <HDDNotFound>"%s"似乎不存在！\r\n你确定要使用它吗？\r\n提示：如果您不想设置内置硬盘，只需清除编辑框即可...</HDDNotFound>
+      <AddFirstPort>它会将驱动器添加到VirtualBox VM的存储控制器中的第一个可用端口。\r\n如果它找不到一个可用的它将失败...\r\n\r\n如果要从此驱动器启动，请确保可用端口\r\n优先于其他附加HDD端口，VirtualBox VM设置为从HDD启动。</AddFirstPort>
+      <NotAFile>这不是文件！</NotAFile>
+      <JustOneItem>一次只一个项目！</JustOneItem>
+      <NotACD>这不是CD/DVD设备！</NotACD>
+      <NotACDOrIso>不是CD/DVD设备或ISO文件！</NotACDOrIso>
+      <NotUSB>这不是USB驱动器！</NotUSB>
+      <CantReadDrive>无法从驱动器读取！\r\n\r\n系统消息：%s</CantReadDrive>
+      <ErrorAccessDrive>访问驱动器时出错！\r\n\r\n系统消息：%s</ErrorAccessDrive>
+      <CantUseOSDrive>这是操作系统驱动器，不能用！</CantUseOSDrive>
+      <ErrorDriveNumber>获取驱动器编号时出错！\r\n\r\n系统消息：%s</ErrorDriveNumber>
+      <ErrorAccessVolume>访问驱动器上的卷时出错！\r\n\r\n系统消息：%s</ErrorAccessVolume>
+      <NotADrive>这不是可移动或固定的本地驱动器！</NotADrive>
+      <NotAVolOrDrive>不是卷或驱动器！</NotAVolOrDrive>
+    </Messages>
+    <Hints>
+      <BrowseForHdd>单击以浏览HDD映像文件</BrowseForHdd>
+      <BrowseForVM>单击以浏览VM</BrowseForVM>
+    </Hints>
+  </AddEdit>
+  <Options>
+    <Width>10000</Width>
+    <Caption>选项</Caption>
+    <Labels>
+      <WaitTime>在卸载之前等待刷新系统数据的时间（毫秒）：</WaitTime>
+      <HotkeyStart>用于启动当前所选条目的热键：</HotkeyStart>
+      <ExePath>Exe路径：</ExePath>
+      <DefCommParam>默认命令行参数：</DefCommParam>
+    </Labels>
+    <Dialogs>
+      <LoadExe>
+        <Title>打开</Title>
+        <Filter>exe文件（*.exe）|*.exe|所有文件（*.*）|*.*</Filter>
+      </LoadExe>
+    </Dialogs>
+    <Buttons>
+      <ChooseFont>选择字体</ChooseFont>
+      <OK>确定</OK>
+      <Cancel>取消</Cancel>
+    </Buttons>
+    <Checkboxes>
+      <LockVol>在拆卸之前锁定驱动器上的卷（安全但有时很慢）</LockVol>
+      <SecDrive>显示第二个驱动器选项</SecDrive>
+      <BackupOldEntries>在保存新条目之前备份旧条目</BackupOldEntries>
+      <DontWarn>不能保存配置或条目文件时不要发出警告（只读介质）</DontWarn>
+      <OnlyUSB>仅列出USB驱动器</OnlyUSB>
+      <AutomaticFont>将自动设置字体大小，样式和颜色</AutomaticFont>
+      <AutodetectMethod>尝试自动检测最适合给定情况的方法</AutodetectMethod>
+      <UseVBMethod>使用VBoxManage.exe命令行（较慢）</UseVBMethod>
+      <DirectWrtMethod>直接（更快，但必须关闭VB管理器）</DirectWrtMethod>
+      <VirtOpt>在"添加/编辑"窗口中添加启用"VT-x/AMD-V"选项</VirtOpt>
+      <RemDrives>关闭后从VM中移除驱动器</RemDrives>
+      <PrecacheVBFiles>预先缓存VirtualBox文件</PrecacheVBFiles>
+      <PrestartVBFiles>预启动VirtualBox exe文件</PrestartVBFiles>
+      <HideConsoleWindow>隐藏控制台窗口</HideConsoleWindow>
+    </Checkboxes>
+    <Groupboxes>
+      <General>常规</General>
+      <DefaultVMType>添加新条目时的默认VM类型：</DefaultVMType>
+      <UpdateVMMethod>更新VM配置文件的方法（* .vbox）</UpdateVMMethod>
+      <EmulationBusType>仿真总线类型：</EmulationBusType>
+      <IDEBusType>IDE（慢，兼容性较好）</IDEBusType>
+      <SCSIBusType>SCSI（快速，兼容性较差）</SCSIBusType>
+    </Groupboxes>
+    <Messages>
+      <ProperWaitTime>请为等待时间设置一个合适的值（0..20000）！</ProperWaitTime>
+      <FileDoesntExist>文件"%s"不存在！\r\n如果您不想使用它，请从编辑框中清除%s Exe 的路径...</FileDoesntExist>
+      <NotAFile>这不是文件！</NotAFile>
+      <JustOneItem>一次只一个项目！</JustOneItem>
+    </Messages>
+    <Hints>
+      <BrowseForExe>单击以浏览exe</BrowseForExe>
+      <DefaultParam>x86/x64版本的基本参数</DefaultParam>
+    </Hints>
+  </Options>
+  <Messages>
+    <Types>
+      <Information>信息</Information>
+      <Warning>警告</Warning>
+      <Error>错误</Error>
+    </Types>
+    <Buttons>
+      <Yes>是(&amp;Y)</Yes>
+      <No>否(&amp;N)</No>
+      <OK>确定(&amp;O)</OK>
+      <Cancel>取消(&amp;C)</Cancel>
+      <Abort>放弃(&amp;A)</Abort>
+      <Retry>重试(&amp;R)</Retry>
+      <Ignore>忽略(&amp;I)</Ignore>
+      <Choose>选择(&amp;C)</Choose>
+      <CloseAll>关闭所有(&amp;C)</CloseAll>
+    </Buttons>
+    <Checkboxes>
+      <DontShow>下次不再显示</DontShow>
+    </Checkboxes>
+  </Messages>
+</Interface>
