@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Interface>
+  <Language>
+    <Name>한국어</Name>
+    <Author>VenusGirl💋´``°³о💗</Author>
+    <Version>1.0.0.0</Version>
+  </Language>
+  <Main>
+    <Buttons>
+      <Start>시작</Start>
+      <Add>추가</Add>
+      <Edit>편집</Edit>
+      <Delete>삭제</Delete>
+      <Manager>관리자</Manager>
+      <Options>옵션</Options>
+      <ShowTrayIcon>트레이</ShowTrayIcon>
+      <Exit>종료</Exit>
+    </Buttons>
+    <List>
+      <Header>
+        <VMName>VM 이름</VMName>
+        <Drive>드라이브</Drive>
+        <FirstDrive>첫 번째 드라이브</FirstDrive>
+        <SecondDrive>두 번째 드라이브</SecondDrive>
+      </Header>
+      <Menu>
+        <Add>추가</Add>
+        <Edit>편집</Edit>
+        <Clone>복제</Clone>
+        <Delete>삭제</Delete>
+        <FileExplorer>탐색기에서 %s 열기</FileExplorer>
+        <Eject>꺼내기</Eject>
+        <MoveUp>위로 이동</MoveUp>
+        <MoveDown>아래로 이동</MoveDown>
+        <Refresh>새로 고침</Refresh>
+        <Start>시작</Start>
+        <ShowHideMainWindow>기본 창 숨김 표시</ShowHideMainWindow>
+        <HideTrayIcon>트레이 아이콘 숨김</HideTrayIcon>
+        <Exit>종료</Exit>
+        <BringToTop>맨 위로 가져오기</BringToTop>
+        <OpenInExplorer>탐색기에서 열기</OpenInExplorer>
+        <SmartDisconnect>스마트 연결 해제</SmartDisconnect>
+        <CloseProcess>프로세스 닫기</CloseProcess>
+        <SuspendProcess>프로세스 일시 중단</SuspendProcess>
+        <ResumeProcess>프로세스 재개</ResumeProcess>
+        <KillProcess>프로세스 종료</KillProcess>
+        <CloseProcessFiles>프로세스 파일 닫기</CloseProcessFiles>
+        <CloseFile>파일 닫기</CloseFile>
+        <CloseFolder>폴더 닫기</CloseFolder>
+      </Menu>
+    </List>
+    <Messages>
+      <InfoStart>VM 구성 파일을 수정하는데 몇 초가 걸리고\r\n시작하는데 몇 초가 더 걸립니다.\r\n\r\n이 작업을 수행하는 동안 잠시 기다려주십시오.\r\n\r\n계속 하시려면 %s을 클릭하십시오...</InfoStart>
+      <NoInternet>인터넷 연결이 감지되지 않았습니다 !</NoInternet>
+      <NoHelp>도움말 사이트를 찾을 수 없습니다. 브라우저를 열 때 오류가 발생했거나 바이러스 백신이 연결을 차단하고 있습니다 !</NoHelp>
+      <TryLock>"%s"에서 볼륨 '%s'을 잠그는 중...</TryLock>
+      <CancelLock>취소 (안전하지 않음)</CancelLock>
+      <CantOpenToRead>읽기 위해 "%s"을 열 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantOpenToRead>
+      <CantRead>"%s"에서 읽을 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantRead>
+      <CantCreate>"%s"을 만들 수 없습니다 !</CantCreate>
+      <CantCreateOrOpen>쓰기 위해 "%s"을  만들거나 열 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantCreateOrOpen>
+      <CantWrite>"%s"에 쓸 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantWrite>
+      <SureDeleteEntry>이 항목을 삭제 하시겠습니까...?</SureDeleteEntry>
+      <UnknownError>알 수 없는 오류, 현재 진행 중인 작업에 대한 자세한 설명을\r\n작성자에게 보고하십시오.</UnknownError>
+      <ErrorRetrievingPathID>exe 매개 변수에서 VM 경로/ID를 검색하는 동안 오류가 발생했습니다.\r\n경로/ID를 수정하십시오.</ErrorRetrievingPathID>
+      <ErrorRetrievingPath>Virtualbox.xml에서 VM 경로를 검색하는 동안 오류가 발생했습니다.\r\n파일을 바꾸거나 읽기를 허용하십시오.</ErrorRetrievingPath>
+      <CouldNotFindVM>VirtualBox 구성 파일에서 VM을 찾을 수 없습니다.\r\n유효한 VM을 설정하십시오.</CouldNotFindVM>
+      <VBManNoAdm1>VBoxManage.exe가 VirtualBox와 제대로 통신하려면\r\n"관리자 권한으로 실행"으로 시작된 VirtualBox 세션이 필요합니다!\r\n\r\n계속하시겠습니까...?</VBManNoAdm1>
+      <VBManNoAdm2>VBoxManage.exe가 VirtualBox와 제대로 통신하려면\r\n"관리자 권한으로 실행"으로 시작된 VirtualBox 세션이 필요하거나\r\n아니면모든 일반적인 VirtualBox 세션을 닫아야합니다!\r\n\r\n계속하시겠습니까...?</VBManNoAdm2>
+      <VBManDetected>VirtualBox Manager가 감지되었습니다.\r\n동시에 사용하지 않는 것이 좋습니다 !\r\n\r\n닫을까요...? (완전히 닫히는 데 몇 초가 걸립니다)</VBManDetected>
+      <CouldNotCloseVBMan>VirtualBox Manager를 자동으로 닫을 수 없습니다!\r\n\r\n수동으로 닫고 %s를 클릭하십시오...  (완전히 닫히는 데 몇 초가 걸립니다)</CouldNotCloseVBMan>
+      <ErrorVBManNotClosed>오류: VirtualBox Manager가 닫히지 않았습니다!</ErrorVBManNotClosed>
+      <AnotherVBManSession>다른 VirtualBox Manager가 감지되었습니다.\r\n동시에 사용하지 않는 것이 좋습니다 !\r\n\r\n닫을까요...? (완전히 닫히는 데 몇 초가 걸립니다</AnotherVBManSession>
+      <VBVMDetected>VirtualBox VM이 발견되었습니다.\r\n동시에 사용하지 않는 것이 좋습니다 !\r\n\r\n닫고 %s을 클릭하십시오... (완전히 닫히는 데 몇 초가 걸립니다)</VBVMDetected>
+      <AnotherVBVMDetected>다른 VirtualBox VM이 감지되었습니다.\r\n동시에 사용하지 않는 것이 좋습니다 !\r\n\r\n닫고 %s을 클릭하십시오... (완전히 닫히는 데 몇 초가 걸립니다)</AnotherVBVMDetected>
+      <ErrorVBVMNotClosed>오류: VirtualBox VM이 닫히지 않았습니다!</ErrorVBVMNotClosed>
+      <ErrorVBVMAlready>VirtualBox VM이 이미 시작되었습니다.\r\n구성을 업데이트할 수 없습니다.\r\n\r\n닫고 %s을 클릭하십시오... (완전히 닫히는 데 몇 초가 걸립니다)</ErrorVBVMAlready>
+      <WarningQEMUAlready>QEMU가 이미 로드된 것 같습니다. 현재 QEMU 세션에\r\n방해가 되지 않도록 닫는 것이 좋습니다.\r\n\r\n계속하시겠습니까?</WarningQEMUAlready>
+      <WaitingVBSVCToClose>"VBoxSVC.exe" (VirtualBox 구성 요소)가 닫힐 때까지 기다리는 중...</WaitingVBSVCToClose>
+      <CancelHide>숨김</CancelHide>
+      <OutOfTimeVBSVC>"VBoxSVC.exe" (VirtualBox 구성 요소)가 닫히기를 기다리는 동안 시간이 초과되었습니다..!\r\n\r\n강제로 닫을까요...?</OutOfTimeVBSVC>
+      <VBSVCStillOpened>"VBoxSVC.exe"가 아직 열려 있습니다 !\r\n\r\n종료 중...</VBSVCStillOpened>
+      <WaitingPrevSession>이전 VM 세션이 제대로 닫히기를 기다리는 중...</WaitingPrevSession>
+      <CancelSkip>건너뛰기 (안전하지 않음)</CancelSkip>
+      <FirstDriveWUsb>첫 번째 드라이브 (%s)가 이 시스템에 없는 것 같고, 액세스할 수 없거나 USB 드라이브가 아닙니다 !\r\n\r\n계속하시겠습니까...?</FirstDriveWUsb>
+      <FirstDrive>첫 번째 드라이브 (%s)가이 시스템에 없거나 액세스할 수 없습니다 !</FirstDrive>
+      <DriveWUsb>이 시스템에는 드라이브 (%s)가 없거나 액세스할 수 없거나 USB 드라이브가 아닙니다 !\r\n\r\n계속하시겠습니까...?</DriveWUsb>
+      <Drive>드라이브 (%s)가 이 시스템에 없거나 접근할 수 없습니다 !\r\n\r\n계속하시겠습니까...?</Drive>
+      <SecDriveWUsb>두 번째 드라이브 (%s)가 이 시스템에 없는 것 같고, 액세스할 수 없거나 USB 드라이브가 아닙니다 !\r\n\r\n계속하시겠습니까...?</SecDriveWUsb>
+      <SecDrive>두 번째 드라이브 (%s)가 이 시스템에 없거나 액세스할 수 없습니다 !\r\n\r\n계속하시겠습니까...?</SecDrive>
+      <CantAccessVolume>"%s"에서 '%s' 볼륨에 접근할 수 없습니다 !\r\n\r\n시스템 메시지: %s\r\n\r\n계속하시겠습니까...?</CantAccessVolume>
+      <UnableLockVolume>"%s"에서 '%s' 볼륨을 잠글 수 없습니다 !\r\n\r\n시스템 메시지: %s\r\n\r\n계속하시겠습니까...?</UnableLockVolume>
+      <UnableLockVolumeHnd>"%s"에서 '%s' 볼륨을 잠글 수 없습니다 !\r\n\r\n시스템 메시지: %s\r\n\r\n다음은 '%s'에서 열린 파일/폴더를 포함하는 프로세스 목록입니다.\r\n오른쪽 클릭을 사용하여 작업을 선택합니다 ("스마트 연결 해제" 권장):</UnableLockVolumeHnd>
+      <UnableDismVolume>"%s"에서 '%s' 볼륨을 마운트 해제할 수 없습니다 !\r\n\r\n시스템 메시지: %s\r\n\r\n계속하시겠습니까...?</UnableDismVolume>
+      <UnableFindDevice>"%s"을 찾을 수 없습니다 !\r\n\r\n계속하시겠습니까...?</UnableFindDevice>
+      <CannotAccessCDROM>"%s"에 접근할 수 없습니다 !\r\n\r\n계속하시겠습니까...?</CannotAccessCDROM>
+      <CannotAccessMedium>"%s"에서 미디어에 액세스할 수 없습니다 !\r\n\r\n계속하시겠습니까...?</CannotAccessMedium>
+      <CDROMDoesntExist>"%s"은 이 시스템에 존재하지 않거나, 마운트되지 않았거나 액세스할 수 없습니다 !\r\n\r\n계속하시겠습니까...?</CDROMDoesntExist>
+      <PleaseAllowAccess>"%s"에 액세스 하는 중에,\r\n오류가 발생했습니다.\r\n시스템 메시지: %s</PleaseAllowAccess>
+      <SectionNotFound>"vbox 파일에서 "%s"섹션을 찾을 수 없습니다 !\r\n\r\nOracle이 파일 형식을 변경했거나 파일이 손상된 것 같습니다.</SectionNotFound>
+      <SavedStateOpen>이 VM이 저장된 상태이므로 수정되지 않고 시작만 합니다...\r\n\r\n아시다시피, 실제 드라이브로 VM의 상태를 저장하는 것은 좋지 않습니다. \r\n 해당 드라이브의 데이터가 손상될 위험이 증가하기 때문입니다...</SavedStateOpen>
+      <SavedStateClose>이 VM은 저장된 상태이므로 수정되지 않고 닫힙니다...\r\n\r\n아시다시피, 실제 드라이브로 VM의 상태를 저장하는 것은 좋지 않습니다. \r\n 해당 드라이브의 데이터가 손상될 위험이 증가하기 때문입니다...</SavedStateClose>
+      <DividedSnapshots>"%s"의 내용이 %d 개의 스냅 샷으로 나뉩니다.\r\n실제 드라이브에 스냅 샷을 사용하는 것은 좋지 않습니다. 하지만 진정으로 원한다면 다음을 수행하십시오:\r\n이 VM에 스냅샷 또는 연결된 클론을 생성한 경우 스냅샷/복제 작업 전에\r\n스토리지 컨트롤러에서VMUBDrive ***. vmdk 드라이브를 수동으로 분리해야합니다.</DividedSnapshots>
+      <RemoveDriveOp>드라이브 제거</RemoveDriveOp>
+      <DetachDriveOp>드라이브 분리</DetachDriveOp>
+      <BrokenXML>"%s"에서 xml 구조에 액세스하는 중 오류가 발생했습니다,\r\n파일을 복구하거나 백업 복사본으로 바꾸십시오.</BrokenXML>
+      <ErrorWriteProtection>"%s"에 쓰는 중 오류가 발생했습니다,\r\n쓰기 방지를 제거하십시오.\r\n\r\n시스템 메시지: %s</ErrorWriteProtection>
+      <ErrorSpaceVolume>"%s"에 쓰는 중 오류가 발생했습니다,\r\n공간을 확보하거나 볼륨 '%s'에서 오류가 있는지 확인하십시오.\r\n\r\n시스템 메시지: %s</ErrorSpaceVolume>
+      <ErrorWriteVolume>"%s"에 쓰는 중 오류가 발생했습니다,\r\n 쓰기 방지를 제거하거나 볼륨 '%s'에서 오류를 확인하십시오.\r\n시스템 메시지: %s</ErrorWriteVolume>
+      <UnableFreeInfo>"VMUBDrive000..VMUBDriveFFF" 범위에서\r\n사용되지 않은 vmdk 파일 이름을 찾을 수 없습니다. 사용하지 않은 것을 분리하고 삭제하십시오.\r\nVirtualBox Manager를 시작한 다음 VirtualBox Media Manager를 시작하고 \r\n\r\n 하나 이상의 VMUBDrive ***. vmdk를 삭제하면됩니다.</UnableFreeInfo>
+      <FreePortAdvice>VirtualBox VM의 저장소 컨트롤러에서 사용 가능한 포트를 찾을 수 없으면\r\n하나를 해제하고 다시 시도하십시오.\r\nVirtualBox Manager를 시작하고 VM의 저장소 옵션을 편집하고\r\n저장소 컨트롤러의 포트 수를 늘리면 늘리면 이 작업을 수행할 수 있습니다.</FreePortAdvice>
+      <FreePort>VirtualBox VM의 저장소 컨트롤러에서 사용 가능한 포트를 찾을 수 없으면\r\n하나를 해제하고 다시 시도하십시오.</FreePort>
+      <AttachDriveOp>드라이브 연결</AttachDriveOp>
+      <FreePortAdviceIde>VirtualBox VM의 저장소 컨트롤러에서 사용 가능한 포트를 찾을 수 없으면\r\n하나를 해제하고 다시 시도하십시오.\r\nVirtualBox Manager를 시작하고 VM의 저장소 옵션을 편집하고\r\nIDE 컨트롤러에서 하나 이상의 드라이브를 삭제하면 됩니다.</FreePortAdviceIde>
+      <NoStorageAdvice>VirtualBox VM에서 저장소 컨트롤러를 찾을 수 없으면\r\nVirtualBox VM을 추가하고 다시 시도하십시오.\r\nVirtualBox Manager를 시작하고 VM의 저장소 옵션을 편집하고\r\n저장소 컨트롤러를 추가하면 됩니다.</NoStorageAdvice>
+      <WarnBootFirstDrive>다른 드라이브가 이전 위치의 저장소 컨트롤러에 연결되어 있기 때문에\r\n이 VM이 첫 번째 드라이브 (%s)에서 부팅할 수 없는 것 같습니다.\r\n\r\n다른 드라이브보다 먼저 스토리지 컨트롤러의 포트를 해제하는 것입니다.\r\nVirtualBox Manager를 시작하고 VM의 저장 장치 옵션을 편집하고\r\n다른 드라이브를 저장소 컨트롤러의 후속 포트로 이동하면 이 작업을 수행할 수 있습니다.\r\n\r\n계속하시겠습니까...?</WarnBootFirstDrive>
+      <WarnBootDrive>다른 드라이브가 이전 위치의 저장소 컨트롤러에 연결되어 있기 때문에\r\n이 VM이 드라이브 (%s)에서 부팅할 수 없는 것 같습니다.\r\n\r\n다른 드라이브보다 먼저 저장소 컨트롤러의 포트를  해제하는 것입니다.\r\nVirtualBox Manager를 시작하고 VM의 저장 장치 옵션을 편집하고\r\n다른 드라이브를 저장소 컨트롤러의 후속 포트로 이동하면 이 작업을 수행할 수 있습니다.\r\n\r\n계속하시겠습니까...?</WarnBootDrive>
+      <WarnChangeBootDriveAndOther>"%s" 드라이브에서 VM을 부팅하려면 \r\n첫 번째 내부 하드 디스크로 설정해야 하지만 첫 번째 위치는 현재 다른 드라이브에 있습니다.\r\n\r\n예를 클릭하여 다음 위치에서 다른 드라이브를 자동으로 위로 이동하거나 \r\수동으로 이동하지 않고 다시 시도를 클릭합니다</WarnChangeBootDriveAndOther>
+      <ErrorVBMan>VBoxManage.exe가 현재 작업 (%s)을 완료하기를 기다리는 동안 시간이 초과되었습니다!\r\n\r\n작업 = %s\r\n\r\n이것은 VirtualBox 버그입니다. 20..30 초를 기다렸다가 다시 시도합니다...</ErrorVBMan>
+      <VBManOutput>VBoxManage 출력:</VBManOutput>
+      <HardwareVirtOp>하드웨어 가상화 변경</HardwareVirtOp>
+      <PowerOffDef>전원 끄기를 기본 닫기 동작으로 설정합니다.</PowerOffDef>
+      <VBManErrorCode>VBoxManage.exe가 현재 작업 (%s)에 대해 오류 코드 %d을 반환했습니다 !\r\n\r\n작업 = %s</VBManErrorCode>
+      <VBManExitError>현재 VBoxManage 작업 (%s)의 종료 코드를 가져오는 중 오류가 발생했습니다 !\r\n\r\n작업 = %s</VBManExitError>
+      <VBManUnableLaunch>VBoxManager.exe를 시작할 수 없습니다 !\r\n\r\n시스템 메시지: %s</VBManUnableLaunch>
+      <CantAddDrives>VirtualBox VM에 드라이브를 자동으로 추가할 수 없습니다.\r\n\r\n가능한 이유: %s\r\n\r\n계속하시겠습니까 (권장하지 않음)...?</CantAddDrives>
+      <VBUnableLaunch>VirtualBox.exe를 시작할 수 없습니다 !\r\n\r\n시스템 메시지: %s</VBUnableLaunch>
+      <QMUnableLaunch>QemuManager.exe를 시작할 수 없습니다 !!\r\n\r\n시스템 메시지: %s</QMUnableLaunch>
+      <ExplorerUnableLaunch>Windows 탐색기를 시작할 수 없습니다 ! !\r\n\r\n시스템 메시지: %s</ExplorerUnableLaunch>
+      <CantDeleteFile>"%s" 파일을 삭제할 수 없습니다 !\r\n시스템 메시지: %s</CantDeleteFile>
+      <CantRemoveDrives>VirtualBox VM에서 드라이브를 자동으로 제거할 수 없습니다.\r\n\r\n가능한 이유: </CantRemoveDrives>
+      <QEMUError>QEMU가 오류를 반환했습니다 !\r\n\r\nStdErr 출력:  %s\r\n\r\n팁: 명령 행 매개 변수를 검사하여\r\n누락되거나 철자가 잘못되었는지 확인해야 합니다.\r\n기본 매개 변수를 사용하는 경우\r\n사용자가 QEMU 버전에 맞게 조정해야 합니다.\r\n\r\n더 많은 정보를 얻기 위해 명령 줄이 클립보드에 복사되었습니다.\r\n새 bat/cmd 파일을 만들고 클립보드에서 붙여넣고 시작합니다 (관리자로).</QEMUError>
+      <QEMUStartError>QEMU를 시작할 수 없습니다 !\r\n\r\n시스템 메시지: %s</QEMUStartError>
+      <NotUSBDrive>이것은 USB 드라이브가 아닙니다 !</NotUSBDrive>
+      <CantReadDrive>드라이브에서 읽을 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantReadDrive>
+      <ErrorAccessDrive>드라이브에 액세스하는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorAccessDrive>
+      <CantUseOSDrive>OS 드라이브입니다. 사용할 수 없습니다 !</CantUseOSDrive>
+      <ErrorGetDriveNr>드라이브 번호를 가져 오는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorGetDriveNr>
+      <ErrorAccessVolDrive>드라이브의 볼륨에 액세스하는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorAccessVolDrive>
+      <ErrorAccessDrive>드라이브에 액세스하는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorAccessDrive>
+      <NotRemFixedLocalDrive>이동식 또는 고정식 로컬 드라이브가 아닙니다 !</NotRemFixedLocalDrive>
+      <NotVolDrive>볼륨이나 드라이브가 아닙니다 !</NotVolDrive>
+      <JustOneItem>한 번에 한 항목만 가능합니다 ! !</JustOneItem>
+      <StartAsAdministrator>컴퓨터의 기능을 제대로 감지하고 사용하려면,\r\n이 응용 프로그램에 관리자 권한이 필요합니다.\r\n"관리자 권한으로 실행" 을 사용하여 직접 시작할 수도 있고 바로 가기 또는 exe 속성을 수정할 수도 있습니다.</StartAsAdministrator>
+      <AlreadyStarted>응용 프로그램이 이미 시작되었지만 인터페이스가 숨겨져 있습니다.\r\n해당 세션을 강제로 닫으시겠습니까 (권장하지 않음) ?</AlreadyStarted>
+      <CantReadDrive>드라이브에서 읽을 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantReadDrive>
+      <SureClose>응용 프로그램을 닫으시겠습니까?</SureClose>
+      <ErrorGetInfEject>드라이브를 꺼내는 데 필요한 정보를 검색할 수 없습니다 !\r\n\r\n시스템 메시지: %s</ErrorGetInfEject>
+      <ErrorEject>드라이브를 자동으로 꺼낼 수 없습니다 !\r\n\r\n이 드라이브에 액세스 하는 응용 프로그램을 닫은 후 다시 시도 하십시오...</ErrorEject>
+      <ErrorCode>%s의 %s 오류 코드</ErrorCode>
+      <ProblemChangeEnv>%s 환경 변수를 변경하는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemChangeEnv>
+      <ProblemUninstalling>%s을 제거하는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemUninstalling>
+      <ProblemStarting>%s으로 시작하는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemStarting>
+      <InvArg>잘못된 인수</InvArg>
+      <OleinitFld>OleInitialize 실패</OleinitFld>
+      <LoadLibFld>LoadLibrary 실패</LoadLibFld>
+      <GetPrcAdFld>GetProcAddress 실패</GetPrcAdFld>
+      <DllRegUnregFld>DllRegisterServer 또는 DllUnregisterServer 실패</DllRegUnregFld>
+      <ProblemUnreg>%s 등록을 취소하는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemUnreg>
+      <ProblemReg>%s 등록을 하는 중에 문제가 있습니다\rn\r\n시스템 메시지:</ProblemReg>
+      <ProblemFcntDll>%s에서%s기능을 시작하는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemFcntDll>
+      <ProblemCreateSrv>%s 서비스 만드는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemCreateSrv>
+      <ProblemStartSrv>%s 서비스 시작하는 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemStartSrv>
+      <ProblemInstalling>%s 설치 중에 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemInstalling>
+      <ProperRegUnreg>휴대용 버전에 VirtualBox dll, infs 및 서비스를 r\n올바르게 등록 (해제)하려면, 모든 VirtualBox 창을 닫아야 합니다 !\r\n\r\n중단을 선택하고 모든 VirtualBox 창을 수동으로 닫은 다음 재시도를 클릭하고\r\n등록 (해제)하지 않으려면 무시를 클릭하거나 모두 닫기를 클릭하여 자동으로 닫을 수 있습니다.</ProperRegUnreg>
+      <CouldNotReg>VirtualBox %s dll, infs 및 서비스를 자동으로 등록할 수 없습니다 !\r\n\r\n이유:</CouldNotReg>
+      <CouldNotUnreg>VirtualBox %s dll, infs 및 서비스를 자동으로 등록 해제할 수 없습니다 !\r\n\r\n이유:</CouldNotUnreg>
+      <ProblemStopSrv>%s 서비스를 중지하는 중에 문제가 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemStopSrv>
+      <ProblemRemSrv>VBoxNetAdp 서비스를 제거하는 중에 문제가 문제가 있습니다\r\n\r\n시스템 메시지:</ProblemRemSrv>
+      <AppMinToTray>%s는 이제 트레이로 최소화됩니다.\r\n아이콘을 클릭하여 복원합니다...</AppMinToTray>
+      <AppStartedWithTray>%s 트레이 아이콘이 이제 활성화되었습니다...</AppStartedWithTray>
+      <VMStarting>%s VM을 시작하는 중입니다...</VMStarting>
+      <VMStateRunning>실행 중입니다</VMStateRunning>
+      <AreYouSureCont>계속하시겠습니까(권장하지 않음)?</AreYouSureCont>
+      <NotCloseFolder>폴더를 자동으로 닫을 수 없습니다!\r\n\r\n시스템 메시지: %s</NotCloseFolder>
+      <NotCloseFile>파일을 자동으로 닫을 수 없습니다!\r\n\r\n시스템 메시지: %s</NotCloseFile>
+      <NotKillProcess>프로세스를 자동으로 제거할 수 없습니다!\r\n\r\n시스템 메시지: %s</NotKillProcess>
+      <NotResumeProcess>프로세스를 자동으로 재개할 수 없습니다!\r\n\r\n시스템 메시지: %s</NotResumeProcess>
+      <NotSuspendProcess>프로세스를 자동으로 일시 중단할 수 없습니다!\r\n\r\n시스템 메시지: %s</NotSuspendProcess>
+    </Messages>
+  </Main>
+  <AddEdit>
+    <Caption>
+      <Add>추가</Add>
+      <Edit>편집</Edit>
+    </Caption>
+    <Buttons>
+      <OK>&amp;확인</OK>
+      <Cancel>&amp;취소</Cancel>
+    </Buttons>
+    <Labels>
+      <Audio>오디오:</Audio>
+      <CDROM>CD/DVD 드라이브:</CDROM>
+      <EnableCPUVirtualization>VT-x/AMD-V 사용:</EnableCPUVirtualization>
+      <ExeParams>Exe 매개 변수:</ExeParams>
+      <FirstDrive>추가 및 부팅할 첫 번째 드라이브:</FirstDrive>
+      <Drive>추가 및 부팅할 드라이브:</Drive>
+      <HDD>내장 HDD:</HDD>
+      <Memory>메모리 (MB):</Memory>
+      <Mode>VM을 로드하는 모드:</Mode>
+      <Priority>CPU 우선 순위:</Priority>
+      <Run>실행:</Run>
+      <SecondDrive>추가할 두 번째 드라이브 (선택 사항):</SecondDrive>
+      <Type>유형:</Type>
+      <VMName>VM 이름:</VMName>
+      <VMPath>VM 경로:</VMPath>
+      <UseHostCache>호스트 I/O 캐시 사용:</UseHostCache>
+    </Labels>
+    <Dialogs>
+      <LoadVM>
+        <Title>로드</Title>
+        <Filter>VirtualBox VM (*.vbox)|*.vbox|모든 파일 (*.*)|*.*</Filter>
+      </LoadVM>
+      <LoadHDDImage>
+        <Title>로드</Title>
+        <Filter>QEMU 디스크 이미지|*.img;*.qcow;*.qcow2;*.qed;*.qcow;*.cow;*.vdi;*.vmdk;*.vpc|모든 파일|*.*</Filter>
+      </LoadHDDImage>
+      <LoadISO>
+        <Title>로드</Title>
+        <Filter>ISO 파일|*.iso|모든 파일|*.*</Filter>
+      </LoadISO>
+    </Dialogs>
+    <Comboboxes>
+      <NoneText>없음</NoneText>
+      <CreateNewVM>새 VM 만들기</CreateNewVM>
+      <EnableCPUVirtualization>변경 안함\r\n켜기\r\n끄기\r\n전환</EnableCPUVirtualization>
+      <Mode>VM 이름\r\nVM 경로\r\nExe 매개변수</Mode>
+      <Priority>일반 이하\r\n일반\r\n일반 이상\r\n높음</Priority>
+      <WindowSize>
+        <VirtualBox>일반\r\n최소화\r\n최대화\r\n전체 화면</VirtualBox>
+        <QEMU>일반\r\n최소화\r\n최대화\r\n전체 화면</QEMU>
+      </WindowSize>
+      <LoadISO>ISO 파일 로드...</LoadISO>
+    </Comboboxes>
+    <Messages>
+      <SetVMPath>VM 경로를 설정하십시오 !</SetVMPath>
+      <VMNotFound>VirtualBox 구성 파일에서이 VM을 찾을 수 없습니다 !\r\nVirtualBox가 올바르게 설치되어 있고\r\nVM이 VirtualBox Manager에 제대로 등록되어 있는지 확인하십시오.</VMNotFound>
+      <SetExeParam>exe 매개 변수를 설정하십시오 !</SetExeParam>
+      <SetExeParamCor>exe 매개 변수를 올바르게 설정하십시오 !\r\n&lt;&lt;--startvm "VM 또는 GUID의 경로"&gt;&gt; 로 사용하십시오 (&lt;&lt;&gt;&gt; 없이)</SetExeParamCor>
+      <SetVMName>VM 이름을 설정하십시오 !</SetVMName>
+      <NoVMsFound>VirtualBox Manager에 VM을 추가하거나\r\nVirtualBox 설치 문제를 해결하여 VM 이름을 설정할 수 있습니다 !</NoVMsFound>
+      <ChooseFirstDrive>첫 번째 드라이브를 선택하십시오 !</ChooseFirstDrive>
+      <ChooseDrive>드라이브를 선택하십시오!</ChooseDrive>
+      <DifSecDrive>다른 두 번째 드라이브를 설정하십시오 !</DifSecDrive>
+      <MemoryRange>1..65535 사이에서 메모리 값을 설정하십시오 !</MemoryRange>
+      <MoreThanHalfRam>총 물리적 RAM 크기의 50%%\r\n(%d ~ %d MB)를 할당했습니다 !\r\n\r\n그게 현명하다고 확신합니까...?</MoreThanHalfRam>
+      <HDDNotFound>"%s"은 존재하지 않는 것 같습니다 !\r\n사용 하시겠습니까...?\r\n팁: 내장 HDD를 설정하지 않으려면 편집 상자를 지우십시오...</HDDNotFound>
+      <AddFirstPort>VirtualBox VM의 저장소 컨트롤러에서 사용 가능한 첫 번째 포트에 드라이브를 추가합니다.\r\n사용 가능한 것을 찾지 못하면 실패할 수 있습니다...\r\n\r\n이 드라이브에서 부팅하려면  HDD가 있는 다른 포트보다 먼저 있는지 확인하고\r\nVirtualBox VM이 HDD에서 부팅되도록 설정되어 있는지 확인하십시오.</AddFirstPort>
+      <NotAFile>이것은 파일이 아닙니다 !</NotAFile>
+      <JustOneItem>한 번에 하나의 항목만 !</JustOneItem>
+      <NotACD>이것은 CD/DVD 장치가 아닙니다 !</NotACD>
+      <NotACDOrIso>CD/DVD 장치 또는 ISO 파일이 아닙니다 !</NotACDOrIso>
+      <NotUSB>이것은 USB 드라이브가 아닙니다 !</NotUSB>
+      <CantReadDrive>드라이브에서 읽을 수 없습니다 !\r\n\r\n시스템 메시지: %s</CantReadDrive>
+      <ErrorAccessDrive>드라이브에 액세스하는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorAccessDrive>
+      <CantUseOSDrive>OS 드라이브입니다. 사용할 수 없습니다 !</CantUseOSDrive>
+      <ErrorDriveNumber>드라이브 번호를 가져 오는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorDriveNumber>
+      <ErrorAccessVolume>드라이브의 볼륨에 액세스하는 중 오류가 발생했습니다 !\r\n\r\n시스템 메시지: %s</ErrorAccessVolume>
+      <NotADrive>이동식 또는 고정식 로컬 드라이브가 아닙니다 !</NotADrive>
+      <NotAVolOrDrive>볼륨이나 드라이브가 아닙니다 !</NotAVolOrDrive>
+    </Messages>
+    <Hints>
+      <BrowseForHdd>HDD 이미지 파일을 찾으려면 클릭합니다</BrowseForHdd>
+      <BrowseForVM>VM을 찾으려면 클릭합니다</BrowseForVM>
+    </Hints>
+  </AddEdit>
+  <Options>
+    <Width>10000</Width>
+    <Caption>옵션</Caption>
+    <Labels>
+      <WaitTime>마운트 해제를 하기 전에 시스템 데이터를 비울 대기 시간 (ms):</WaitTime>
+      <HotkeyStart>현재 선택된 항목을 시작하는 단축키:</HotkeyStart>
+      <ExePath>Exe 경로:</ExePath>
+      <DefCommParam>기본 명령 행 매개 변수 :</DefCommParam>
+    </Labels>
+    <Dialogs>
+      <LoadExe>
+        <Title>열기</Title>
+        <Filter>Exe 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*</Filter>
+      </LoadExe>
+    </Dialogs>
+    <Buttons>
+      <ChooseFont>글꼴 선택</ChooseFont>
+      <OK>확인</OK>
+      <Cancel>취소</Cancel>
+    </Buttons>
+    <Checkboxes>
+      <LockVol>마운트 해제하기 전에 드라이브의 볼륨 잠금 (안전하지만 느릴 때도 있음)</LockVol>
+      <SecDrive>두 번째 드라이브 옵션 표시</SecDrive>
+      <BackupOldEntries>새 항목을 저장하기 전에 이전 항목 백업</BackupOldEntries>
+      <DontWarn>구성 또는 항목 파일을 저장할 수 없을 때 경고하지 않음 (읽기 전용 매체)</DontWarn>
+      <OnlyUSB>USB 드라이브만 나열</OnlyUSB>
+      <AutomaticFont>글꼴 크기, 스타일 및 색상을 자동으로 설정</AutomaticFont>
+      <AutodetectMethod>주어진 상황에 가장 적합한 자동 감지를 시도</AutodetectMethod>
+      <UseVBMethod>VBoxManage.exe 명령 행 사용 (느림)</UseVBMethod>
+      <DirectWrtMethod>직접 (빠르지만 VB Manager는 닫아야 함)</DirectWrtMethod>
+      <VirtOpt>추가/편집에 "VT-x/AMD-V 사용" 옵션을 추가</VirtOpt>
+      <RemDrives>닫은 후 VM에서 드라이브 제거</RemDrives>
+      <PrecacheVBFiles>VirtualBox 파일 미리 캐시</PrecacheVBFiles>
+      <PrestartVBFiles>VirtualBox exe 파일 미리 시작</PrestartVBFiles>
+      <HideConsoleWindow>콘솔 창 숨기기</HideConsoleWindow>
+    </Checkboxes>
+    <Groupboxes>
+      <General>일반</General>
+      <DefaultVMType>새 항목을 추가할 때 기본 VM 유형:</DefaultVMType>
+      <UpdateVMMethod>VM 구성 파일 (*.vbox)을 업데이트하는 방법</UpdateVMMethod>
+      <EmulationBusType>에뮬레이션 버스 유형:</EmulationBusType>
+      <IDEBusType>IDE(느리고, 호환성 높음)</IDEBusType>
+      <SCSIBusType>SCSI (빠르고, 호환성 낮음)</SCSIBusType>
+    </Groupboxes>
+    <Messages>
+      <ProperWaitTime>대기 시간 (0..20000)에 적절한 값을 설정하십시오 !</ProperWaitTime>
+      <FileDoesntExist>파일 "%s"이 존재하지 않습니다 !\r\n사용하지 않으려면 편집 상자에서 %s 경로를 지우십시오...</FileDoesntExist>
+      <NotAFile>이것은 파일이 아닙니다 !</NotAFile>
+      <JustOneItem>한 번에 한 항목만 가능합니다!</JustOneItem>
+    </Messages>
+    <Hints>
+      <BrowseForExe>exe를 찾아보려면 클릭합니다</BrowseForExe>
+      <DefaultParam>x86/x64 버전의 기본 매개 변수입니다</DefaultParam>
+    </Hints>
+  </Options>
+  <Messages>
+    <Types>
+    <Information>정보</Information>
+    <Warning>경고</Warning>
+    <Error>오류</Error>
+    </Types>
+    <Buttons>
+      <Yes>&amp;예</Yes>
+      <No>&amp;아니오</No>
+      <OK>&amp;확인</OK>
+      <Cancel>&amp;취소</Cancel>
+      <Abort>&amp;중단</Abort>
+      <Retry>&amp;재시도</Retry>
+      <Ignore>&amp;무시</Ignore>
+      <Choose>&amp;선택</Choose>
+      <CloseAll>&amp;모두 닫기</CloseAll>
+    </Buttons>
+    <Checkboxes>
+    <DontShow>다음에 이것을 표시하지 않음</DontShow>
+    </Checkboxes>
+  </Messages>
+</Interface>
